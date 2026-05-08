@@ -83,6 +83,7 @@ export default function MessagePane() {
   const imagesRequestedRef = useRef(new Set());
   // Ref holding the latest pane action handlers so shortcut subscriptions ([] deps) never go stale
   const paneActionsRef = useRef({});
+  const emailScaleRef = useRef(1); // scale applied to wide emails that resist CSS reflow
 
   // Track previous blocking policy so we can detect tightening vs loosening.
   const prevBlockingPolicyRef = useRef(null);
@@ -237,18 +238,48 @@ export default function MessagePane() {
         b  ? b.scrollHeight  : 0,
         b  ? b.offsetHeight  : 0,
       );
-      if (h > lastH) {
-        lastH = h;
-        iframe.style.height = h + 'px';
+      // Scale visual height to match the proportional scale applied to the
+      // email wrapper (1 for normal emails, <1 for wide fixed-layout emails).
+      const scaled = Math.round(h * emailScaleRef.current);
+      if (scaled > lastH) {
+        lastH = scaled;
+        iframe.style.height = scaled + 'px';
       }
     };
 
     const onLoaded = () => {
-      setHeight();
-      rafId = requestAnimationFrame(setHeight);
+      emailScaleRef.current = 1; // reset for each new email
 
       const doc = iframe.contentDocument;
       if (!doc) return;
+
+      // Some marketing emails (e.g. Avis) use class-based !important rules that
+      // lock layout to a fixed pixel width and cannot be overridden by our injected
+      // CSS. Measure the rendered content width and, if it exceeds the iframe,
+      // scale the entire wrapper div down proportionally so all content is visible.
+      const iframeW = iframe.offsetWidth;
+      if (iframeW > 0) {
+        const contentW = Math.max(
+          doc.documentElement ? doc.documentElement.scrollWidth : 0,
+          doc.body            ? doc.body.scrollWidth            : 0,
+        );
+        if (contentW > iframeW + 2) { // +2 absorbs sub-pixel rounding
+          const scale = iframeW / contentW;
+          emailScaleRef.current = scale;
+          const wrapper = doc.getElementById('mf-scale-wrapper');
+          if (wrapper) {
+            wrapper.style.transform       = `scale(${scale})`;
+            wrapper.style.transformOrigin = 'top left';
+            // Lock the wrapper at its natural content width so the scale
+            // maps exactly contentW → iframeW with no clipping.
+            wrapper.style.width           = `${contentW}px`;
+          }
+        }
+      }
+
+      lastH = 0; // recalculate from scratch with the new scale
+      setHeight();
+      rafId = requestAnimationFrame(setHeight);
 
       // Re-measure after each lazy-loaded image settles
       doc.querySelectorAll('img').forEach(img => {
@@ -277,6 +308,7 @@ export default function MessagePane() {
       cancelAnimationFrame(rafId);
       if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
       iframe.removeEventListener('load', onLoaded);
+      emailScaleRef.current = 1;
     };
   }, [body?.html, selectedMessageId]);
 
@@ -797,7 +829,7 @@ export default function MessagePane() {
       <div
         ref={scrollContainerRef}
         onScroll={e => setPaneScrolled(e.currentTarget.scrollTop > 4)}
-        style={{ flex: 1, overflow: 'auto', background: 'var(--bg-primary)' }}
+        style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', background: 'var(--bg-primary)' }}
       >
       <div style={{ padding: isMobile ? '12px 0 0' : '24px 28px 0' }}>
 
@@ -1070,6 +1102,7 @@ export default function MessagePane() {
             </div>
           )}
           <div style={{
+            position: 'relative',
             background: 'white',
             borderRadius: isMobile ? 0 : 10,
             border: isMobile ? 'none' : '1px solid var(--border-subtle)',
@@ -1081,45 +1114,43 @@ export default function MessagePane() {
                 <meta name="viewport" content="width=device-width,initial-scale=1">
                 <meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; style-src 'unsafe-inline';">
                 <base target="_blank">
-                <style>
-                  /* Prevent percentage-height elements from filling the iframe,
-                     which would cause a ResizeObserver growth feedback loop. */
-                  html, body { height: auto !important; min-height: 0 !important; overflow-x: hidden; }
-                  /* margin:0 lets the email use the full iframe width. Marketing emails
-                     define their own internal spacing; adding body margin here shrinks the
-                     effective content area and causes layout tables to be squeezed. */
+              </head><body><div id="mf-scale-wrapper">${
+                body.html.replace(/<a(\s)/gi, '<a rel="noopener noreferrer"$1')
+              }</div><style>
+                  /* Injected AFTER email HTML so our rules win the source-order tiebreak
+                     for same-specificity !important declarations inside the email's own
+                     <style> blocks (which land in <body> after the email HTML). */
+                  html, body { height: auto !important; min-height: 0 !important; overflow-x: hidden !important; }
                   body { margin: 0 !important; padding: 0 !important;
                          background-color: #ffffff !important; color-scheme: light;
                          font-family: -apple-system, Arial, sans-serif;
-                         font-size: 14px; line-height: 1.6; color: #1a1a1a; word-wrap: break-word; }
-                  /* max-width prevents images overflowing on narrow screens.
-                     height:auto keeps proportional scaling when width is constrained. */
+                         font-size: 14px; line-height: 1.6; color: #1a1a1a;
+                         word-wrap: break-word; overflow-wrap: break-word; }
+                  /* Constrain every element — covers tables, divs, images, and any
+                     other fixed-width container an email might use. box-sizing ensures
+                     padding doesn't push elements wider than their declared max-width. */
+                  * { max-width: 100% !important; box-sizing: border-box !important; }
                   img { max-width: 100% !important; height: auto !important; }
                   /* table-layout:auto forces column widths to reflow when the table is
-                     narrower than its declared width. Without this, fixed-layout tables
-                     (common in marketing emails) keep their declared column widths even
-                     when max-width constrains the table, causing columns to overflow and
-                     be clipped by overflow-x:hidden on the body. */
-                  table { max-width: 100% !important; table-layout: auto !important; }
-                  /* Force the outermost email wrapper table to fill the available viewport.
-                     max-width alone prevents overflow but doesn't make the table fill the
-                     container — the table still tries to render at its declared pixel width
-                     (e.g. width="600") before being clamped. width:100% makes it size from
-                     the container outward so table-layout:auto can properly reflow columns. */
+                     narrower than its declared width. */
+                  table { table-layout: auto !important; }
+                  /* Force top-level wrapper tables to fill the viewport. Selectors cover
+                     both the legacy body > table pattern and the mf-scale-wrapper layer. */
                   body > table, body > center > table,
-                  body > div > table, body > center > div > table {
+                  body > div > table, body > center > div > table,
+                  #mf-scale-wrapper > table, #mf-scale-wrapper > center > table,
+                  #mf-scale-wrapper > div > table, #mf-scale-wrapper > center > div > table {
                     width: 100% !important;
                   }
+                  /* Reset min-width so it can't override max-width on table elements. */
+                  table, td, th { min-width: 0 !important; }
                   td, th { word-break: break-word; }
                   a { color: #6366f1; }
                   pre, code { overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
                   blockquote { border-left: 3px solid #ddd; margin: 0; padding-left: 12px; color: #555; }
-                </style>
-              </head><body>${
-                body.html.replace(/<a(\s)/gi, '<a rel="noopener noreferrer"$1')
-              }</body></html>`}
+                </style></body></html>`}
               scrolling="no"
-              style={{ width: '100%', border: 'none', display: 'block', height: '300px' }}
+              style={{ width: '1px', minWidth: '100%', border: 'none', display: 'block', height: '300px' }}
               sandbox="allow-same-origin allow-popups"
               title="Email content"
             />

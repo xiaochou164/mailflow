@@ -54,6 +54,10 @@ html, body, #root {
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans, 'DM Sans', sans-serif);
+  /* Prevent wide email iframes from making the entire page scroll horizontally
+     on iOS Safari. Nested overflow:hidden on inner containers is not enough —
+     iOS WebKit can still scroll the document itself. */
+  overflow-x: hidden;
 }
 
 body, #root {

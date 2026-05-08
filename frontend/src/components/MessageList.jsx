@@ -89,6 +89,7 @@ export default function MessageList() {
 
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectionModeActive, setSelectionModeActive] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [pickerFolders, setPickerFolders] = useState([]);
   const [pickerLoading, setPickerLoading] = useState(false);
@@ -108,6 +109,7 @@ export default function MessageList() {
   // Clear selection whenever the message list resets (nav, folder change, etc.)
   useEffect(() => {
     setSelectedIds(new Set());
+    setSelectionModeActive(false);
     setShowFolderPicker(false);
   }, [messagesRefreshToken]);
 
@@ -117,6 +119,7 @@ export default function MessageList() {
       if (e.key === 'Escape') {
         setShowFolderPicker(false);
         setSelectedIds(new Set());
+        setSelectionModeActive(false);
       }
     };
     const onPointer = (e) => {
@@ -542,6 +545,31 @@ export default function MessageList() {
     }
   }, [updateMessage, decrementUnread, incrementUnread]);
 
+  const handleSwipeArchive = useCallback(async (message) => {
+    removeMessage(message.id);
+    if (!message.is_read) decrementUnread(message.account_id);
+    let undone = false;
+    const timer = setTimeout(async () => {
+      if (undone) return;
+      try {
+        await api.bulkArchive([message.id]);
+      } catch (err) {
+        console.error('swipe archive failed:', err.message);
+      }
+    }, 4500);
+    addNotification({
+      title: t('messageList.bulkArchived.title', { count: 1 }),
+      body: message.subject || '',
+      onUndo: () => {
+        undone = true;
+        clearTimeout(timer);
+        const state = useStore.getState();
+        state.setMessages([...state.messages, message].sort((a, b) => new Date(b.date) - new Date(a.date)));
+        if (!message.is_read) incrementUnread(message.account_id);
+      },
+    });
+  }, [removeMessage, decrementUnread, incrementUnread, addNotification, t]);
+
   // ── Bulk selection helpers ───────────────────────────────────
   const toggleSelect = useCallback((id) => {
     setSelectedIds(prev => {
@@ -557,6 +585,7 @@ export default function MessageList() {
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
+    setSelectionModeActive(false);
     setShowFolderPicker(false);
   }, []);
 
@@ -1035,7 +1064,7 @@ export default function MessageList() {
     : isUnified ? t('sidebar.allInboxes') : selectedFolder;
 
   // Derived bulk-selection values (computed fresh each render, no stale closure risk)
-  const selectionMode = selectedIds.size > 0;
+  const selectionMode = selectedIds.size > 0 || selectionModeActive;
   const selectedMsgs = displayMessages.filter(m => selectedIds.has(m.id));
   const selectedCount = selectedIds.size;
   const allSelected = displayMessages.length > 0 && selectedIds.size === displayMessages.length;
@@ -1069,10 +1098,12 @@ export default function MessageList() {
           {/* Hamburger */}
           <button
             onClick={() => setMobileSidebarOpen(true)}
+            aria-label={t('messageList.menu', 'Menu')}
             style={{
               background: 'none', border: 'none', color: 'var(--text-secondary)',
-              cursor: 'pointer', padding: '6px', borderRadius: 7,
-              display: 'flex', alignItems: 'center',
+              cursor: 'pointer', padding: 0, borderRadius: 7,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              minWidth: 44, minHeight: 44,
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
@@ -1099,6 +1130,7 @@ export default function MessageList() {
               borderRadius: 6, padding: '5px 7px',
               color: unreadOnly ? 'var(--accent)' : 'var(--text-tertiary)',
               cursor: 'pointer', fontSize: 11, fontWeight: 500,
+              minHeight: 44, display: 'flex', alignItems: 'center',
             }}
           >
             {t('messageList.unread')}
@@ -1108,12 +1140,14 @@ export default function MessageList() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            title={t('messageList.sync')}
+            aria-label={t('messageList.sync')}
             style={{
               background: 'none', border: 'none',
               color: syncing ? 'var(--accent)' : 'var(--text-tertiary)',
               cursor: syncing ? 'not-allowed' : 'pointer',
-              padding: '6px', borderRadius: 7, display: 'flex',
+              padding: 0, borderRadius: 7, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              minWidth: 44, minHeight: 44,
             }}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -1124,21 +1158,38 @@ export default function MessageList() {
             </svg>
           </button>
 
-          {/* Compose */}
-          <button
-            onClick={() => openCompose()}
-            title={t('messageList.compose')}
-            style={{
-              background: 'var(--accent)', border: 'none',
-              color: 'white', cursor: 'pointer',
-              padding: '6px 8px', borderRadius: 7, display: 'flex', alignItems: 'center',
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-          </button>
+          {/* Select / Cancel — replaces compose button; FAB is the primary compose affordance */}
+          {selectionMode ? (
+            <button
+              onClick={clearSelection}
+              style={{
+                background: 'none', border: 'none',
+                color: 'var(--accent)', cursor: 'pointer',
+                fontSize: 14, fontWeight: 500,
+                padding: '0 4px', minWidth: 52, minHeight: 44,
+                display: 'flex', alignItems: 'center',
+              }}
+            >
+              Cancel
+            </button>
+          ) : (
+            <button
+              onClick={() => setSelectionModeActive(true)}
+              aria-label="Select messages"
+              style={{
+                background: 'none', border: 'none',
+                color: 'var(--text-secondary)', cursor: 'pointer',
+                padding: 0, borderRadius: 7,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: 44, minHeight: 44,
+              }}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <polyline points="9 11 12 14 22 4"/>
+              </svg>
+            </button>
+          )}
         </div>
       )}
 
@@ -1695,6 +1746,8 @@ export default function MessageList() {
                   setContextMenu({ x: e.clientX, y: e.clientY, message: msg });
                 }}
                 isMobile={isMobile}
+                onSwipeLeft={handleSwipeArchive}
+                onSwipeRight={handleSwipeToggleRead}
               />
             );
           })
@@ -1718,8 +1771,9 @@ export default function MessageList() {
                 setContextMenu({ x: e.clientX, y: e.clientY, message: msg });
               }}
               isMobile={isMobile}
-              onSwipeLeft={handleSwipeDelete}
+              onSwipeLeft={handleSwipeArchive}
               onSwipeRight={handleSwipeToggleRead}
+              onLongPress={isMobile ? (id) => { setSelectionModeActive(true); toggleSelect(id); } : undefined}
             />
           ))
         )}
@@ -2021,21 +2075,154 @@ function EmptyState({ folderSyncing, searchQuery, unreadOnly, selectedFolder, ac
   );
 }
 
-function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedMessageId, showAccount, isNarrow, onThreadClick, onSelect, onContextMenu, isMobile }) {
+function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedMessageId, showAccount, isNarrow, onThreadClick, onSelect, onContextMenu, isMobile, onSwipeLeft, onSwipeRight }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const messageCount = message.message_count || 1;
   const unreadCount  = parseInt(message.unread_count) || 0;
   const tid = message.thread_id || message.id;
 
-  const rowBg = isExpanded
-    ? 'var(--bg-secondary)'
-    : (hovered ? 'var(--bg-tertiary)' : 'transparent');
+  const contentRef = useRef(null);
+  const swipeBgLeftRef = useRef(null);
+  const swipeBgRightRef = useRef(null);
+  const swipeRef = useRef({ active: false, startX: 0, startY: 0, dir: null, x: 0 });
+  const SWIPE_THRESHOLD = 72;
+
+  const springBack = useCallback(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    el.style.transition = 'transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)';
+    el.style.transform = 'translateX(0)';
+    el.style.boxShadow = '';
+    setTimeout(() => {
+      if (swipeBgLeftRef.current)  { swipeBgLeftRef.current.style.display = 'none'; swipeBgLeftRef.current.style.opacity = '1'; }
+      if (swipeBgRightRef.current) { swipeBgRightRef.current.style.display = 'none'; swipeBgRightRef.current.style.opacity = '1'; }
+    }, 260);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const el = contentRef.current;
+    if (!el) return;
+
+    const showBgs = () => {
+      if (swipeBgLeftRef.current)  { swipeBgLeftRef.current.style.display = 'flex'; swipeBgLeftRef.current.style.opacity = '0'; }
+      if (swipeBgRightRef.current) { swipeBgRightRef.current.style.display = 'flex'; swipeBgRightRef.current.style.opacity = '0'; }
+    };
+    const hideBgs = () => {
+      if (swipeBgLeftRef.current)  swipeBgLeftRef.current.style.display = 'none';
+      if (swipeBgRightRef.current) swipeBgRightRef.current.style.display = 'none';
+    };
+
+    const onStart = (e) => {
+      const touch = e.touches[0];
+      swipeRef.current = { active: false, startX: touch.clientX, startY: touch.clientY, dir: null, x: 0 };
+      showBgs();
+    };
+
+    const onMove = (e) => {
+      const s = swipeRef.current;
+      const touch = e.touches[0];
+      const dx = touch.clientX - s.startX;
+      const dy = touch.clientY - s.startY;
+      if (!s.dir) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        s.dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      }
+      if (s.dir === 'v') return;
+      e.preventDefault();
+      s.active = true;
+      s.x = Math.max(-160, Math.min(160, dx));
+      el.style.transition = 'none';
+      el.style.transform = `translateX(${s.x}px)`;
+      const progress = Math.min(Math.abs(s.x) / SWIPE_THRESHOLD, 1);
+      const iconScale = 0.7 + 0.3 * progress;
+      if (s.x > 0 && swipeBgLeftRef.current) {
+        swipeBgLeftRef.current.style.opacity = String(0.3 + 0.7 * progress);
+        const icon = swipeBgLeftRef.current.querySelector('svg');
+        if (icon) icon.style.transform = `scale(${iconScale})`;
+      } else if (s.x < 0 && swipeBgRightRef.current) {
+        swipeBgRightRef.current.style.opacity = String(0.3 + 0.7 * progress);
+        const icon = swipeBgRightRef.current.querySelector('svg');
+        if (icon) icon.style.transform = `scale(${iconScale})`;
+      }
+      el.style.boxShadow = progress > 0.1 ? `0 4px 20px rgba(0,0,0,${0.3 * progress})` : '';
+    };
+
+    const onEnd = () => {
+      const s = swipeRef.current;
+      if (!s.active) { s.dir = null; hideBgs(); return; }
+      const x = s.x;
+      s.active = false; s.dir = null; s.x = 0;
+      springBack();
+      if (x < -SWIPE_THRESHOLD) {
+        onSwipeLeft && onSwipeLeft(message);
+      } else if (x > SWIPE_THRESHOLD) {
+        onSwipeRight && onSwipeRight(message);
+      }
+    };
+
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    el.addEventListener('touchcancel', springBack, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', springBack);
+    };
+  }, [isMobile, message, onSwipeLeft, onSwipeRight, springBack]);
+
+  const rowBg = isMobile
+    ? 'var(--bg-primary)'
+    : (isExpanded ? 'var(--bg-secondary)' : (hovered ? 'var(--bg-tertiary)' : 'transparent'));
 
   return (
     <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      {/* Swipe container wraps only the header row */}
+      <div style={{ position: 'relative', overflow: 'hidden' }}>
+
+      {/* Swipe background: left side — mark read/unread (revealed by right swipe) */}
+      {isMobile && (
+        <div ref={swipeBgLeftRef} style={{
+          position: 'absolute', left: 0, top: 0, bottom: 0, width: '50%',
+          background: 'var(--accent)',
+          display: 'none', alignItems: 'center', justifyContent: 'flex-start',
+          paddingLeft: 20, gap: 6,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24"
+            fill={unreadCount > 0 ? 'none' : 'white'} stroke="white" strokeWidth="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>
+            {unreadCount > 0 ? 'Read' : 'Unread'}
+          </span>
+        </div>
+      )}
+
+      {/* Swipe background: right side — archive (revealed by left swipe) */}
+      {isMobile && (
+        <div ref={swipeBgRightRef} style={{
+          position: 'absolute', right: 0, top: 0, bottom: 0, width: '50%',
+          background: 'var(--amber, #d97706)',
+          display: 'none', alignItems: 'center', justifyContent: 'flex-end',
+          paddingRight: 20, gap: 6,
+        }}>
+          <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>Archive</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+            <rect x="2" y="3" width="20" height="5" rx="1"/>
+            <path d="M4 8v11a1 1 0 001 1h14a1 1 0 001-1V8"/>
+            <polyline points="9 13 12 16 15 13"/>
+            <line x1="12" y1="11" x2="12" y2="16"/>
+          </svg>
+        </div>
+      )}
+
       {/* Thread header row */}
       <div
+        ref={isMobile ? contentRef : undefined}
         onMouseEnter={() => !isMobile && setHovered(true)}
         onMouseLeave={() => !isMobile && setHovered(false)}
         onClick={onThreadClick}
@@ -2045,6 +2232,7 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
           padding: '11px 14px', cursor: 'pointer',
           background: rowBg, transition: 'background 0.1s',
           position: 'relative',
+          willChange: isMobile ? 'transform' : undefined,
         }}
       >
         {/* Unread dot */}
@@ -2123,6 +2311,7 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
           </div>
         </div>
       </div>
+      </div>{/* end swipe container */}
 
       {/* Expanded sub-rows */}
       {isExpanded && (
@@ -2185,13 +2374,14 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
   );
 }
 
-function MessageRow({ message, selected, isChecked, selectionMode, showAccount, isNarrow, onSelect, onToggleSelect, onMarkRead, onStar, onDelete, onContextMenu, isMobile, onSwipeLeft, onSwipeRight }) {
+function MessageRow({ message, selected, isChecked, selectionMode, showAccount, isNarrow, onSelect, onToggleSelect, onMarkRead, onStar, onDelete, onContextMenu, isMobile, onSwipeLeft, onSwipeRight, onLongPress }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const contentRef = useRef(null);
   const swipeBgLeftRef = useRef(null);
   const swipeBgRightRef = useRef(null);
   const swipeRef = useRef({ active: false, startX: 0, startY: 0, dir: null, x: 0 });
+  const longPressTimerRef = useRef(null);
 
   const SWIPE_THRESHOLD = 72;
 
@@ -2221,10 +2411,24 @@ function MessageRow({ message, selected, isChecked, selectionMode, showAccount, 
       if (swipeBgRightRef.current) swipeBgRightRef.current.style.display = 'none';
     };
 
+    const cancelLongPress = () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    };
+
     const onStart = (e) => {
       const t = e.touches[0];
       swipeRef.current = { active: false, startX: t.clientX, startY: t.clientY, dir: null, x: 0 };
       showBgs();
+      if (onLongPress) {
+        longPressTimerRef.current = setTimeout(() => {
+          longPressTimerRef.current = null;
+          springBack();
+          onLongPress(message.id);
+        }, 500);
+      }
     };
 
     const onMove = (e) => {
@@ -2234,6 +2438,7 @@ function MessageRow({ message, selected, isChecked, selectionMode, showAccount, 
       const dy = t.clientY - s.startY;
       if (!s.dir) {
         if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        cancelLongPress();
         s.dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
       }
       if (s.dir === 'v') return;
@@ -2259,6 +2464,7 @@ function MessageRow({ message, selected, isChecked, selectionMode, showAccount, 
     };
 
     const onEnd = () => {
+      cancelLongPress();
       const s = swipeRef.current;
       if (!s.active) { s.dir = null; hideBgs(); return; }
       const x = s.x;
@@ -2271,17 +2477,23 @@ function MessageRow({ message, selected, isChecked, selectionMode, showAccount, 
       }
     };
 
+    const onCancel = () => {
+      cancelLongPress();
+      springBack();
+    };
+
     el.addEventListener('touchstart', onStart, { passive: true });
     el.addEventListener('touchmove', onMove, { passive: false });
     el.addEventListener('touchend', onEnd, { passive: true });
-    el.addEventListener('touchcancel', springBack, { passive: true });
+    el.addEventListener('touchcancel', onCancel, { passive: true });
     return () => {
+      cancelLongPress();
       el.removeEventListener('touchstart', onStart);
       el.removeEventListener('touchmove', onMove);
       el.removeEventListener('touchend', onEnd);
-      el.removeEventListener('touchcancel', springBack);
+      el.removeEventListener('touchcancel', onCancel);
     };
-  }, [isMobile, message, onSwipeLeft, onSwipeRight, springBack]);
+  }, [isMobile, message, onSwipeLeft, onSwipeRight, onLongPress, springBack]);
 
   // On mobile the row content must be opaque — swipe action panels sit behind it
   // and would show through a transparent background.
@@ -2330,18 +2542,20 @@ function MessageRow({ message, selected, isChecked, selectionMode, showAccount, 
         </div>
       )}
 
-      {/* Swipe background: right side — delete (revealed by left swipe) */}
+      {/* Swipe background: right side — archive (revealed by left swipe) */}
       {isMobile && (
         <div ref={swipeBgRightRef} style={{
           position: 'absolute', right: 0, top: 0, bottom: 0, width: '50%',
-          background: 'var(--red, #ef4444)',
+          background: 'var(--amber, #d97706)',
           display: 'none', alignItems: 'center', justifyContent: 'flex-end',
           paddingRight: 20, gap: 6,
         }}>
-          <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>{t('common.delete')}</span>
+          <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>Archive</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+            <rect x="2" y="3" width="20" height="5" rx="1"/>
+            <path d="M4 8v11a1 1 0 001 1h14a1 1 0 001-1V8"/>
+            <polyline points="9 13 12 16 15 13"/>
+            <line x1="12" y1="11" x2="12" y2="16"/>
           </svg>
         </div>
       )}

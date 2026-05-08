@@ -70,6 +70,12 @@ export default function ComposeModal() {
   const [subject, setSubject] = useState(() => composeData?.subject || '');
   const [body, setBody] = useState(() => composeData?.body || '');
   const [quotedBody, setQuotedBody] = useState(() => composeData?.quotedBody || '');
+  const [showDiscardSheet, setShowDiscardSheet] = useState(false);
+
+  // Baseline values captured at open time — used to detect unsaved changes
+  const initialBodyRef = useRef(composeData?.body || '');
+  const initialSubjectRef = useRef(composeData?.subject || '');
+  const initialToRef = useRef(normalizeTo(composeData?.to || []));
   const [showCc, setShowCc] = useState(() => !!(composeData?.cc?.length));
   const [showBcc, setShowBcc] = useState(() => !!(composeData?.bcc?.length));
 
@@ -308,7 +314,18 @@ export default function ComposeModal() {
           borderBottom: '1px solid var(--border-subtle)',
         }}>
           <button
-            onClick={closeCompose}
+            onClick={() => {
+              const isDirty =
+                body !== initialBodyRef.current ||
+                subject !== initialSubjectRef.current ||
+                normalizeTo(toChips) !== initialToRef.current ||
+                toInput.trim() !== '';
+              if (isDirty) {
+                setShowDiscardSheet(true);
+              } else {
+                closeCompose();
+              }
+            }}
             style={{
               background: 'none', border: 'none',
               color: 'var(--accent)', fontSize: 16,
@@ -553,6 +570,59 @@ export default function ComposeModal() {
           <div style={{ height: 'var(--sab)', flexShrink: 0 }} />
         </div>
       </div>
+
+      {/* Discard confirmation sheet */}
+      {showDiscardSheet && (
+        <>
+          <div
+            onClick={() => setShowDiscardSheet(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 2100,
+              background: 'rgba(0,0,0,0.4)',
+            }}
+          />
+          <div style={{
+            position: 'fixed', left: 0, right: 0, bottom: 0,
+            zIndex: 2101, background: 'var(--bg-elevated)',
+            borderRadius: '16px 16px 0 0',
+            paddingBottom: 'calc(var(--sab) + 8px)',
+            boxShadow: 'var(--shadow-modal)',
+            animation: 'sheet-enter 0.22s var(--ease-emphasized) both',
+          }}>
+            <div style={{
+              padding: '16px 20px 8px',
+              fontSize: 15, fontWeight: 600, color: 'var(--text-primary)',
+              borderBottom: '1px solid var(--border-subtle)',
+            }}>
+              Discard draft?
+            </div>
+            <button
+              onClick={closeCompose}
+              style={{
+                width: '100%', padding: '16px 20px', textAlign: 'left',
+                background: 'none', border: 'none',
+                color: 'var(--red)', fontSize: 16, fontWeight: 500,
+                cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              Discard
+            </button>
+            <button
+              onClick={() => setShowDiscardSheet(false)}
+              style={{
+                width: '100%', padding: '16px 20px', textAlign: 'left',
+                background: 'none', border: 'none',
+                color: 'var(--accent)', fontSize: 16, fontWeight: 500,
+                cursor: 'pointer',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              Keep editing
+            </button>
+          </div>
+        </>
+      )}
       </>
     );
   }

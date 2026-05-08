@@ -29,6 +29,7 @@ export default function MailApp() {
   const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const isMobile = useMobile();
+  const sidebarDragRef = useRef(null);
 
   const currentLayout = LAYOUTS[layout] || LAYOUTS.classic;
 
@@ -272,13 +273,26 @@ export default function MailApp() {
             />
           )}
           {/* Slide-in sidebar drawer */}
-          <div style={{
-            position: 'fixed', left: 0, top: 0, bottom: 0,
-            zIndex: 901, display: 'flex',
-            transform: mobileSidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-            transition: 'transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)',
-            boxShadow: mobileSidebarOpen ? 'var(--shadow-drawer)' : 'none',
-          }}>
+          <div
+            style={{
+              position: 'fixed', left: 0, top: 0, bottom: 0,
+              zIndex: 901, display: 'flex',
+              transform: mobileSidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+              transition: 'transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)',
+              boxShadow: mobileSidebarOpen ? 'var(--shadow-drawer)' : 'none',
+            }}
+            onTouchStart={(e) => {
+              sidebarDragRef.current = { startX: e.touches[0].clientX, startY: e.touches[0].clientY };
+            }}
+            onTouchEnd={(e) => {
+              const start = sidebarDragRef.current;
+              sidebarDragRef.current = null;
+              if (!start) return;
+              const dx = e.changedTouches[0].clientX - start.startX;
+              const dy = e.changedTouches[0].clientY - start.startY;
+              if (dx < -60 && Math.abs(dy) < Math.abs(dx)) setMobileSidebarOpen(false);
+            }}
+          >
             <Sidebar />
           </div>
           {/* Single active pane */}
