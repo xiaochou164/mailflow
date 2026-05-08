@@ -37,27 +37,6 @@ export async function runMigrations() {
 
     const migrations = await getMigrationFiles();
 
-    // Bootstrap for existing installs: if no migrations have been recorded yet but
-    // the schema already exists, stamp all known migrations as applied without running
-    // them — initDb() already applied everything idempotently on prior startups.
-    if (applied.size === 0) {
-      const { rows: tableRows } = await client.query(`
-        SELECT 1 FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_name = 'email_accounts'
-      `);
-      if (tableRows.length > 0) {
-        for (const { version } of migrations) {
-          await client.query(
-            'INSERT INTO schema_migrations (version) VALUES ($1) ON CONFLICT DO NOTHING',
-            [version]
-          );
-        }
-        await client.query('COMMIT');
-        console.log(`Migrations: stamped ${migrations.length} migration(s) as applied on existing install`);
-        return;
-      }
-    }
-
     let ran = 0;
     for (const { version, sql } of migrations) {
       if (applied.has(version)) continue;
