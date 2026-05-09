@@ -34,7 +34,7 @@ export default function MessageList() {
     selectedAccountId, selectedFolder, messages, setMessages,
     appendMessages, messagesTotal, setMessagesTotal, messagesOffset,
     setMessagesOffset, hasMoreMessages, setHasMoreMessages,
-    loadingMessages, setLoadingMessages, selectedMessageId,
+    loadingMessages, setLoadingMessages, selectedMessageId, lastViewedMessageId,
     setSelectedMessage, updateMessage, removeMessage,
     decrementUnread, incrementUnread, addNotification,
     searchQuery, setSearchQuery, isSearching, setIsSearching,
@@ -1049,7 +1049,7 @@ export default function MessageList() {
         const data = await api.getThread(tid, effectiveFolder);
         const msgs = data.messages || [];
         setThreadMessages(tid, msgs);
-        if (msgs.length > 0) handleSelect(msgs[msgs.length - 1]);
+        if (!isMobile && msgs.length > 0) handleSelect(msgs[msgs.length - 1]);
       } catch (err) {
         console.error('Failed to load thread:', err);
       } finally {
@@ -1057,7 +1057,7 @@ export default function MessageList() {
       }
     } else {
       const msgs = threadMessages[tid];
-      if (msgs.length > 0) handleSelect(msgs[msgs.length - 1]);
+      if (!isMobile && msgs.length > 0) handleSelect(msgs[msgs.length - 1]);
     }
   };
 
@@ -1742,6 +1742,7 @@ export default function MessageList() {
                 threadMsgs={threadMessages[tid] || null}
                 isLoadingThread={loadingThread === tid}
                 selectedMessageId={selectedMessageId}
+                lastViewedMessageId={lastViewedMessageId}
                 showAccount={isUnified}
                 isNarrow={isNarrow}
                 onThreadClick={() => handleThreadClick(message)}
@@ -1762,6 +1763,7 @@ export default function MessageList() {
               key={message.id}
               message={message}
               selected={selectedMessageId === message.id}
+              lastViewed={lastViewedMessageId === message.id && selectedMessageId !== message.id}
               isChecked={selectedIds.has(message.id)}
               selectionMode={selectionMode}
               showAccount={isUnified}
@@ -2080,7 +2082,7 @@ function EmptyState({ folderSyncing, searchQuery, unreadOnly, selectedFolder, ac
   );
 }
 
-function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedMessageId, showAccount, isNarrow, onThreadClick, onSelect, onContextMenu, isMobile, onSwipeLeft, onSwipeRight }) {
+function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedMessageId, lastViewedMessageId, showAccount, isNarrow, onThreadClick, onSelect, onContextMenu, isMobile, onSwipeLeft, onSwipeRight }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const messageCount = message.message_count || 1;
@@ -2179,9 +2181,11 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
     };
   }, [isMobile, message, onSwipeLeft, onSwipeRight, springBack]);
 
+  const isLastViewed = lastViewedMessageId === message.id
+    || (lastViewedMessageId && threadMsgs?.some(m => m.id === lastViewedMessageId));
   const rowBg = isMobile
-    ? 'var(--bg-primary)'
-    : (isExpanded ? 'var(--bg-secondary)' : (hovered ? 'var(--bg-tertiary)' : 'transparent'));
+    ? (isLastViewed ? 'var(--accent-glow)' : 'var(--bg-primary)')
+    : (isExpanded ? 'var(--bg-secondary)' : (hovered ? 'var(--bg-tertiary)' : (isLastViewed ? 'var(--accent-glow)' : 'transparent')));
 
   return (
     <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -2338,12 +2342,12 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
                 display: 'flex', alignItems: 'flex-start', gap: 8,
                 padding: '9px 14px 9px 44px',
                 cursor: 'pointer', position: 'relative',
-                background: selectedMessageId === msg.id ? 'var(--bg-elevated)' : 'transparent',
+                background: selectedMessageId === msg.id || lastViewedMessageId === msg.id ? 'var(--accent-glow)' : 'transparent',
                 borderTop: idx > 0 ? '1px solid var(--border-subtle)' : 'none',
                 transition: 'background 0.1s',
               }}
               onMouseEnter={e => { if (selectedMessageId !== msg.id) e.currentTarget.style.background = 'var(--bg-tertiary)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = selectedMessageId === msg.id ? 'var(--bg-elevated)' : 'transparent'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = selectedMessageId === msg.id || lastViewedMessageId === msg.id ? 'var(--accent-glow)' : 'transparent'; }}
             >
               {!msg.is_read && (
                 <div style={{
@@ -2379,7 +2383,7 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
   );
 }
 
-function MessageRow({ message, selected, isChecked, selectionMode, showAccount, isNarrow, onSelect, onToggleSelect, onMarkRead, onStar, onDelete, onContextMenu, isMobile, onSwipeLeft, onSwipeRight, onLongPress }) {
+function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, showAccount, isNarrow, onSelect, onToggleSelect, onMarkRead, onStar, onDelete, onContextMenu, isMobile, onSwipeLeft, onSwipeRight, onLongPress }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const contentRef = useRef(null);
@@ -2505,8 +2509,8 @@ function MessageRow({ message, selected, isChecked, selectionMode, showAccount, 
   const bgDefault = isMobile ? 'var(--bg-primary)' : 'transparent';
   const selectedColor = message.account_color || 'var(--accent)';
   const bg = (selected && !selectionMode)
-    ? 'var(--bg-elevated)'
-    : (isChecked ? 'var(--accent-dim)' : (hovered ? 'var(--bg-tertiary)' : bgDefault));
+    ? 'var(--accent-glow)'
+    : (isChecked ? 'var(--accent-dim)' : (hovered ? 'var(--bg-tertiary)' : (lastViewed ? 'var(--accent-glow)' : bgDefault)));
 
   const showCheckbox = selectionMode;
 

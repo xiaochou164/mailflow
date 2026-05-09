@@ -70,7 +70,8 @@ export const useStore = create((set, get) => ({
 
   // Selected message
   selectedMessageId: null,
-  setSelectedMessage: (id) => set({ selectedMessageId: id }),
+  lastViewedMessageId: null,
+  setSelectedMessage: (id) => set(id ? { selectedMessageId: id, lastViewedMessageId: id } : { selectedMessageId: null }),
 
   // Unread counts
   unreadCounts: { total: 0, byAccount: {} },
