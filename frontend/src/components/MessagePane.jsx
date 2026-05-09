@@ -387,6 +387,9 @@ export default function MessagePane() {
     const quotedText = body?.text
       ? `\n\n---\nOn ${date}, ${fromStr} wrote:\n${body.text.split('\n').map(l => '> ' + l).join('\n')}`
       : '';
+    const quotedBodyHtml = body?.html
+      ? `<div style="border-left:3px solid var(--border,#ccc);padding-left:12px;margin-top:12px;color:var(--text-secondary,#666)"><p style="margin:0 0 6px;font-size:12px">On ${date}, ${fromStr} wrote:</p>${body.html}</div>`
+      : null;
 
     const replyToArr = Array.isArray(message.reply_to)
       ? message.reply_to
@@ -436,13 +439,17 @@ export default function MessagePane() {
     const referencesChain = [message.in_reply_to, message.message_id]
       .filter(Boolean).join(' ').trim() || null;
 
+    const rawSubject = (message.subject || '').trim();
+    const reSubject = rawSubject.startsWith('Re:') ? rawSubject : rawSubject ? `Re: ${rawSubject}` : 'Re:';
+
     setShowReplyMenu(false);
     openCompose({
       to: sender,
       cc: replyAll ? allRecipients : [],
-      subject: message.subject?.startsWith('Re:') ? message.subject : `Re: ${message.subject}`,
+      subject: reSubject,
       body: '',
       quotedBody: quotedText,
+      quotedBodyHtml,
       inReplyTo: message.message_id,
       references: referencesChain,
       accountId: message.account_id,
@@ -463,10 +470,14 @@ export default function MessagePane() {
       : message.from_email || '';
     const safeSubject = (message.subject || '').replace(/[\r\n]+/g, ' ');
     const fwdText = `\n\n---------- Forwarded message ----------\nFrom: ${fromStr}\nDate: ${date}\nSubject: ${safeSubject}\n\n${body?.text || ''}`;
+    const fwdHtml = body?.html
+      ? `<div style="border-left:3px solid var(--border,#ccc);padding-left:12px;margin-top:12px;color:var(--text-secondary,#666)"><p style="margin:0 0 6px;font-size:12px">---------- Forwarded message ----------<br>From: ${fromStr}<br>Date: ${date}<br>Subject: ${safeSubject}</p>${body.html}</div>`
+      : null;
     openCompose({
       subject: message.subject?.startsWith('Fwd:') ? message.subject : `Fwd: ${message.subject}`,
       body: '',
       quotedBody: fwdText,
+      quotedBodyHtml: fwdHtml,
       accountId: message.account_id,
       isForward: true,
     });

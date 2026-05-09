@@ -70,12 +70,25 @@ function sigToPlainText(html) {
   return sanitizeHtml(html, { allowedTags: [], allowedAttributes: {} }).trim();
 }
 
+function bodyToPlain(body, isHtml) {
+  if (!isHtml) return body;
+  return sanitizeHtml(body, { allowedTags: [], allowedAttributes: {} });
+}
+
+function bodyToHtml(body, isHtml) {
+  if (!isHtml) return textToHtml(body);
+  return sanitizeHtml(body, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['u', 's']),
+    allowedAttributes: { '*': ['style'], 'a': ['href', 'target', 'rel'] },
+  });
+}
+
 const router = Router();
 router.use(requireAuth);
 
 
 router.post('/send', async (req, res) => {
-  const { accountId, aliasId, to, cc = [], bcc = [], subject, body, quotedBody, inReplyTo, references } = req.body;
+  const { accountId, aliasId, to, cc = [], bcc = [], subject, body, bodyIsHtml = false, quotedBody, quotedBodyHtml, inReplyTo, references } = req.body;
   if (!accountId || !to?.length) return res.status(400).json({ error: 'accountId and to required' });
 
   let normalizedTo, normalizedCc, normalizedBcc;
@@ -164,14 +177,14 @@ router.post('/send', async (req, res) => {
       bcc: normalizedBcc.join(', ') || undefined,
       subject: normalizedSubject,
       text: fromSignature
-        ? body + '\n\n-- \n' + sigToPlainText(fromSignature) + (quotedBody || '')
-        : body + (quotedBody || ''),
+        ? bodyToPlain(body, bodyIsHtml) + '\n\n-- \n' + sigToPlainText(fromSignature) + (quotedBody || '')
+        : bodyToPlain(body, bodyIsHtml) + (quotedBody || ''),
       ...(plaintextEmail ? {} : {
-        html: textToHtml(body) +
+        html: bodyToHtml(body, bodyIsHtml) +
           (fromSignature
             ? '<div style="margin-top:16px;color:#555;font-size:13px">' + fromSignature + '</div>'
             : '') +
-          (quotedBody ? textToHtml(quotedBody) : ''),
+          (quotedBodyHtml || (quotedBody ? textToHtml(quotedBody) : '')),
       }),
     };
     if (inReplyTo) {

@@ -1,9 +1,16 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import DOMPurify from 'dompurify';
 import { useStore } from '../store/index.js';
 import { api } from '../utils/api.js';
 import { useMobile } from '../hooks/useMobile.js';
+import { useEditor, EditorContent, useEditorState } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import { TextStyle, Color as TiptapColor, FontFamily } from '@tiptap/extension-text-style';
+import { TextAlign } from '@tiptap/extension-text-align';
+import Picker from '@emoji-mart/react';
+import emojiData from '@emoji-mart/data';
 
 // Normalize address arrays to comma-separated string
 // Handles: plain strings, {email} objects, {name, email} objects
@@ -55,7 +62,7 @@ function parseChips(val) {
 
 export default function ComposeModal() {
   const { t } = useTranslation();
-  const { closeCompose, composeData, accounts, addNotification, setSelectedAccount } = useStore();
+  const { closeCompose, composeData, accounts, addNotification, setSelectedAccount, plaintextEmail } = useStore();
   const isMobile = useMobile();
 
   const isReply = !!(composeData?.isReply || composeData?.isReplyAll);
@@ -70,6 +77,7 @@ export default function ComposeModal() {
   const [subject, setSubject] = useState(() => composeData?.subject || '');
   const [body, setBody] = useState(() => composeData?.body || '');
   const [quotedBody, setQuotedBody] = useState(() => composeData?.quotedBody || '');
+  const [quotedBodyHtml] = useState(() => composeData?.quotedBodyHtml || null);
   const [showDiscardSheet, setShowDiscardSheet] = useState(false);
 
   // Baseline values captured at open time — used to detect unsaved changes
@@ -130,6 +138,22 @@ export default function ComposeModal() {
   const [showReplyType, setShowReplyType] = useState(false);
   const replyTypeRef = useRef(null);
   const textareaRef = useRef(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        link: { openOnClick: false },
+      }),
+      TextStyle,
+      TiptapColor,
+      FontFamily,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Placeholder.configure({ placeholder: t('compose.bodyPh') }),
+    ],
+    content: composeData?.body || '',
+    autofocus: (isReply || isForward) && !plaintextEmail ? 'start' : false,
+    immediatelyRender: false,
+  });
 
   // Track visible viewport height so the compose panel shrinks with the keyboard.
   // Also pin the panel's top edge to the visual viewport to prevent it shifting
@@ -206,6 +230,7 @@ export default function ComposeModal() {
     if (!toFinal.length || !accountId) return;
     setSending(true);
     setError('');
+    const bodyToSend = plaintextEmail ? body : (editor?.getHTML() ?? '');
     try {
       await api.post('/mail/send', {
         accountId,
@@ -214,8 +239,10 @@ export default function ComposeModal() {
         cc: [...ccChips, ...(ccInput.trim() ? [ccInput.trim()] : [])],
         bcc: [...bccChips, ...(bccInput.trim() ? [bccInput.trim()] : [])],
         subject,
-        body,
+        body: bodyToSend,
+        bodyIsHtml: !plaintextEmail,
         ...(quotedBody ? { quotedBody } : {}),
+        ...(!plaintextEmail && quotedBodyHtml ? { quotedBodyHtml } : {}),
         inReplyTo: composeData?.inReplyTo,
         references: composeData?.references || undefined,
       });
@@ -315,8 +342,9 @@ export default function ComposeModal() {
         }}>
           <button
             onClick={() => {
+              const currentBody = plaintextEmail ? body : (editor?.getHTML() ?? '');
               const isDirty =
-                body !== initialBodyRef.current ||
+                currentBody !== initialBodyRef.current ||
                 subject !== initialSubjectRef.current ||
                 normalizeTo(toChips) !== initialToRef.current ||
                 toInput.trim() !== '';
@@ -508,22 +536,29 @@ export default function ComposeModal() {
           </div>
 
           {/* Body */}
-          <textarea
-            ref={textareaRef}
-            value={body}
-            onChange={e => setBody(e.target.value)}
-            placeholder={t('compose.bodyPh')}
-            autoFocus={isReply || isForward}
-            style={{
-              flex: 1, minHeight: 200,
-              padding: '14px 16px',
-              background: 'transparent', border: 'none',
-              color: 'var(--text-primary)', fontSize: 16, lineHeight: 1.7,
-              resize: 'none', outline: 'none',
-              fontFamily: 'var(--font-sans, DM Sans, sans-serif)',
-              boxSizing: 'border-box', whiteSpace: 'pre-wrap',
-            }}
-          />
+          {plaintextEmail ? (
+            <textarea
+              ref={textareaRef}
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              placeholder={t('compose.bodyPh')}
+              autoFocus={isReply || isForward}
+              style={{
+                flex: 1, minHeight: 200,
+                padding: '14px 16px',
+                background: 'transparent', border: 'none',
+                color: 'var(--text-primary)', fontSize: 16, lineHeight: 1.7,
+                resize: 'none', outline: 'none',
+                fontFamily: 'var(--font-sans, DM Sans, sans-serif)',
+                boxSizing: 'border-box', whiteSpace: 'pre-wrap',
+              }}
+            />
+          ) : (
+            <div className="tiptap-compose" style={{ flex: 1, minHeight: 200 }}>
+              <RichToolbar editor={editor} />
+              <EditorContent editor={editor} />
+            </div>
+          )}
 
           {/* Signature */}
           {fromSignature && (
@@ -539,21 +574,25 @@ export default function ComposeModal() {
           )}
 
           {/* Quoted body */}
-          {quotedBody && (
-            <textarea
-              value={quotedBody}
-              onChange={e => setQuotedBody(e.target.value)}
-              style={{
-                width: '100%', minHeight: 120,
-                padding: '10px 16px',
-                background: 'transparent',
-                border: 'none', borderTop: '1px solid var(--border-subtle)',
-                color: 'var(--text-tertiary)', fontSize: 13, lineHeight: 1.6,
-                resize: 'none', outline: 'none',
-                fontFamily: 'var(--font-sans, DM Sans, sans-serif)',
-                boxSizing: 'border-box', whiteSpace: 'pre-wrap',
-              }}
-            />
+          {(quotedBody || quotedBodyHtml) && (
+            !plaintextEmail && quotedBodyHtml ? (
+              <QuotedEmailFrame html={quotedBodyHtml} mobile />
+            ) : (
+              <textarea
+                value={quotedBody}
+                onChange={e => setQuotedBody(e.target.value)}
+                style={{
+                  width: '100%', minHeight: 120,
+                  padding: '10px 16px',
+                  background: 'transparent',
+                  border: 'none', borderTop: '1px solid var(--border-subtle)',
+                  color: 'var(--text-tertiary)', fontSize: 13, lineHeight: 1.6,
+                  resize: 'none', outline: 'none',
+                  fontFamily: 'var(--font-sans, DM Sans, sans-serif)',
+                  boxSizing: 'border-box', whiteSpace: 'pre-wrap',
+                }}
+              />
+            )
           )}
 
           {/* Error */}
@@ -764,8 +803,8 @@ export default function ComposeModal() {
         </div>
       </div>
 
-      {/* Fields */}
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+      {/* Fields — fixed height, not scrollable so toolbar dropdowns aren't clipped */}
+      <div style={{ flexShrink: 0 }}>
         {/* From */}
         <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', padding: '0 12px' }}>
           <span style={{ fontSize: 12, color: 'var(--text-tertiary)', width: 52, flexShrink: 0 }}>{t('compose.from')}</span>
@@ -863,24 +902,36 @@ export default function ComposeModal() {
             style={{ flex: 1, ...inputStyle, borderBottom: 'none', padding: '8px 4px' }}
           />
         </div>
+      </div>
 
+      {/* Toolbar — sits outside overflow container so dropdowns are never clipped */}
+      {!plaintextEmail && <RichToolbar editor={editor} />}
+
+      {/* Scrollable body area */}
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         {/* Body */}
-        <textarea
-          ref={textareaRef}
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          placeholder={t('compose.bodyPh')}
-          autoFocus={isReply || isForward}
-          style={{
-            width: '100%', minHeight: isReply || isForward ? 120 : 200,
-            padding: '12px 14px',
-            background: 'transparent', border: 'none',
-            color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.7,
-            resize: 'vertical', outline: 'none',
-            fontFamily: 'var(--font-sans, DM Sans, sans-serif)',
-            boxSizing: 'border-box', whiteSpace: 'pre-wrap',
-          }}
-        />
+        {plaintextEmail ? (
+          <textarea
+            ref={textareaRef}
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            placeholder={t('compose.bodyPh')}
+            autoFocus={isReply || isForward}
+            style={{
+              width: '100%', minHeight: isReply || isForward ? 120 : 200,
+              padding: '12px 14px',
+              background: 'transparent', border: 'none',
+              color: 'var(--text-primary)', fontSize: 13, lineHeight: 1.7,
+              resize: 'vertical', outline: 'none',
+              fontFamily: 'var(--font-sans, DM Sans, sans-serif)',
+              boxSizing: 'border-box', whiteSpace: 'pre-wrap',
+            }}
+          />
+        ) : (
+          <div className="tiptap-compose" style={{ minHeight: isReply || isForward ? 120 : 200 }}>
+            <EditorContent editor={editor} />
+          </div>
+        )}
 
         {fromSignature ? (
           <div style={{ padding: '0 14px 10px' }}>
@@ -894,22 +945,26 @@ export default function ComposeModal() {
           </div>
         ) : null}
 
-        {quotedBody ? (
-          <textarea
-            value={quotedBody}
-            onChange={e => setQuotedBody(e.target.value)}
-            style={{
-              width: '100%', minHeight: 120,
-              padding: '10px 14px',
-              background: 'transparent',
-              borderTop: '1px solid var(--border-subtle)', borderBottom: 'none',
-              borderLeft: 'none', borderRight: 'none',
-              color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6,
-              resize: 'vertical', outline: 'none',
-              fontFamily: 'var(--font-sans, DM Sans, sans-serif)',
-              boxSizing: 'border-box', whiteSpace: 'pre-wrap',
-            }}
-          />
+        {(quotedBody || quotedBodyHtml) ? (
+          !plaintextEmail && quotedBodyHtml ? (
+              <QuotedEmailFrame html={quotedBodyHtml} />
+          ) : (
+            <textarea
+              value={quotedBody}
+              onChange={e => setQuotedBody(e.target.value)}
+              style={{
+                width: '100%', minHeight: 120,
+                padding: '10px 14px',
+                background: 'transparent',
+                borderTop: '1px solid var(--border-subtle)', borderBottom: 'none',
+                borderLeft: 'none', borderRight: 'none',
+                color: 'var(--text-tertiary)', fontSize: 12, lineHeight: 1.6,
+                resize: 'vertical', outline: 'none',
+                fontFamily: 'var(--font-sans, DM Sans, sans-serif)',
+                boxSizing: 'border-box', whiteSpace: 'pre-wrap',
+              }}
+            />
+          )
         ) : null}
       </div>
 
@@ -946,6 +1001,252 @@ export default function ComposeModal() {
         </button>
       </div>
     </div>
+  );
+}
+
+const COLORS = ['#000000','#444444','#888888','#ffffff','#e03131','#f76707','#f59f00','#2f9e44','#1971c2','#7048e8','#c2255c'];
+const FONTS = [
+  { label: 'Default', value: '' },
+  { label: 'Arial', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+  { label: 'Courier New', value: '"Courier New", Courier, monospace' },
+  { label: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
+  { label: 'Trebuchet MS', value: '"Trebuchet MS", Helvetica, sans-serif' },
+];
+
+// Defined at module level so React never remounts it due to reference change
+const TBtn = forwardRef(function TBtn({ active, title, onMouseDown, children }, ref) {
+  return (
+    <button
+      ref={ref}
+      title={title}
+      onMouseDown={onMouseDown}
+      style={{
+        background: active ? 'var(--bg-hover)' : 'none',
+        border: 'none', borderRadius: 4, padding: '3px 6px',
+        color: active ? 'var(--accent)' : 'var(--text-secondary)',
+        cursor: 'pointer', fontSize: 12, fontWeight: 600,
+        display: 'inline-flex', alignItems: 'center',
+      }}
+    >
+      {children}
+    </button>
+  );
+});
+
+function Sep() {
+  return <span style={{ width: 1, background: 'var(--border-subtle)', margin: '2px 4px', alignSelf: 'stretch' }} />;
+}
+
+function RichToolbar({ editor }) {
+  const [colorPos, setColorPos] = useState(null);
+  const [emojiPos, setEmojiPos] = useState(null);
+  const [linkPos, setLinkPos] = useState(null);
+  const [linkUrl, setLinkUrl] = useState('');
+  const colorBtnRef = useRef(null);
+  const emojiBtnRef = useRef(null);
+  const linkBtnRef = useRef(null);
+  const colorPopRef = useRef(null);
+  const emojiPopRef = useRef(null);
+  const linkPopRef = useRef(null);
+
+  useEffect(() => {
+    if (!colorPos && !emojiPos && !linkPos) return;
+    const handler = (e) => {
+      if (colorPos && colorBtnRef.current && !colorBtnRef.current.contains(e.target) && colorPopRef.current && !colorPopRef.current.contains(e.target)) setColorPos(null);
+      if (emojiPos && emojiBtnRef.current && !emojiBtnRef.current.contains(e.target) && emojiPopRef.current && !emojiPopRef.current.contains(e.target)) setEmojiPos(null);
+      if (linkPos && linkBtnRef.current && !linkBtnRef.current.contains(e.target) && linkPopRef.current && !linkPopRef.current.contains(e.target)) setLinkPos(null);
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [colorPos, emojiPos, linkPos]);
+
+  const es = useEditorState({
+    editor,
+    selector: ({ editor: ed }) => ed ? {
+      bold: ed.isActive('bold'),
+      italic: ed.isActive('italic'),
+      underline: ed.isActive('underline'),
+      strike: ed.isActive('strike'),
+      bulletList: ed.isActive('bulletList'),
+      orderedList: ed.isActive('orderedList'),
+      link: ed.isActive('link'),
+      alignLeft: ed.isActive({ textAlign: 'left' }),
+      alignCenter: ed.isActive({ textAlign: 'center' }),
+      alignRight: ed.isActive({ textAlign: 'right' }),
+      color: ed.getAttributes('textStyle').color,
+      fontFamily: ed.getAttributes('textStyle').fontFamily,
+    } : {},
+  });
+
+  if (!editor) return null;
+
+  const openColor = (e) => {
+    e.preventDefault();
+    if (colorPos) { setColorPos(null); return; }
+    const r = colorBtnRef.current.getBoundingClientRect();
+    setColorPos({ top: r.bottom + 4, left: r.left });
+    setEmojiPos(null); setLinkPos(null);
+  };
+  const openEmoji = (e) => {
+    e.preventDefault();
+    if (emojiPos) { setEmojiPos(null); return; }
+    const r = emojiBtnRef.current.getBoundingClientRect();
+    // open upward so it doesn't go off-screen at the bottom
+    setEmojiPos({ bottom: window.innerHeight - r.top + 4, left: Math.min(r.left, window.innerWidth - 360) });
+    setColorPos(null); setLinkPos(null);
+  };
+  const openLink = (e) => {
+    e.preventDefault();
+    if (linkPos) { setLinkPos(null); return; }
+    const r = linkBtnRef.current.getBoundingClientRect();
+    const left = Math.max(4, Math.min(r.left, window.innerWidth - 300));
+    setLinkPos({ top: r.bottom + 4, left });
+    setColorPos(null); setEmojiPos(null);
+    setLinkUrl(editor.getAttributes('link').href || '');
+  };
+  const submitLink = () => {
+    if (linkUrl) {
+      const href = linkUrl.startsWith('http') ? linkUrl : 'https://' + linkUrl;
+      editor.chain().focus().setLink({ href }).run();
+      // unsetMark() skips collapsed selections and never touches storedMarks,
+      // so we go through the ProseMirror transaction API directly to remove
+      // the link mark from storedMarks — otherwise the next typed char is linked.
+      const linkMark = editor.schema.marks.link;
+      if (linkMark) {
+        const tr = editor.state.tr;
+        tr.removeStoredMark(linkMark);
+        editor.view.dispatch(tr);
+      }
+    } else {
+      editor.chain().focus().unsetLink().run();
+    }
+    setLinkPos(null);
+    setLinkUrl('');
+  };
+
+  const tb = (active, title, onMD, children) => (
+    <TBtn key={title} active={active} title={title} onMouseDown={onMD}>{children}</TBtn>
+  );
+
+  return (
+    <>
+      <div style={{ borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 2, padding: '4px 10px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Font picker */}
+        <select
+          value={es.fontFamily || ''}
+          onChange={e => {
+            if (e.target.value) editor.chain().focus().setFontFamily(e.target.value).run();
+            else editor.chain().focus().unsetFontFamily().run();
+          }}
+          style={{
+            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+            borderRadius: 4, color: 'var(--text-secondary)', fontSize: 11,
+            padding: '2px 4px', cursor: 'pointer', outline: 'none', maxWidth: 100,
+          }}
+        >
+          {FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+        </select>
+
+        <Sep />
+
+        {tb(es.bold, 'Bold', e => { e.preventDefault(); editor.chain().focus().toggleBold().run(); }, <b>B</b>)}
+        {tb(es.italic, 'Italic', e => { e.preventDefault(); editor.chain().focus().toggleItalic().run(); }, <i>I</i>)}
+        {tb(es.underline, 'Underline', e => { e.preventDefault(); editor.chain().focus().toggleUnderline().run(); }, <u>U</u>)}
+        {tb(es.strike, 'Strikethrough', e => { e.preventDefault(); editor.chain().focus().toggleStrike().run(); }, <s>S</s>)}
+
+        <Sep />
+
+        <button ref={colorBtnRef} title="Text color" onMouseDown={openColor}
+          style={{ background: 'none', border: 'none', borderRadius: 4, padding: '3px 6px', cursor: 'pointer', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', lineHeight: 1 }}>A</span>
+          <span style={{ width: 12, height: 3, borderRadius: 1, background: es.color || 'var(--text-primary)' }} />
+        </button>
+
+        <Sep />
+
+        {tb(es.alignLeft, 'Align left', e => { e.preventDefault(); editor.chain().focus().setTextAlign('left').run(); },
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>)}
+        {tb(es.alignCenter, 'Align center', e => { e.preventDefault(); editor.chain().focus().setTextAlign('center').run(); },
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>)}
+        {tb(es.alignRight, 'Align right', e => { e.preventDefault(); editor.chain().focus().setTextAlign('right').run(); },
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>)}
+
+        <Sep />
+
+        {tb(es.bulletList, 'Bullet list', e => { e.preventDefault(); editor.chain().focus().toggleBulletList().run(); },
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/></svg>)}
+        {tb(es.orderedList, 'Numbered list', e => { e.preventDefault(); editor.chain().focus().toggleOrderedList().run(); },
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><text x="1" y="8" fontSize="7" fill="currentColor" stroke="none" fontFamily="sans-serif">1.</text><text x="1" y="14" fontSize="7" fill="currentColor" stroke="none" fontFamily="sans-serif">2.</text><text x="1" y="20" fontSize="7" fill="currentColor" stroke="none" fontFamily="sans-serif">3.</text></svg>)}
+
+        <Sep />
+
+        <TBtn ref={linkBtnRef} active={es.link} title="Insert link" onMouseDown={openLink}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+        </TBtn>
+        <button ref={emojiBtnRef} title="Emoji" onMouseDown={openEmoji}
+          style={{ background: 'none', border: 'none', borderRadius: 4, padding: '3px 6px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+          <span style={{ fontSize: 13, lineHeight: 1 }}>😀</span>
+        </button>
+      </div>
+
+      {/* Popups — position:fixed so they escape any overflow clipping */}
+      {colorPos && (
+        <div ref={colorPopRef} style={{
+          position: 'fixed', top: colorPos.top, left: colorPos.left, zIndex: 9900,
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+          borderRadius: 8, padding: 8, boxShadow: 'var(--shadow-popover)',
+          display: 'flex', flexWrap: 'wrap', gap: 4, width: 136,
+        }}>
+          {COLORS.map(c => (
+            <button key={c} onMouseDown={e => { e.preventDefault(); editor.chain().focus().setColor(c).run(); setColorPos(null); }}
+              style={{ width: 18, height: 18, borderRadius: 4, background: c, border: '1px solid var(--border)', cursor: 'pointer', padding: 0,
+                outline: editor.isActive('textStyle', { color: c }) ? '2px solid var(--accent)' : 'none', outlineOffset: 1 }} />
+          ))}
+          <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().unsetColor().run(); setColorPos(null); }}
+            title="Remove color"
+            style={{ width: 18, height: 18, borderRadius: 4, border: '1px solid var(--border)', cursor: 'pointer', padding: 0, fontSize: 9, color: 'var(--text-tertiary)', background: 'none' }}>✕</button>
+        </div>
+      )}
+
+      {linkPos && (
+        <div ref={linkPopRef} style={{
+          position: 'fixed', top: linkPos.top, left: linkPos.left, zIndex: 9900,
+          background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+          borderRadius: 8, padding: '10px 12px', boxShadow: 'var(--shadow-popover)',
+          display: 'flex', flexDirection: 'column', gap: 8, width: 280,
+        }}>
+          <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 500 }}>Insert link</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input autoFocus value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitLink(); } if (e.key === 'Escape') setLinkPos(null); }}
+              placeholder="https://..."
+              style={{ flex: 1, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 5, padding: '6px 8px', color: 'var(--text-primary)', fontSize: 12, outline: 'none' }} />
+            <button onMouseDown={e => { e.preventDefault(); submitLink(); }}
+              style={{ background: 'var(--accent)', border: 'none', borderRadius: 5, color: 'white', fontSize: 12, padding: '6px 12px', cursor: 'pointer', flexShrink: 0 }}>Apply</button>
+          </div>
+          {es.link && (
+            <button onMouseDown={e => { e.preventDefault(); editor.chain().focus().unsetLink().run(); setLinkPos(null); }}
+              style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 11, cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+              Remove link
+            </button>
+          )}
+        </div>
+      )}
+
+      {emojiPos && (
+        <div ref={emojiPopRef} style={{ position: 'fixed', bottom: emojiPos.bottom, left: emojiPos.left, zIndex: 9900 }}>
+          <Picker data={emojiData} onEmojiSelect={emoji => { editor.chain().focus().insertContent(emoji.native).run(); setEmojiPos(null); }}
+            theme="auto" previewPosition="none" skinTonePosition="none"
+            perLine={8} emojiSize={20} emojiButtonSize={28} maxFrequentRows={2} />
+        </div>
+      )}
+    </>
   );
 }
 
@@ -986,6 +1287,59 @@ function DropItem({ icon, label, active, onClick }) {
           <polyline points="20 6 9 17 4 12"/>
         </svg>
       )}
+    </div>
+  );
+}
+
+function QuotedEmailFrame({ html, mobile }) {
+  const iframeRef = useRef(null);
+  const [height, setHeight] = useState(200);
+
+  const srcDoc = `<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; style-src 'unsafe-inline';">
+    <base target="_blank">
+  </head><body>${html.replace(/<a(\s)/gi, '<a rel="noopener noreferrer"$1')}<style>
+    html, body { height: auto !important; min-height: 0 !important; overflow-x: hidden !important; margin: 0 !important; padding: 0 !important; }
+    body { font-family: -apple-system, Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #ccc; background: transparent !important; word-wrap: break-word; overflow-wrap: break-word; }
+    * { max-width: 100% !important; box-sizing: border-box !important; }
+    img { max-width: 100% !important; height: auto !important; }
+    table { table-layout: auto !important; }
+    a { color: #7c6af7; }
+    pre, code { white-space: pre-wrap; word-break: break-all; }
+  </style></body></html>`;
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const onLoad = () => {
+      const doc = iframe.contentDocument;
+      if (!doc) return;
+      const h = Math.max(
+        doc.documentElement?.scrollHeight || 0,
+        doc.body?.scrollHeight || 0,
+      );
+      if (h > 0) setHeight(Math.min(h, 400));
+    };
+    iframe.addEventListener('load', onLoad, { once: true });
+    if (iframe.contentDocument?.readyState === 'complete') onLoad();
+    return () => iframe.removeEventListener('load', onLoad);
+  }, [html]);
+
+  return (
+    <div style={{
+      borderTop: '1px solid var(--border-subtle)',
+      padding: mobile ? '0 16px' : '0 14px',
+    }}>
+      <iframe
+        ref={iframeRef}
+        srcDoc={srcDoc}
+        scrolling="no"
+        sandbox="allow-same-origin allow-popups"
+        title="Quoted email"
+        style={{ width: '1px', minWidth: '100%', border: 'none', display: 'block', height }}
+      />
     </div>
   );
 }
