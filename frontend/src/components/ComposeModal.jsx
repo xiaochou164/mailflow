@@ -1099,7 +1099,7 @@ function RichToolbar({ editor }) {
     e.preventDefault();
     if (emojiPos) { setEmojiPos(null); return; }
     const r = emojiBtnRef.current.getBoundingClientRect();
-    const left = Math.max(4, Math.min(r.left, window.innerWidth - 360));
+    const left = Math.max(4, Math.min(r.left, window.innerWidth - 220));
     const spaceBelow = window.innerHeight - r.bottom;
     const spaceAbove = r.top;
     const pos = spaceBelow >= 420 || spaceBelow >= spaceAbove
@@ -1247,10 +1247,10 @@ function RichToolbar({ editor }) {
       )}
 
       {emojiPos && (
-        <div ref={emojiPopRef} style={{ position: 'fixed', top: emojiPos.top, bottom: emojiPos.bottom, left: emojiPos.left, zIndex: 9900 }}>
+        <div ref={emojiPopRef} style={{ position: 'fixed', top: emojiPos.top, bottom: emojiPos.bottom, left: emojiPos.left, zIndex: 9900, height: 284, overflow: 'hidden', borderRadius: 8 }}>
           <Picker data={emojiData} onEmojiSelect={emoji => { editor.chain().focus().insertContent(emoji.native).run(); setEmojiPos(null); }}
             theme="auto" previewPosition="none" skinTonePosition="none"
-            perLine={8} emojiSize={20} emojiButtonSize={28} maxFrequentRows={2} />
+            perLine={7} emojiSize={18} emojiButtonSize={26} maxFrequentRows={1} />
         </div>
       )}
     </>
