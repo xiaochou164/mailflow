@@ -342,7 +342,7 @@ export default function ComposeModal() {
         }}>
           <button
             onClick={() => {
-              const currentBody = plaintextEmail ? body : (editor?.getHTML() ?? '');
+              const currentBody = plaintextEmail ? body : (editor?.isEmpty ? '' : (editor?.getHTML() ?? ''));
               const isDirty =
                 currentBody !== initialBodyRef.current ||
                 subject !== initialSubjectRef.current ||

@@ -247,27 +247,3 @@ body, #root {
 @supports (-webkit-touch-callout: none) {
   .tiptap-compose .ProseMirror { font-size: 16px !important; }
 }
-
-/* Quoted email HTML inside compose — constrain email content so wide tables/images
-   don't break the compose panel layout or bleed their own styles outward. */
-.compose-quoted-email {
-  overflow-x: hidden;
-  max-width: 100%;
-}
-.compose-quoted-email * {
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-}
-.compose-quoted-email img {
-  max-width: 100% !important;
-  height: auto !important;
-}
-.compose-quoted-email table {
-  width: 100% !important;
-  table-layout: fixed !important;
-}
-.compose-quoted-email pre,
-.compose-quoted-email code {
-  white-space: pre-wrap !important;
-  word-break: break-word !important;
-}
