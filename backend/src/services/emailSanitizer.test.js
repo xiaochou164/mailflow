@@ -188,9 +188,9 @@ describe('hasRemoteImages', () => {
 // ── blockRemoteImages ──────────────────────────────────────────────────────
 
 describe('blockRemoteImages', () => {
-  it('replaces remote img src with data:,', () => {
+  it('replaces remote img src with an SVG placeholder', () => {
     const out = blockRemoteImages('<img src="https://example.com/tracker.png">');
-    expect(out).toContain('src="data:,"');
+    expect(out).toContain('src="data:image/svg+xml,');
     expect(out).not.toContain('example.com');
   });
 
