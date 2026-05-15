@@ -1748,6 +1748,8 @@ export default function MessageList() {
                 isNarrow={isNarrow}
                 onThreadClick={() => handleThreadClick(message)}
                 onSelect={handleSelect}
+                onMarkRead={handleMarkRead}
+                onStar={handleStar}
                 onDelete={handleDelete}
                 hoverQuickActions={hoverQuickActions}
                 onContextMenu={(e, msg) => {
@@ -2086,7 +2088,7 @@ function EmptyState({ folderSyncing, searchQuery, unreadOnly, selectedFolder, ac
   );
 }
 
-function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedMessageId, lastViewedMessageId, showAccount, isNarrow, onThreadClick, onSelect, onDelete, hoverQuickActions, onContextMenu, isMobile, onSwipeLeft, onSwipeRight }) {
+function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedMessageId, lastViewedMessageId, showAccount, isNarrow, onThreadClick, onSelect, onMarkRead, onStar, onDelete, hoverQuickActions, onContextMenu, isMobile, onSwipeLeft, onSwipeRight }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const messageCount = message.message_count || 1;
@@ -2333,6 +2335,24 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
             borderRadius: 5,
             padding: '1px 2px',
           }}>
+            <ActionBtn
+              title={unreadCount > 0 ? 'Mark read' : 'Mark unread'}
+              onClick={e => onMarkRead(e, message)}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={unreadCount > 0 ? 'none' : 'currentColor'} stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </ActionBtn>
+
+            <ActionBtn title={message.is_starred ? 'Unstar' : 'Star'} onClick={e => onStar(e, message)}>
+              <svg width="13" height="13" viewBox="0 0 24 24"
+                fill={message.is_starred ? 'var(--amber)' : 'none'}
+                stroke={message.is_starred ? 'var(--amber)' : 'currentColor'} strokeWidth="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </ActionBtn>
+
             <ActionBtn title={t('message.delete')} onClick={e => onDelete(e, message)}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="3 6 5 6 21 6"/>

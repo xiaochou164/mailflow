@@ -1248,7 +1248,7 @@ function LayoutsTab() {
           </div>
         </div>
 
-        <div>
+        <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
             {scrollMode === 'paginated' ? t('admin.messageList.perPagePaginated') : t('admin.messageList.perPageInfinite')}
           </div>
@@ -1277,7 +1277,7 @@ function LayoutsTab() {
         </div>
 
         {/* Hover quick actions */}
-        <div style={{ marginBottom: 18 }}>
+        <div>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
             {t('admin.messageList.hoverQuickActionsMode')}
           </div>
