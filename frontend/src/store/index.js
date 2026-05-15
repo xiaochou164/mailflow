@@ -194,7 +194,7 @@ export const useStore = create((set, get) => ({
   },
 
   // Message list quick actions
-  hoverDeleteEnabled: localStorage.getItem('mailflow_hover_delete_enabled') !== 'false',
+  hoverDeleteEnabled: localStorage.getItem('mailflow_hover_delete_enabled') === 'true',
   setHoverDeleteEnabled: (val) => {
     localStorage.setItem('mailflow_hover_delete_enabled', String(val));
     set({ hoverDeleteEnabled: val });
