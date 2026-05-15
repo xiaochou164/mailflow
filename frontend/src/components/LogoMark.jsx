@@ -10,9 +10,9 @@ export default function LogoMark({ size = 32 }) {
 
   const id = `lm_${size}`;
   return (
-    <svg id="Mailflow_Logo" data-name="Mailflow Logo" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+    <svg id="Mailflow_Logo" data-name="Mailflow Logo" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
       <defs>
-        <style>
+        <style>{`
           .cls-1 {
             fill: url(#linear-gradient-2);
           }
@@ -30,13 +30,13 @@ export default function LogoMark({ size = 32 }) {
           }
 
           .cls-7 {
-            clip-path: url(#clippath-1);
+            clipPath: url(#clippath-1);
           }
 
           .cls-4 {
             opacity: .38;
-            stroke-linejoin: round;
-            stroke-width: 1.4px;
+            strokeLinejoin: round;
+            strokeWidth: 1.4px;
           }
 
           .cls-4, .cls-5 {
@@ -45,12 +45,12 @@ export default function LogoMark({ size = 32 }) {
 
           .cls-5 {
             opacity: .16;
-            stroke-miterlimit: 10;
-            stroke-width: 1.1px;
+            strokeMiterlimit: 10;
+            strokeWidth: 1.1px;
           }
 
           .cls-8 {
-            clip-path: url(#clippath-2);
+            clipPath: url(#clippath-2);
           }
 
           .cls-9 {
@@ -63,45 +63,45 @@ export default function LogoMark({ size = 32 }) {
           }
 
           .cls-11 {
-            clip-path: url(#clippath);
+            clipPath: url(#clippath);
           }
-        </style>
+        `}</style>
         <linearGradient id="linear-gradient" x1="-913.53" y1="540.66" x2="-912.53" y2="539.66" gradientTransform="translate(29233 17301) scale(32 -32)" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#9b82ff"/>
-          <stop offset="1" stop-color="#5340d6"/>
+          <stop offset="0" stopColor="#9b82ff"/>
+          <stop offset="1" stopColor="#5340d6"/>
         </linearGradient>
         <linearGradient id="linear-gradient-2" x1="-913.03" y1="524.31" x2="-913.03" y2="523.31" gradientTransform="translate(29233 8389) scale(32 -16)" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#fff" stop-opacity=".14"/>
-          <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+          <stop offset="0" stopColor="#fff" stopOpacity=".14"/>
+          <stop offset="1" stopColor="#fff" stopOpacity="0"/>
         </linearGradient>
         <clipPath id="clippath">
-          <rect class="cls-3" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
+          <rect className="cls-3" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
         </clipPath>
         <clipPath id="clippath-1">
-          <rect class="cls-3" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
+          <rect className="cls-3" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
         </clipPath>
         <clipPath id="clippath-2">
-          <rect id="Envelope_body-2" data-name="Envelope body" class="cls-3" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
+          <rect id="Envelope_body-2" data-name="Envelope body" className="cls-3" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
         </clipPath>
       </defs>
-      <rect id="Background" class="cls-10" width="32" height="32" rx="7.5" ry="7.5"/>
-      <rect id="Subtle_top-gloss_highlight" data-name="Subtle top-gloss highlight" class="cls-1" width="32" height="16" rx="7.5" ry="7.5"/>
-      <rect id="Envelope_drop_shadow" data-name="Envelope drop shadow" class="cls-6" x="5" y="11.5" width="22" height="15" rx="2.5" ry="2.5"/>
-      <rect id="Envelope_body" data-name="Envelope body" class="cls-2" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
+      <rect id="Background" className="cls-10" width="32" height="32" rx="7.5" ry="7.5"/>
+      <rect id="Subtle_top-gloss_highlight" data-name="Subtle top-gloss highlight" className="cls-1" width="32" height="16" rx="7.5" ry="7.5"/>
+      <rect id="Envelope_drop_shadow" data-name="Envelope drop shadow" className="cls-6" x="5" y="11.5" width="22" height="15" rx="2.5" ry="2.5"/>
+      <rect id="Envelope_body" data-name="Envelope body" className="cls-2" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
       <g id="Flap_top-triangle_shading_fold_shadow_" data-name="Flap top-triangle shading (fold shadow)">
-        <g class="cls-11">
-          <path class="cls-9" d="M5,10.5l11,10,11-10H5Z"/>
+        <g className="cls-11">
+          <path className="cls-9" d="M5,10.5l11,10,11-10H5Z"/>
         </g>
       </g>
       <g id="Flap_fold_line_crisp_V_indicating_envelope_crease" data-name="Flap fold line — crisp V indicating envelope crease">
-        <g class="cls-7">
-          <path class="cls-4" d="M5,10.5l11,10,11-10"/>
+        <g className="cls-7">
+          <path className="cls-4" d="M5,10.5l11,10,11-10"/>
         </g>
       </g>
       <g id="Bottom_corner_seam_lines" data-name="Bottom corner seam lines">
-        <g class="cls-8">
-          <line class="cls-5" x1="5" y1="25.5" x2="13" y2="20"/>
-          <line class="cls-5" x1="27" y1="25.5" x2="19" y2="20"/>
+        <g className="cls-8">
+          <line className="cls-5" x1="5" y1="25.5" x2="13" y2="20"/>
+          <line className="cls-5" x1="27" y1="25.5" x2="19" y2="20"/>
         </g>
       </g>
     </svg>
