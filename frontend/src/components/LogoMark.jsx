@@ -10,99 +10,62 @@ export default function LogoMark({ size = 32 }) {
 
   const id = `lm_${size}`;
   return (
-    <svg id="Mailflow_Logo" data-name="Mailflow Logo" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" viewBox="0 0 32 32">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ flexShrink: 0 }}
+    >
       <defs>
-        <style>{`
-          .cls-1 {
-            fill: url(#linear-gradient-2);
-          }
-
-          .cls-2 {
-            fill: #fff;
-          }
-
-          .cls-3, .cls-4, .cls-5 {
-            fill: none;
-          }
-
-          .cls-6 {
-            opacity: .18;
-          }
-
-          .cls-7 {
-            clipPath: url(#clippath-1);
-          }
-
-          .cls-4 {
-            opacity: .38;
-            strokeLinejoin: round;
-            strokeWidth: 1.4px;
-          }
-
-          .cls-4, .cls-5 {
-            stroke: #5340d6;
-          }
-
-          .cls-5 {
-            opacity: .16;
-            strokeMiterlimit: 10;
-            strokeWidth: 1.1px;
-          }
-
-          .cls-8 {
-            clipPath: url(#clippath-2);
-          }
-
-          .cls-9 {
-            fill: #5340d6;
-            opacity: .1;
-          }
-
-          .cls-10 {
-            fill: url(#linear-gradient);
-          }
-
-          .cls-11 {
-            clipPath: url(#clippath);
-          }
-        `}</style>
-        <linearGradient id="linear-gradient" x1="-913.53" y1="540.66" x2="-912.53" y2="539.66" gradientTransform="translate(29233 17301) scale(32 -32)" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#9b82ff"/>
-          <stop offset="1" stopColor="#5340d6"/>
+        {/* Tonal overlay: white top-left → dark bottom-right for depth */}
+        <linearGradient id={`tonal_${id}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stopColor="rgba(255,255,255,0.22)"/>
+          <stop offset="100%" stopColor="rgba(0,0,0,0.28)"/>
         </linearGradient>
-        <linearGradient id="linear-gradient-2" x1="-913.03" y1="524.31" x2="-913.03" y2="523.31" gradientTransform="translate(29233 8389) scale(32 -16)" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#fff" stopOpacity=".14"/>
-          <stop offset="1" stopColor="#fff" stopOpacity="0"/>
+        {/* Top-gloss highlight */}
+        <linearGradient id={`sh_${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="rgba(255,255,255,0.14)"/>
+          <stop offset="100%" stopColor="rgba(255,255,255,0)"/>
         </linearGradient>
-        <clipPath id="clippath">
-          <rect className="cls-3" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
-        </clipPath>
-        <clipPath id="clippath-1">
-          <rect className="cls-3" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
-        </clipPath>
-        <clipPath id="clippath-2">
-          <rect id="Envelope_body-2" data-name="Envelope body" className="cls-3" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
+        <clipPath id={`ec_${id}`}>
+          <rect x="5" y="10.5" width="22" height="15" rx="2.5"/>
         </clipPath>
       </defs>
-      <rect id="Background" className="cls-10" width="32" height="32" rx="7.5" ry="7.5"/>
-      <rect id="Subtle_top-gloss_highlight" data-name="Subtle top-gloss highlight" className="cls-1" width="32" height="16" rx="7.5" ry="7.5"/>
-      <rect id="Envelope_drop_shadow" data-name="Envelope drop shadow" className="cls-6" x="5" y="11.5" width="22" height="15" rx="2.5" ry="2.5"/>
-      <rect id="Envelope_body" data-name="Envelope body" className="cls-2" x="5" y="10.5" width="22" height="15" rx="2.5" ry="2.5"/>
-      <g id="Flap_top-triangle_shading_fold_shadow_" data-name="Flap top-triangle shading (fold shadow)">
-        <g className="cls-11">
-          <path className="cls-9" d="M5,10.5l11,10,11-10H5Z"/>
-        </g>
-      </g>
-      <g id="Flap_fold_line_crisp_V_indicating_envelope_crease" data-name="Flap fold line — crisp V indicating envelope crease">
-        <g className="cls-7">
-          <path className="cls-4" d="M5,10.5l11,10,11-10"/>
-        </g>
-      </g>
-      <g id="Bottom_corner_seam_lines" data-name="Bottom corner seam lines">
-        <g className="cls-8">
-          <line className="cls-5" x1="5" y1="25.5" x2="13" y2="20"/>
-          <line className="cls-5" x1="27" y1="25.5" x2="19" y2="20"/>
-        </g>
+
+      {/* Background — accent hex passed directly, re-renders when theme changes */}
+      <rect width="32" height="32" rx="7.5" fill={accent}/>
+      {/* Tonal gradient overlay for depth */}
+      <rect width="32" height="32" rx="7.5" fill={`url(#tonal_${id})`}/>
+      {/* Top-gloss highlight */}
+      <rect width="32" height="16" rx="7.5" fill={`url(#sh_${id})`}/>
+
+      {/* Envelope drop shadow */}
+      <rect x="5" y="11.5" width="22" height="15" rx="2.5" fill="rgba(0,0,0,0.18)"/>
+      {/* Envelope body */}
+      <rect x="5" y="10.5" width="22" height="15" rx="2.5" fill="white"/>
+
+      {/* Flap fold — subtle triangle shading */}
+      <path
+        d="M5,10.5 L16,20.5 L27,10.5 Z"
+        fill="rgba(0,0,0,0.08)"
+        clipPath={`url(#ec_${id})`}
+      />
+      {/* Flap crease line */}
+      <path
+        d="M5,10.5 L16,20.5 L27,10.5"
+        fill="none"
+        stroke="rgba(0,0,0,0.28)"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        clipPath={`url(#ec_${id})`}
+      />
+
+      {/* Bottom corner seam lines */}
+      {/* Masked so they stop at the envelope body bottom edge */}
+      <g clipPath={`url(#ec_${id})`}>
+        <line x1="5"  y1="25.5" x2="13" y2="20" stroke="rgba(0,0,0,0.14)" strokeWidth="1.1"/>
+        <line x1="27" y1="25.5" x2="19" y2="20" stroke="rgba(0,0,0,0.14)" strokeWidth="1.1"/>
       </g>
     </svg>
   );
