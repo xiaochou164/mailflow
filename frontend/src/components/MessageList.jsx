@@ -1011,6 +1011,13 @@ export default function MessageList() {
     }
   };
 
+  const handleThreadMarkRead = (e, message) => {
+    e.stopPropagation();
+    const uc = parseInt(message.unread_count);
+    const hasUnreadInThread = Number.isFinite(uc) && uc > 0;
+    handleContextAction(hasUnreadInThread ? 'markRead' : 'markUnread', message);
+  };
+
   const handleSelect = async (message) => {
     setSelectedMessage(message.id);
     if (!message.is_read) {
@@ -1748,7 +1755,7 @@ export default function MessageList() {
                 isNarrow={isNarrow}
                 onThreadClick={() => handleThreadClick(message)}
                 onSelect={handleSelect}
-                onMarkRead={handleMarkRead}
+                onMarkRead={handleThreadMarkRead}
                 onStar={handleStar}
                 onDelete={handleDelete}
                 hoverQuickActions={hoverQuickActions}
