@@ -43,6 +43,7 @@ export default function MessageList() {
     setMobileSidebarOpen,
     threadedView, expandedThreadId, setExpandedThreadId,
     threadMessages, setThreadMessages, loadingThread, setLoadingThread,
+    hoverQuickActions,
   } = useStore();
 
   const isMobile = useMobile();
@@ -1010,6 +1011,13 @@ export default function MessageList() {
     }
   };
 
+  const handleThreadMarkRead = (e, message) => {
+    e.stopPropagation();
+    const uc = parseInt(message.unread_count);
+    const hasUnreadInThread = Number.isFinite(uc) && uc > 0;
+    handleContextAction(hasUnreadInThread ? 'markRead' : 'markUnread', message);
+  };
+
   const handleSelect = async (message) => {
     setSelectedMessage(message.id);
     if (!message.is_read) {
@@ -1747,6 +1755,10 @@ export default function MessageList() {
                 isNarrow={isNarrow}
                 onThreadClick={() => handleThreadClick(message)}
                 onSelect={handleSelect}
+                onMarkRead={handleThreadMarkRead}
+                onStar={handleStar}
+                onDelete={handleDelete}
+                hoverQuickActions={hoverQuickActions}
                 onContextMenu={(e, msg) => {
                   e.preventDefault();
                   setContextMenu({ x: e.clientX, y: e.clientY, message: msg });
@@ -1773,6 +1785,7 @@ export default function MessageList() {
               onMarkRead={handleMarkRead}
               onStar={handleStar}
               onDelete={handleDelete}
+              hoverQuickActions={hoverQuickActions}
               onContextMenu={(e, msg) => {
                 e.preventDefault();
                 setContextMenu({ x: e.clientX, y: e.clientY, message: msg });
@@ -2082,7 +2095,7 @@ function EmptyState({ folderSyncing, searchQuery, unreadOnly, selectedFolder, ac
   );
 }
 
-function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedMessageId, lastViewedMessageId, showAccount, isNarrow, onThreadClick, onSelect, onContextMenu, isMobile, onSwipeLeft, onSwipeRight }) {
+function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedMessageId, lastViewedMessageId, showAccount, isNarrow, onThreadClick, onSelect, onMarkRead, onStar, onDelete, hoverQuickActions, onContextMenu, isMobile, onSwipeLeft, onSwipeRight }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const messageCount = message.message_count || 1;
@@ -2294,7 +2307,9 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
                 </span>
               )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginLeft: 8 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginLeft: 8,
+            }}>
               {message.has_attachments && (
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2">
                   <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
@@ -2319,6 +2334,40 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
             {message.snippet || ''}
           </div>
         </div>
+        {hovered && hoverQuickActions && (
+          <div style={{
+            position: 'absolute', bottom: 6, right: 8,
+            display: 'flex', alignItems: 'center', gap: 2,
+            background: rowBg,
+            borderRadius: 5,
+            padding: '1px 2px',
+          }}>
+            <ActionBtn
+              title={unreadCount > 0 ? t('contextMenu.markRead') : t('contextMenu.markUnread')}
+              onClick={e => onMarkRead(e, message)}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill={unreadCount > 0 ? 'none' : 'currentColor'} stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </ActionBtn>
+
+            <ActionBtn title={message.is_starred ? t('contextMenu.unstar') : t('contextMenu.star')} onClick={e => onStar(e, message)}>
+              <svg width="13" height="13" viewBox="0 0 24 24"
+                fill={message.is_starred ? 'var(--amber)' : 'none'}
+                stroke={message.is_starred ? 'var(--amber)' : 'currentColor'} strokeWidth="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </ActionBtn>
+
+            <ActionBtn title={t('message.delete')} onClick={e => onDelete(e, message)}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+              </svg>
+            </ActionBtn>
+          </div>
+        )}
       </div>
       </div>{/* end swipe container */}
 
@@ -2383,7 +2432,7 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
   );
 }
 
-function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, showAccount, isNarrow, onSelect, onToggleSelect, onMarkRead, onStar, onDelete, onContextMenu, isMobile, onSwipeLeft, onSwipeRight, onLongPress }) {
+function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, showAccount, isNarrow, onSelect, onToggleSelect, onMarkRead, onStar, onDelete, hoverQuickActions, onContextMenu, isMobile, onSwipeLeft, onSwipeRight, onLongPress }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const contentRef = useRef(null);
@@ -2684,7 +2733,7 @@ function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, s
       </div>
 
       {/* Hover actions — absolutely positioned so they never affect row height */}
-      {hovered && (
+      {hovered && hoverQuickActions && (
         <div style={{
           position: 'absolute', bottom: 6, right: 8,
           display: 'flex', alignItems: 'center', gap: 2,
@@ -2737,7 +2786,8 @@ function ActionBtn({ children, onClick, title }) {
       style={{
         background: hov ? 'var(--bg-hover)' : 'none',
         border: 'none', padding: '3px', borderRadius: 4,
-        color: 'var(--text-tertiary)', cursor: 'pointer',
+        color: hov ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+        cursor: 'pointer',
         display: 'flex', alignItems: 'center',
         transition: 'background 0.1s, color 0.1s',
       }}

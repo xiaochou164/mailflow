@@ -193,6 +193,14 @@ export const useStore = create((set, get) => ({
     schedulePrefSave({ plaintextEmail: val });
   },
 
+  // Message list quick actions
+  hoverQuickActions: localStorage.getItem('mailflow_hover_quick_actions') !== 'false',
+  setHoverQuickActions: (val) => {
+    localStorage.setItem('mailflow_hover_quick_actions', String(val));
+    set({ hoverQuickActions: val });
+    schedulePrefSave({ hoverQuickActions: val });
+  },
+
   // Thread expansion cache (not persisted — reset on navigation)
   expandedThreadId: null,
   setExpandedThreadId: (id) => set({ expandedThreadId: id }),
@@ -317,6 +325,10 @@ export const useStore = create((set, get) => ({
       if (typeof prefs.plaintextEmail === 'boolean') {
         localStorage.setItem('mailflow_plaintext_email', String(prefs.plaintextEmail));
         set({ plaintextEmail: prefs.plaintextEmail });
+      }
+      if (typeof prefs.hoverQuickActions === 'boolean') {
+        localStorage.setItem('mailflow_hover_quick_actions', String(prefs.hoverQuickActions));
+        set({ hoverQuickActions: prefs.hoverQuickActions });
       }
     } catch (_) {}
   },

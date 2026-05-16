@@ -428,7 +428,12 @@
       "composeRichText": "Rich text",
       "composeRichTextDesc": "Sends HTML — supports formatting and styled signatures",
       "composePlainText": "Plain text",
-      "composePlainTextDesc": "No HTML formatting — maximum compatibility"
+      "composePlainTextDesc": "No HTML formatting — maximum compatibility",
+      "hoverQuickActionsMode": "Quick actions on hover",
+      "hoverQuickActionsOff": "Off",
+      "hoverQuickActionsOffDesc": "Keep Quick Actions hidden until you use the context menu or shortcuts.",
+      "hoverQuickActionsOn": "On",
+      "hoverQuickActionsOnDesc": "Show Quick Action icons in message rows when the pointer is over them."
     },
     "notifications": {
       "title": "Notifications",

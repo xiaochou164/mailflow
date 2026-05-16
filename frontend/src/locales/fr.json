@@ -424,7 +424,12 @@
       "composeRichText": "Texte enrichi",
       "composeRichTextDesc": "Envoie du HTML — prend en charge la mise en forme et les signatures stylisées",
       "composePlainText": "Texte brut",
-      "composePlainTextDesc": "Aucun formatage HTML — compatibilité maximale"
+      "composePlainTextDesc": "Aucun formatage HTML — compatibilité maximale",
+      "hoverQuickActionsMode": "[NEEDS TRANSLATION] Quick actions on hover",
+      "hoverQuickActionsOff": "[NEEDS TRANSLATION] Off",
+      "hoverQuickActionsOffDesc": "[NEEDS TRANSLATION] Keep Quick Actions hidden until you use the context menu or shortcuts.",
+      "hoverQuickActionsOn": "[NEEDS TRANSLATION] On",
+      "hoverQuickActionsOnDesc": "[NEEDS TRANSLATION] Show Quick Action icons in message rows when the pointer is over them."
     },
     "notifications": {
       "title": "Notifications",

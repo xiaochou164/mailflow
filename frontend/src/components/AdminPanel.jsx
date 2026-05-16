@@ -1148,7 +1148,7 @@ function LayoutDiagram({ layoutKey, layoutConfig, active }) {
 // ─── Layouts Tab ──────────────────────────────────────────────────────────────
 function LayoutsTab() {
   const { t } = useTranslation();
-  const { layout, setLayout, pageSize, setPageSize, scrollMode, setScrollMode, syncInterval, setSyncInterval, threadedView, setThreadedView, plaintextEmail, setPlaintextEmail } = useStore();
+  const { layout, setLayout, pageSize, setPageSize, scrollMode, setScrollMode, syncInterval, setSyncInterval, threadedView, setThreadedView, plaintextEmail, setPlaintextEmail, hoverQuickActions, setHoverQuickActions } = useStore();
 
   const handleSelect = (key) => {
     setLayout(key);
@@ -1248,7 +1248,7 @@ function LayoutsTab() {
           </div>
         </div>
 
-        <div>
+        <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
             {scrollMode === 'paginated' ? t('admin.messageList.perPagePaginated') : t('admin.messageList.perPageInfinite')}
           </div>
@@ -1270,6 +1270,38 @@ function LayoutsTab() {
                   onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = 'var(--border-subtle)'; }}
                 >
                   {n}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Hover quick actions */}
+        <div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+            {t('admin.messageList.hoverQuickActionsMode')}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { id: false, label: t('admin.messageList.hoverQuickActionsOff'), desc: t('admin.messageList.hoverQuickActionsOffDesc') },
+              { id: true, label: t('admin.messageList.hoverQuickActionsOn'), desc: t('admin.messageList.hoverQuickActionsOnDesc') },
+            ].map(({ id, label, desc }) => {  
+              const active = hoverQuickActions === id;
+              return (
+                <button
+                  key={String(id)}
+                  onClick={() => setHoverQuickActions(id)}
+                  style={{
+                    flex: 1, padding: '10px 12px', textAlign: 'left',
+                    background: active ? 'var(--bg-hover)' : 'var(--bg-tertiary)',
+                    border: `2px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                    borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s', outline: 'none',
+                  }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.borderColor = 'var(--border)'; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.borderColor = 'var(--border-subtle)'; }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 2 }}>{label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{desc}</div>
                 </button>
               );
             })}
