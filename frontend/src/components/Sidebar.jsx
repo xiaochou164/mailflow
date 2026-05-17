@@ -358,6 +358,7 @@ export default function Sidebar() {
       'mailflow_notification_sound', 'mailflow_custom_sound', 'mailflow_custom_sound_name',
       'mailflow_page_size', 'mailflow_scroll_mode', 'mailflow_sync_interval',
       'mailflow_threaded_view', 'mailflow_plaintext_email', 'mailflow_language',
+      'mailflow_hover_quick_actions', 'mailflow_swipe_actions',
     ].forEach(k => localStorage.removeItem(k));
     setUser(null);
     window.location.href = '/login';
