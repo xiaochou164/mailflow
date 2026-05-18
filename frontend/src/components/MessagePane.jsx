@@ -1231,14 +1231,21 @@ export default function MessagePane() {
 
       {/* Plain-text email — no internal scroll, outer container handles it */}
       {!loadingBody && !bodyError && body?.text && !body?.html && (
-        <pre style={{
-          margin: 0, padding: isMobile ? '0 12px 16px' : '0 28px 24px',
-          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-          fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.7,
-          fontFamily: 'DM Sans, sans-serif',
-        }}
-          dangerouslySetInnerHTML={{ __html: linkifyText(body.text) }}
-        />
+        <div style={{
+          padding: isMobile ? '0 12px 16px' : '0 28px 24px',
+        }}>
+          <div style={{
+            margin: 0, padding: '14px 16px 12px',
+            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.7,
+            fontFamily: 'DM Sans, sans-serif', background: 'white',
+            borderRadius: isMobile ? 0 : 10,
+            border: isMobile ? 'none' : '1px solid var(--border-subtle)',
+            overflow: 'hidden',
+          }}
+            dangerouslySetInnerHTML={{ __html: linkifyText(body.text) }}
+          />
+        </div>
       )}
       </div>{/* end single scroll container */}
     </div>
