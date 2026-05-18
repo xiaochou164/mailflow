@@ -1174,6 +1174,7 @@ export default function MessagePane() {
           )}
           <div style={{
             position: 'relative',
+            padding: '14px 16px 12px',
             background: 'white',
             borderRadius: isMobile ? 0 : 10,
             border: isMobile ? 'none' : '1px solid var(--border-subtle)',
