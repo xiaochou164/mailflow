@@ -17,6 +17,7 @@
     "saving": "Wird gespeichert…",
     "never": "Nie",
     "noSubject": "(kein Betreff)",
+    "unknown": "Unbekannt",
     "error": "Fehler: {{message}}"
   },
   "login": {
@@ -170,6 +171,25 @@
     "noArchiveFolder": {
       "title": "Kein Archivordner",
       "body": "Kein Archivordner konfiguriert. In Einstellungen → Konten → Ordnerzuordnungen festlegen."
+    },
+    "selectMessages": "Nachrichten auswählen",
+    "selectedCount": "{{count}} ausgewählt",
+    "pullToSync": "Zum Synchronisieren ziehen",
+    "releaseToSync": "Loslassen zum Synchronisieren",
+    "noSearchResults": "Keine Ergebnisse gefunden",
+    "noSearchResultsDesc": "Keine Treffer für {{query}}",
+    "clearSearch": "Suche löschen",
+    "searchHelp": {
+      "title": "Suchoperatoren",
+      "from": "Von Absender",
+      "subject": "Im Betreff",
+      "to": "An / CC",
+      "hasAttachment": "Hat Anhang",
+      "isUnread": "Nur ungelesene",
+      "isStarred": "Nur markierte",
+      "after": "Nach Datum",
+      "before": "Vor Datum",
+      "tip": "Operatoren mit Stichwörtern kombinieren · z.B."
     }
   },
   "sidebar": {

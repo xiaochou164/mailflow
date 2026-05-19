@@ -17,6 +17,7 @@
     "saving": "Enregistrement…",
     "never": "Jamais",
     "noSubject": "(sans objet)",
+    "unknown": "Inconnu",
     "error": "Erreur : {{message}}"
   },
   "login": {
@@ -168,6 +169,25 @@
     "noArchiveFolder": {
       "title": "Aucun dossier d'archive",
       "body": "Aucun dossier d'archive configuré. Définissez-en un dans Paramètres → Comptes → Mappage des dossiers."
+    },
+    "selectMessages": "Sélectionner des messages",
+    "selectedCount": "{{count}} sélectionné(s)",
+    "pullToSync": "Tirer pour synchroniser",
+    "releaseToSync": "Relâcher pour synchroniser",
+    "noSearchResults": "Aucun résultat trouvé",
+    "noSearchResultsDesc": "Aucun résultat pour {{query}}",
+    "clearSearch": "Effacer la recherche",
+    "searchHelp": {
+      "title": "Opérateurs de recherche",
+      "from": "De l'expéditeur",
+      "subject": "Dans l'objet",
+      "to": "À / CC",
+      "hasAttachment": "A une pièce jointe",
+      "isUnread": "Non lus uniquement",
+      "isStarred": "Suivis uniquement",
+      "after": "Après le",
+      "before": "Avant le",
+      "tip": "Combinez opérateurs et mots-clés · ex."
     }
   },
   "sidebar": {

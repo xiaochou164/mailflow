@@ -17,6 +17,7 @@
     "saving": "保存中…",
     "never": "从不",
     "noSubject": "（无主题）",
+    "unknown": "未知",
     "error": "错误：{{message}}"
   },
   "login": {
@@ -168,6 +169,25 @@
     "noArchiveFolder": {
       "title": "未设置归档文件夹",
       "body": "未配置归档文件夹。请前往「设置 → 账户 → 文件夹映射」中设置。"
+    },
+    "selectMessages": "选择邮件",
+    "selectedCount": "已选 {{count}} 封",
+    "pullToSync": "下拉以同步",
+    "releaseToSync": "松开以同步",
+    "noSearchResults": "未找到结果",
+    "noSearchResultsDesc": "未找到与 {{query}} 相关的结果",
+    "clearSearch": "清除搜索",
+    "searchHelp": {
+      "title": "搜索操作符",
+      "from": "来自发件人",
+      "subject": "在主题中",
+      "to": "收件人 / 抄送",
+      "hasAttachment": "有附件",
+      "isUnread": "仅未读",
+      "isStarred": "仅已加星标",
+      "after": "在此日期之后",
+      "before": "在此日期之前",
+      "tip": "将操作符与关键词组合使用 · 例如"
     }
   },
   "sidebar": {

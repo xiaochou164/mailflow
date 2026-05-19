@@ -17,6 +17,7 @@
     "saving": "Guardando…",
     "never": "Nunca",
     "noSubject": "(sin asunto)",
+    "unknown": "Desconocido",
     "error": "Error: {{message}}"
   },
   "login": {
@@ -168,6 +169,25 @@
     "noArchiveFolder": {
       "title": "Sin carpeta de archivo",
       "body": "No hay carpeta de archivo configurada. Configura una en Ajustes → Cuentas → Asignación de carpetas."
+    },
+    "selectMessages": "Seleccionar mensajes",
+    "selectedCount": "{{count}} seleccionado(s)",
+    "pullToSync": "Deslizar para sincronizar",
+    "releaseToSync": "Soltar para sincronizar",
+    "noSearchResults": "No se encontraron resultados",
+    "noSearchResultsDesc": "Sin resultados para {{query}}",
+    "clearSearch": "Limpiar búsqueda",
+    "searchHelp": {
+      "title": "Operadores de búsqueda",
+      "from": "Del remitente",
+      "subject": "En el asunto",
+      "to": "Para / CC",
+      "hasAttachment": "Tiene adjunto",
+      "isUnread": "Solo no leídos",
+      "isStarred": "Solo destacados",
+      "after": "Después de",
+      "before": "Antes de",
+      "tip": "Combine operadores con palabras clave · ej."
     }
   },
   "sidebar": {

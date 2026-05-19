@@ -6,6 +6,7 @@ import { format, isToday, isYesterday, isThisYear } from 'date-fns';
 import { LAYOUTS } from '../layouts.js';
 import { senderColor } from '../themes.js';
 import { useMobile } from '../hooks/useMobile.js';
+import { useSwipeRow } from '../hooks/useSwipeRow.js';
 import ContextMenu from './ContextMenu.jsx';
 import { shortcutBus } from '../utils/shortcutBus.js';
 import { pendingMarkReadMap, completedMarkReadMap, setPending } from '../utils/pendingReads.js';
@@ -1440,12 +1441,12 @@ export default function MessageList() {
                 display: 'flex', alignItems: 'center',
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           ) : (
             <button
               onClick={() => setSelectionModeActive(true)}
-              aria-label="Select messages"
+              aria-label={t('messageList.selectMessages')}
               style={{
                 background: 'none', border: 'none',
                 color: 'var(--text-secondary)', cursor: 'pointer',
@@ -1553,7 +1554,7 @@ export default function MessageList() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
             <button
               onClick={() => setUnreadOnly(!unreadOnly)}
-              title={unreadOnly ? 'Show all' : 'Unread only'}
+              title={unreadOnly ? t('messageList.showAll') : t('messageList.unreadOnly')}
               style={{
                 background: unreadOnly ? 'var(--accent-dim)' : 'none',
                 border: `1px solid ${unreadOnly ? 'var(--accent)' : 'var(--border)'}`,
@@ -1562,12 +1563,12 @@ export default function MessageList() {
                 cursor: 'pointer', fontSize: 11, fontWeight: 500,
               }}
             >
-              Unread
+              {t('messageList.unread')}
             </button>
             <select
               value={pageSize}
               onChange={e => setPageSize(parseInt(e.target.value))}
-              title="Messages per page"
+              title={t('messageList.messagesPerPage')}
               style={{
                 background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
                 borderRadius: 6, padding: '4px 6px',
@@ -1635,17 +1636,17 @@ export default function MessageList() {
               padding: '10px 12px',
             }}>
               <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', marginBottom: 8 }}>
-                Search operators
+                {t('messageList.searchHelp.title')}
               </div>
               {[
-                { op: 'from:amazon',      desc: 'From sender' },
-                { op: 'subject:invoice',  desc: 'In subject' },
-                { op: 'to:john',          desc: 'To / CC' },
-                { op: 'has:attachment',   desc: 'Has attachment' },
-                { op: 'is:unread',        desc: 'Unread only' },
-                { op: 'is:starred',       desc: 'Starred only' },
-                { op: 'after:2024-01-01', desc: 'After date' },
-                { op: 'before:2024-12-31',desc: 'Before date' },
+                { op: 'from:amazon',      desc: t('messageList.searchHelp.from') },
+                { op: 'subject:invoice',  desc: t('messageList.searchHelp.subject') },
+                { op: 'to:john',          desc: t('messageList.searchHelp.to') },
+                { op: 'has:attachment',   desc: t('messageList.searchHelp.hasAttachment') },
+                { op: 'is:unread',        desc: t('messageList.searchHelp.isUnread') },
+                { op: 'is:starred',       desc: t('messageList.searchHelp.isStarred') },
+                { op: 'after:2024-01-01', desc: t('messageList.searchHelp.after') },
+                { op: 'before:2024-12-31',desc: t('messageList.searchHelp.before') },
               ].map(({ op, desc }) => (
                 <div
                   key={op}
@@ -1660,7 +1661,7 @@ export default function MessageList() {
                 </div>
               ))}
               <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)', fontSize: 10, color: 'var(--text-tertiary)' }}>
-                Combine operators with keywords · e.g. <code style={{ fontFamily: 'monospace' }}>from:amazon invoice</code>
+                {t('messageList.searchHelp.tip')} <code style={{ fontFamily: 'monospace' }}>from:amazon invoice</code>
               </div>
             </div>
           )}
@@ -1756,7 +1757,7 @@ export default function MessageList() {
                   opacity: Math.min((pullDistance - 20) / 20, 1),
                   transition: 'opacity 0.1s',
                 }}>
-                  {pullDistance >= 64 ? 'Release to sync' : 'Pull to sync'}
+                  {pullDistance >= 64 ? t('messageList.releaseToSync') : t('messageList.pullToSync')}
                 </div>
               )}
             </div>
@@ -1812,7 +1813,7 @@ export default function MessageList() {
               style={{ cursor: 'pointer', accentColor: 'var(--accent)', flexShrink: 0 }}
             />
             <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, userSelect: 'none' }}>
-              {selectedCount} selected
+              {t('messageList.selectedCount', { count: selectedCount })}
             </span>
 
             {/* Archive button */}
@@ -2358,14 +2359,14 @@ function EmptyState({ folderSyncing, searchQuery, unreadOnly, selectedFolder, ac
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
         </div>
-        <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 6 }}>No results found</div>
+        <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 6 }}>{t('messageList.noSearchResults')}</div>
         <div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 20 }}>
-          Nothing matched &ldquo;{searchQuery}&rdquo;
+          {t('messageList.noSearchResultsDesc', { query: searchQuery })}
         </div>
         <button onClick={onClearSearch} style={{
           padding: '7px 18px', borderRadius: 8, border: '1px solid var(--border)',
           background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13,
-        }}>Clear search</button>
+        }}>{t('messageList.clearSearch')}</button>
       </div>
     );
   }
@@ -2453,103 +2454,9 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
   const unreadCount  = parseInt(message.unread_count) || 0;
   const tid = message.thread_id || message.id;
 
-  const contentRef = useRef(null);
-  const swipeBgLeftRef = useRef(null);
-  const swipeBgRightRef = useRef(null);
-  const swipeRef = useRef({ active: false, startX: 0, startY: 0, dir: null, x: 0 });
-  const SWIPE_THRESHOLD = 72;
-
-  const springBack = useCallback(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    el.style.transition = 'transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)';
-    el.style.transform = 'translateX(0)';
-    el.style.boxShadow = '';
-    setTimeout(() => {
-      if (swipeBgLeftRef.current)  { swipeBgLeftRef.current.style.display = 'none'; swipeBgLeftRef.current.style.opacity = '1'; }
-      if (swipeBgRightRef.current) { swipeBgRightRef.current.style.display = 'none'; swipeBgRightRef.current.style.opacity = '1'; }
-    }, 260);
-  }, []);
-
-  useEffect(() => {
-    if (!isMobile) return;
-    const el = contentRef.current;
-    if (!el) return;
-
-    const showBgs = () => {
-      if (swipeBgLeftRef.current)  { swipeBgLeftRef.current.style.display = 'flex'; swipeBgLeftRef.current.style.opacity = '0'; }
-      if (swipeBgRightRef.current) { swipeBgRightRef.current.style.display = 'flex'; swipeBgRightRef.current.style.opacity = '0'; }
-    };
-    const hideBgs = () => {
-      if (swipeBgLeftRef.current)  swipeBgLeftRef.current.style.display = 'none';
-      if (swipeBgRightRef.current) swipeBgRightRef.current.style.display = 'none';
-    };
-
-    const onStart = (e) => {
-      const touch = e.touches[0];
-      swipeRef.current = { active: false, startX: touch.clientX, startY: touch.clientY, dir: null, x: 0 };
-      showBgs();
-    };
-
-    const onMove = (e) => {
-      const s = swipeRef.current;
-      const touch = e.touches[0];
-      const dx = touch.clientX - s.startX;
-      const dy = touch.clientY - s.startY;
-      if (!s.dir) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        s.dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-      }
-      if (s.dir === 'v') return;
-      if ((dx < 0 && !onSwipeLeft) || (dx > 0 && !onSwipeRight)) return;
-      e.preventDefault();
-      s.active = true;
-      s.x = Math.max(-160, Math.min(160, dx));
-      el.style.transition = 'none';
-      el.style.transform = `translateX(${s.x}px)`;
-      const progress = Math.min(Math.abs(s.x) / SWIPE_THRESHOLD, 1);
-      const iconScale = 0.7 + 0.3 * progress;
-      if (s.x > 0 && swipeBgLeftRef.current) {
-        swipeBgLeftRef.current.style.opacity = String(0.3 + 0.7 * progress);
-        const icon = swipeBgLeftRef.current.querySelector('svg');
-        if (icon) icon.style.transform = `scale(${iconScale})`;
-      } else if (s.x < 0 && swipeBgRightRef.current) {
-        swipeBgRightRef.current.style.opacity = String(0.3 + 0.7 * progress);
-        const icon = swipeBgRightRef.current.querySelector('svg');
-        if (icon) icon.style.transform = `scale(${iconScale})`;
-      }
-      el.style.boxShadow = progress > 0.1 ? `0 4px 20px rgba(0,0,0,${0.3 * progress})` : '';
-    };
-
-    const onEnd = () => {
-      const s = swipeRef.current;
-      if (!s.active) { s.dir = null; hideBgs(); return; }
-      const x = s.x;
-      s.active = false; s.dir = null; s.x = 0;
-      springBack();
-      if (x < -SWIPE_THRESHOLD) {
-        onSwipeLeft && onSwipeLeft(message);
-      } else if (x > SWIPE_THRESHOLD) {
-        onSwipeRight && onSwipeRight(message);
-      }
-    };
-
-    el.addEventListener('touchstart', onStart, { passive: true });
-    el.addEventListener('touchmove', onMove, { passive: false });
-    el.addEventListener('touchend', onEnd, { passive: true });
-    el.addEventListener('touchcancel', springBack, { passive: true });
-    return () => {
-      el.removeEventListener('touchstart', onStart);
-      el.removeEventListener('touchmove', onMove);
-      el.removeEventListener('touchend', onEnd);
-      el.removeEventListener('touchcancel', springBack);
-      el.style.transform = 'translateX(0)';
-      el.style.transition = '';
-      el.style.boxShadow = '';
-      if (swipeBgLeftRef.current)  swipeBgLeftRef.current.style.display = 'none';
-      if (swipeBgRightRef.current) swipeBgRightRef.current.style.display = 'none';
-    };
-  }, [isMobile, message, onSwipeLeft, onSwipeRight, springBack]);
+  const { contentRef, swipeBgLeftRef, swipeBgRightRef, springBack } = useSwipeRow({
+    isMobile, message, onSwipeLeft, onSwipeRight,
+  });
 
   const isLastViewed = lastViewedMessageId === message.id
     || (lastViewedMessageId && threadMsgs?.some(m => m.id === lastViewedMessageId));
@@ -2776,129 +2683,9 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
 function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, showAccount, isNarrow, onSelect, onToggleSelect, onMarkRead, onStar, onDelete, hoverQuickActions, onContextMenu, isMobile, swipeLeftAction, swipeRightAction, onSwipeLeft, onSwipeRight, onLongPress }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
-  const contentRef = useRef(null);
-  const swipeBgLeftRef = useRef(null);
-  const swipeBgRightRef = useRef(null);
-  const swipeRef = useRef({ active: false, startX: 0, startY: 0, dir: null, x: 0 });
-  const longPressTimerRef = useRef(null);
-
-  const SWIPE_THRESHOLD = 72;
-
-  const springBack = useCallback(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    el.style.transition = 'transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)';
-    el.style.transform = 'translateX(0)';
-    el.style.boxShadow = '';
-    setTimeout(() => {
-      if (swipeBgLeftRef.current)  { swipeBgLeftRef.current.style.display = 'none'; swipeBgLeftRef.current.style.opacity = '1'; }
-      if (swipeBgRightRef.current) { swipeBgRightRef.current.style.display = 'none'; swipeBgRightRef.current.style.opacity = '1'; }
-    }, 260);
-  }, []);
-
-  useEffect(() => {
-    if (!isMobile) return;
-    const el = contentRef.current;
-    if (!el) return;
-
-    const showBgs = () => {
-      if (swipeBgLeftRef.current)  { swipeBgLeftRef.current.style.display = 'flex'; swipeBgLeftRef.current.style.opacity = '0'; }
-      if (swipeBgRightRef.current) { swipeBgRightRef.current.style.display = 'flex'; swipeBgRightRef.current.style.opacity = '0'; }
-    };
-    const hideBgs = () => {
-      if (swipeBgLeftRef.current)  swipeBgLeftRef.current.style.display  = 'none';
-      if (swipeBgRightRef.current) swipeBgRightRef.current.style.display = 'none';
-    };
-
-    const cancelLongPress = () => {
-      if (longPressTimerRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
-    };
-
-    const onStart = (e) => {
-      const t = e.touches[0];
-      swipeRef.current = { active: false, startX: t.clientX, startY: t.clientY, dir: null, x: 0 };
-      showBgs();
-      if (onLongPress) {
-        longPressTimerRef.current = setTimeout(() => {
-          longPressTimerRef.current = null;
-          springBack();
-          onLongPress(message.id);
-        }, 500);
-      }
-    };
-
-    const onMove = (e) => {
-      const s = swipeRef.current;
-      const t = e.touches[0];
-      const dx = t.clientX - s.startX;
-      const dy = t.clientY - s.startY;
-      if (!s.dir) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        cancelLongPress();
-        s.dir = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-      }
-      if (s.dir === 'v') return;
-      if ((dx < 0 && !onSwipeLeft) || (dx > 0 && !onSwipeRight)) return;
-      e.preventDefault();
-      s.active = true;
-      s.x = Math.max(-160, Math.min(160, dx));
-      el.style.transition = 'none';
-      el.style.transform = `translateX(${s.x}px)`;
-      // Progressive feedback: fade in action panel and scale icon as threshold approaches
-      const progress = Math.min(Math.abs(s.x) / SWIPE_THRESHOLD, 1);
-      const iconScale = 0.7 + 0.3 * progress;
-      if (s.x > 0 && swipeBgLeftRef.current) {
-        swipeBgLeftRef.current.style.opacity = String(0.3 + 0.7 * progress);
-        const icon = swipeBgLeftRef.current.querySelector('svg');
-        if (icon) icon.style.transform = `scale(${iconScale})`;
-      } else if (s.x < 0 && swipeBgRightRef.current) {
-        swipeBgRightRef.current.style.opacity = String(0.3 + 0.7 * progress);
-        const icon = swipeBgRightRef.current.querySelector('svg');
-        if (icon) icon.style.transform = `scale(${iconScale})`;
-      }
-      // Subtle lift shadow as row drags
-      el.style.boxShadow = progress > 0.1 ? `0 4px 20px rgba(0,0,0,${0.3 * progress})` : '';
-    };
-
-    const onEnd = () => {
-      cancelLongPress();
-      const s = swipeRef.current;
-      if (!s.active) { s.dir = null; hideBgs(); return; }
-      const x = s.x;
-      s.active = false; s.dir = null; s.x = 0;
-      springBack();
-      if (x < -SWIPE_THRESHOLD) {
-        onSwipeLeft && onSwipeLeft(message);
-      } else if (x > SWIPE_THRESHOLD) {
-        onSwipeRight && onSwipeRight(message);
-      }
-    };
-
-    const onCancel = () => {
-      cancelLongPress();
-      springBack();
-    };
-
-    el.addEventListener('touchstart', onStart, { passive: true });
-    el.addEventListener('touchmove', onMove, { passive: false });
-    el.addEventListener('touchend', onEnd, { passive: true });
-    el.addEventListener('touchcancel', onCancel, { passive: true });
-    return () => {
-      cancelLongPress();
-      el.removeEventListener('touchstart', onStart);
-      el.removeEventListener('touchmove', onMove);
-      el.removeEventListener('touchend', onEnd);
-      el.removeEventListener('touchcancel', onCancel);
-      el.style.transform = 'translateX(0)';
-      el.style.transition = '';
-      el.style.boxShadow = '';
-      if (swipeBgLeftRef.current)  swipeBgLeftRef.current.style.display = 'none';
-      if (swipeBgRightRef.current) swipeBgRightRef.current.style.display = 'none';
-    };
-  }, [isMobile, message, onSwipeLeft, onSwipeRight, onLongPress, springBack]);
+  const { contentRef, swipeBgLeftRef, swipeBgRightRef } = useSwipeRow({
+    isMobile, message, onSwipeLeft, onSwipeRight, onLongPress,
+  });
 
   // On mobile the row content must be opaque — swipe action panels sit behind it
   // and would show through a transparent background.
@@ -3009,7 +2796,7 @@ function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, s
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               flex: 1, minWidth: 0,
             }}>
-              {message.from_name || message.from_email || 'Unknown'}
+              {message.from_name || message.from_email || t('common.unknown')}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginLeft: 8 }}>

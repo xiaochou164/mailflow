@@ -17,6 +17,7 @@
     "saving": "Saving…",
     "never": "Never",
     "noSubject": "(no subject)",
+    "unknown": "Unknown",
     "error": "Error: {{message}}"
   },
   "login": {
@@ -170,6 +171,25 @@
     "noArchiveFolder": {
       "title": "No archive folder",
       "body": "No archive folder configured. Set one in Settings → Accounts → Folder Mappings."
+    },
+    "selectMessages": "Select messages",
+    "selectedCount": "{{count}} selected",
+    "pullToSync": "Pull to sync",
+    "releaseToSync": "Release to sync",
+    "noSearchResults": "No results found",
+    "noSearchResultsDesc": "No results for {{query}}",
+    "clearSearch": "Clear search",
+    "searchHelp": {
+      "title": "Search operators",
+      "from": "From sender",
+      "subject": "In subject",
+      "to": "To / CC",
+      "hasAttachment": "Has attachment",
+      "isUnread": "Unread only",
+      "isStarred": "Starred only",
+      "after": "After date",
+      "before": "Before date",
+      "tip": "Combine operators with keywords · e.g."
     }
   },
   "sidebar": {
