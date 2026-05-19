@@ -170,7 +170,7 @@ router.get('/messages', async (req, res) => {
   // ── Threaded mode ────────────────────────────────────────────────────────────
   if (threaded === 'true') {
     // One row per thread (latest message per thread_id), ordered by latest date.
-    // COALESCE(thread_id, id::text) treats null-thread_id messages as singletons.
+    // thread_key is a stored generated column: COALESCE(thread_id, id::text), treating null-thread_id messages as singletons.
     const filterValues = [...values]; // values before limit/offset were pushed
     const threadAccountParam = accountId ? [accountId] : userAccountIds;
     // Only scope thread_totals to a specific folder for INBOX views, where the badge
@@ -183,19 +183,19 @@ router.get('/messages', async (req, res) => {
     const threadResult = await query(`
       WITH paged_threads AS (
         -- Identify the thread_ids for this page before any expensive dedup work.
-        -- Full-scan is lightweight here (index-only on account+folder+thread_id+date);
+        -- Full-scan is lightweight here (index-only on account+folder+thread_key+date);
         -- deduped below then touches only the ~safeLimit threads on this page.
-        SELECT COALESCE(m.thread_id, m.id::text) AS thread_id
+        SELECT m.thread_key AS thread_id
         FROM messages m
         WHERE ${where}
-        GROUP BY COALESCE(m.thread_id, m.id::text)
+        GROUP BY m.thread_key
         ORDER BY MAX(m.date) DESC
         LIMIT $${p + 1} OFFSET $${p + 2}
       ),
       deduped AS MATERIALIZED (
-        SELECT DISTINCT ON (m.account_id, COALESCE(m.thread_id, m.id::text), m.message_id)
+        SELECT DISTINCT ON (m.account_id, m.thread_key, m.message_id)
                m.id, m.uid, m.folder, m.message_id,
-               COALESCE(m.thread_id, m.id::text) AS thread_id,
+               m.thread_key AS thread_id,
                m.subject, m.from_name, m.from_email,
                m.to_addresses, m.cc_addresses, m.reply_to, m.in_reply_to,
                m.date, m.snippet, m.is_read, m.is_starred,
@@ -206,23 +206,23 @@ router.get('/messages', async (req, res) => {
         FROM messages m
         JOIN email_accounts a ON m.account_id = a.id
         WHERE ${where}
-          AND COALESCE(m.thread_id, m.id::text) IN (SELECT thread_id FROM paged_threads)
+          AND m.thread_key IN (SELECT thread_id FROM paged_threads)
         ORDER BY m.account_id,
-                 COALESCE(m.thread_id, m.id::text),
+                 m.thread_key,
                  m.message_id,
                  CASE WHEN m.folder = 'INBOX' THEN 0 ELSE 1 END,
                  m.date ASC
       ),
       thread_totals AS (
-        SELECT COALESCE(m.thread_id, m.id::text) AS thread_id,
+        SELECT m.thread_key AS thread_id,
                COUNT(DISTINCT m.message_id)::int AS message_count
         FROM messages m
         WHERE m.account_id = ANY($${p})
           AND m.is_deleted = false
           AND m.message_id IS NOT NULL
           ${threadFolderFilter}
-          AND COALESCE(m.thread_id, m.id::text) IN (SELECT thread_id FROM paged_threads)
-        GROUP BY COALESCE(m.thread_id, m.id::text)
+          AND m.thread_key IN (SELECT thread_id FROM paged_threads)
+        GROUP BY m.thread_key
       ),
       ranked AS (
         SELECT d.*,
@@ -248,7 +248,7 @@ router.get('/messages', async (req, res) => {
 
     // Thread-level total: distinct thread groups matching the filter.
     const threadCountResult = await query(`
-      SELECT COUNT(DISTINCT COALESCE(m.thread_id, m.id::text))::int AS total
+      SELECT COUNT(DISTINCT m.thread_key)::int AS total
       FROM messages m
       WHERE ${where}
     `, filterValues);
@@ -329,7 +329,7 @@ router.get('/thread/:threadId', async (req, res) => {
       JOIN email_accounts a ON m.account_id = a.id
       WHERE m.is_deleted = false
         AND m.account_id = ANY($1)
-        AND COALESCE(m.thread_id, m.id::text) = $2
+        AND m.thread_key = $2
         ${folderFilter}
       ORDER BY m.message_id,
                CASE WHEN m.folder = 'INBOX' THEN 0 ELSE 1 END,

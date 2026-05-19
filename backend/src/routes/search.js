@@ -130,8 +130,7 @@ router.get('/', searchLimiter, async (req, res) => {
         m.from_name ILIKE $${likeIdx}
         OR m.from_email ILIKE $${likeIdx}
         OR m.subject ILIKE $${likeIdx}
-        OR to_tsvector('english', coalesce(m.subject,'') || ' ' || coalesce(m.from_name,'') || ' ' || coalesce(m.from_email,'') || ' ' || coalesce(m.snippet,''))
-             @@ plainto_tsquery('english', $${ftsIdx})
+        OR m.search_vector @@ plainto_tsquery('english', $${ftsIdx})
         OR to_tsvector('english', coalesce(m.body_text,'')) @@ plainto_tsquery('english', $${ftsIdx})
       )`);
   }

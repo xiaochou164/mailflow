@@ -399,6 +399,19 @@ router.post('/preferences/whitelist-add', async (req, res) => {
     return res.status(400).json({ error: 'type must be "address" or "domain" and value must be a non-empty string' });
   }
   const normalized = value.trim().toLowerCase();
+  if (type === 'domain') {
+    // Accept bare domains and leading-dot wildcard forms (e.g. "example.com", ".example.com")
+    const bare = normalized.startsWith('.') ? normalized.slice(1) : normalized;
+    const domainRe = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$/i;
+    if (!domainRe.test(bare)) {
+      return res.status(400).json({ error: 'Invalid domain format' });
+    }
+  } else {
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRe.test(normalized)) {
+      return res.status(400).json({ error: 'Invalid email address format' });
+    }
+  }
   const key = type === 'address' ? 'addresses' : 'domains';
   await query(`
     UPDATE users
