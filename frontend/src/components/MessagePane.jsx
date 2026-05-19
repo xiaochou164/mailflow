@@ -1176,6 +1176,7 @@ export default function MessagePane() {
               ref={iframeRef}
               srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8">
                 <meta name="viewport" content="width=device-width,initial-scale=1">
+                <meta name="color-scheme" content="only light">
                 <meta http-equiv="Content-Security-Policy" content="script-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; style-src 'unsafe-inline';">
                 <base target="_blank">
               </head><body><div id="mf-scale-wrapper">${
@@ -1229,7 +1230,7 @@ export default function MessagePane() {
           <div style={{
             margin: 0, padding: '14px 16px 12px',
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-            fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.7,
+            fontSize: 14, color: '#1a1a1a', lineHeight: 1.7,
             fontFamily: 'DM Sans, sans-serif', background: 'white',
             borderRadius: isMobile ? 0 : 10,
             border: isMobile ? 'none' : '1px solid var(--border-subtle)',
