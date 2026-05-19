@@ -403,7 +403,15 @@ router.post('/preferences/whitelist-add', async (req, res) => {
   await query(`
     UPDATE users
     SET preferences = jsonb_set(
-      COALESCE(preferences, '{}'::jsonb),
+      -- Inner jsonb_set guarantees the imageWhitelist key exists before the outer
+      -- one tries to write a child key. jsonb_set silently returns the target
+      -- unchanged when an intermediate path element is missing, so without this
+      -- the add would be a no-op for users whose preferences predate the feature.
+      jsonb_set(
+        COALESCE(preferences, '{}'::jsonb),
+        '{imageWhitelist}',
+        COALESCE(preferences->'imageWhitelist', '{}'::jsonb)
+      ),
       ARRAY['imageWhitelist', $2::text],
       (
         SELECT COALESCE(jsonb_agg(DISTINCT val), '[]'::jsonb)

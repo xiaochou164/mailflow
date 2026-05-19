@@ -17,6 +17,12 @@ import CommandPalette from './CommandPalette.jsx';
 const ComposeModal = lazy(() => import('./ComposeModal.jsx'));
 const AdminPanel   = lazy(() => import('./AdminPanel.jsx'));
 
+const lazyFallback = (
+  <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+    <div style={{ width: 24, height: 24, border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+  </div>
+);
+
 export default function MailApp() {
   const { t } = useTranslation();
   const {
@@ -321,8 +327,8 @@ export default function MailApp() {
         </>
       )}
 
-      <Suspense fallback={null}>{composing && <ComposeModal />}</Suspense>
-      <Suspense fallback={null}>{showAdmin && <AdminPanel />}</Suspense>
+      <Suspense fallback={lazyFallback}>{composing && <ComposeModal />}</Suspense>
+      <Suspense fallback={lazyFallback}>{showAdmin && <AdminPanel />}</Suspense>
       <NotificationToasts />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
