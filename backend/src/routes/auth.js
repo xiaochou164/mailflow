@@ -35,6 +35,7 @@ function rateLimit(config) {
     const bucket = rateBuckets.get(key);
     if (!bucket || now > bucket.resetAt) {
       rateBuckets.set(key, { count: 1, resetAt: now + windowMs });
+      res.locals.resetRateLimit = () => rateBuckets.delete(key);
       return next();
     }
     if (bucket.count >= maxRequests) {
@@ -42,6 +43,7 @@ function rateLimit(config) {
       return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
     }
     bucket.count++;
+    res.locals.resetRateLimit = () => rateBuckets.delete(key);
     next();
   };
 }
@@ -205,6 +207,7 @@ router.post('/login', authLimiter, async (req, res) => {
     imapManager.connectAllForUser(user.id);
 
     logAuthEvent('login_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
+    res.locals.resetRateLimit?.();
     res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: user.totp_enabled } });
   } catch (err) {
     res.status(500).json({ error: 'Login failed' });
@@ -260,6 +263,8 @@ router.post('/2fa/challenge', authLimiter, async (req, res) => {
 
   imapManager.connectAllForUser(user.id);
   logAuthEvent('totp_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
+  res.locals.resetRateLimit?.();
+  totpChallengeBuckets.delete(uid);
   res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: user.totp_enabled } });
 });
 
