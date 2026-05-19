@@ -52,13 +52,13 @@ export const api = {
 
   // Admin
   admin: {
-    getUsers: () => request('GET', '/admin/users'),
+    getUsers: (params) => request('GET', '/admin/users' + (params ? '?' + new URLSearchParams(params) : '')),
     updateUser: (id, data) => request('PATCH', `/admin/users/${id}`, data),
     deleteUser: (id) => request('DELETE', `/admin/users/${id}`),
     disableUserTotp: (id) => request('POST', `/admin/users/${id}/totp/disable`),
     getSettings: () => request('GET', '/admin/settings'),
     updateSettings: (data) => request('PATCH', '/admin/settings', data),
-    getInvites: () => request('GET', '/admin/invites'),
+    getInvites: (params) => request('GET', '/admin/invites' + (params ? '?' + new URLSearchParams(params) : '')),
     createInvite: (email) => request('POST', '/admin/invites', { email }),
     deleteInvite: (id) => request('DELETE', `/admin/invites/${id}`),
     getSystemEmail: () => request('GET', '/admin/system-email'),

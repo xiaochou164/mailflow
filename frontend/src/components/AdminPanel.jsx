@@ -2536,7 +2536,11 @@ function UsersAndInvitesPanel() {
   const { t } = useTranslation();
   const { user: currentUser } = useStore();
   const [users, setUsers] = useState([]);
+  const [userTotal, setUserTotal] = useState(0);
+  const [usersLoadingMore, setUsersLoadingMore] = useState(false);
   const [invites, setInvites] = useState([]);
+  const [inviteTotal, setInviteTotal] = useState(0);
+  const [invitesLoadingMore, setInvitesLoadingMore] = useState(false);
   const [regOpen, setRegOpen] = useState(null); // null = loading
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -2547,15 +2551,43 @@ function UsersAndInvitesPanel() {
 
   useEffect(() => {
     Promise.all([
-      api.admin.getUsers(),
+      api.admin.getUsers({ limit: 100, offset: 0 }),
       api.admin.getSettings(),
-      api.admin.getInvites(),
+      api.admin.getInvites({ limit: 100, offset: 0 }),
     ]).then(([usersData, settingsData, invitesData]) => {
       setUsers(usersData.users);
+      setUserTotal(usersData.total);
       setRegOpen(settingsData.settings.registration_open === 'true');
       setInvites(invitesData.invites);
+      setInviteTotal(invitesData.total);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
+
+  const handleLoadMoreUsers = async () => {
+    setUsersLoadingMore(true);
+    try {
+      const data = await api.admin.getUsers({ limit: 100, offset: users.length });
+      setUsers(prev => [...prev, ...data.users]);
+      setUserTotal(data.total);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUsersLoadingMore(false);
+    }
+  };
+
+  const handleLoadMoreInvites = async () => {
+    setInvitesLoadingMore(true);
+    try {
+      const data = await api.admin.getInvites({ limit: 100, offset: invites.length });
+      setInvites(prev => [...prev, ...data.invites]);
+      setInviteTotal(data.total);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setInvitesLoadingMore(false);
+    }
+  };
 
   const handleToggleAdmin = async (u) => {
     const newVal = !u.isAdmin;
@@ -2605,8 +2637,11 @@ function UsersAndInvitesPanel() {
       } else {
         setInviteMsg({ type: 'ok', text: t('admin.users.inviteCreatedNoEmail'), url: data.inviteUrl });
       }
-      // Reload invites to get proper data from server
-      api.admin.getInvites().then(d => setInvites(d.invites)).catch(() => {});
+      // Reload invites from offset 0 to get proper data including the new entry
+      api.admin.getInvites({ limit: 100, offset: 0 }).then(d => {
+        setInvites(d.invites);
+        setInviteTotal(d.total);
+      }).catch(() => {});
     } catch (err) {
       setInviteMsg({ type: 'error', text: err.message });
     } finally {
@@ -2720,6 +2755,21 @@ function UsersAndInvitesPanel() {
             )}
           </div>
         ))}
+        {users.length < userTotal && (
+          <button
+            onClick={handleLoadMoreUsers}
+            disabled={usersLoadingMore}
+            style={{
+              marginTop: 4, padding: '7px 14px', background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border)', borderRadius: 6,
+              color: 'var(--text-secondary)', fontSize: 12,
+              cursor: usersLoadingMore ? 'not-allowed' : 'pointer',
+              opacity: usersLoadingMore ? 0.6 : 1, alignSelf: 'flex-start',
+            }}
+          >
+            {usersLoadingMore ? t('common.loading') : t('common.loadMore')}
+          </button>
+        )}
       </div>
 
       {/* ── Registration ── */}
@@ -2913,6 +2963,21 @@ function UsersAndInvitesPanel() {
             ))}
           </div>
         </>
+      )}
+      {invites.length < inviteTotal && (
+        <button
+          onClick={handleLoadMoreInvites}
+          disabled={invitesLoadingMore}
+          style={{
+            marginTop: 12, padding: '7px 14px', background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border)', borderRadius: 6,
+            color: 'var(--text-secondary)', fontSize: 12,
+            cursor: invitesLoadingMore ? 'not-allowed' : 'pointer',
+            opacity: invitesLoadingMore ? 0.6 : 1,
+          }}
+        >
+          {invitesLoadingMore ? t('common.loading') : t('common.loadMore')}
+        </button>
       )}
       <ConfirmOverlay dialog={confirmDialog} onClose={() => setConfirmDialog(null)} />
     </div>
