@@ -63,7 +63,7 @@ export default function MessagePane() {
   const {
     messages, searchResults, searchQuery, selectedMessageId, setSelectedMessage,
     updateMessage, removeMessage, decrementUnread, incrementUnread, openCompose, accounts, addNotification,
-    imageWhitelist, setImageWhitelist, blockRemoteImages, threadMessages,
+    imageWhitelist, setImageWhitelist, addToImageWhitelist, blockRemoteImages, threadMessages,
   } = useStore();
 
   const isMobile = useMobile();
@@ -665,13 +665,9 @@ export default function MessagePane() {
   const handleAllowSender = async () => {
     const senderEmail = message.from_email?.toLowerCase();
     if (!senderEmail) return;
-    const newList = {
-      ...imageWhitelist,
-      addresses: [...new Set([...(imageWhitelist.addresses || []), senderEmail])],
-    };
     setSavingAllow(true);
     try {
-      await setImageWhitelist(newList);
+      await addToImageWhitelist({ type: 'address', value: senderEmail });
       // Evict all blocked cache entries so they re-fetch with images unblocked
       for (const id of Object.keys(bodyCache.current)) {
         if (bodyCache.current[id]?.hasBlockedRemoteImages) delete bodyCache.current[id];
@@ -689,13 +685,9 @@ export default function MessagePane() {
     const senderEmail = message.from_email?.toLowerCase() || '';
     const senderDomain = senderEmail.includes('@') ? senderEmail.split('@')[1] : '';
     if (!senderDomain) return;
-    const newList = {
-      ...imageWhitelist,
-      domains: [...new Set([...(imageWhitelist.domains || []), senderDomain])],
-    };
     setSavingAllow(true);
     try {
-      await setImageWhitelist(newList);
+      await addToImageWhitelist({ type: 'domain', value: senderDomain });
       // Evict all blocked cache entries so they re-fetch with images unblocked
       for (const id of Object.keys(bodyCache.current)) {
         if (bodyCache.current[id]?.hasBlockedRemoteImages) delete bodyCache.current[id];

@@ -384,6 +384,35 @@ router.patch('/preferences', async (req, res) => {
   res.json({ ok: true });
 });
 
+// Atomically appends a single address or domain to the image whitelist.
+// Using a single UPDATE with a subquery avoids the read-modify-write race
+// that affects concurrent saves via PATCH /preferences.
+router.post('/preferences/whitelist-add', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const { type, value } = req.body;
+  if ((type !== 'address' && type !== 'domain') || typeof value !== 'string' || !value.trim()) {
+    return res.status(400).json({ error: 'type must be "address" or "domain" and value must be a non-empty string' });
+  }
+  const normalized = value.trim().toLowerCase();
+  const key = type === 'address' ? 'addresses' : 'domains';
+  await query(`
+    UPDATE users
+    SET preferences = jsonb_set(
+      COALESCE(preferences, '{}'::jsonb),
+      ARRAY['imageWhitelist', $2::text],
+      (
+        SELECT COALESCE(jsonb_agg(DISTINCT val), '[]'::jsonb)
+        FROM jsonb_array_elements_text(
+          COALESCE(preferences->'imageWhitelist'->$2::text, '[]'::jsonb)
+          || jsonb_build_array($3::text)
+        ) AS val
+      )
+    )
+    WHERE id = $1
+  `, [req.session.userId, key, normalized]);
+  res.json({ ok: true });
+});
+
 // ── Web Push ──────────────────────────────────────────────────────────────────
 
 // Returns the VAPID public key so the frontend can subscribe via PushManager.

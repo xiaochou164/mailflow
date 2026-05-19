@@ -140,8 +140,11 @@ export const api = {
   },
   suggestContacts: (q) => request('GET', `/search/contacts?q=${encodeURIComponent(q)}`),
 
+  // Image whitelist
+  addToImageWhitelist: (entry) => request('POST', '/auth/preferences/whitelist-add', entry),
+
   // Web Push
   getPushVapidKey:  ()           => request('GET',    '/auth/push/vapid-key'),
   pushSubscribe:    (subscription) => request('POST',   '/auth/push/subscribe',    subscription),
-  pushUnsubscribe:  (body)       => request('DELETE',  '/auth/push/unsubscribe',   body),
+  pushUnsubscribe:  (body)       => request('POST',    '/auth/push/unsubscribe',   body),
 };

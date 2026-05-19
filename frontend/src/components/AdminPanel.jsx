@@ -3733,7 +3733,7 @@ function ShortcutsTab() {
 // ─── Privacy Tab ─────────────────────────────────────────────────────────────
 function PrivacyTab() {
   const { t } = useTranslation();
-  const { blockRemoteImages, setBlockRemoteImages, imageWhitelist, setImageWhitelist, addNotification } = useStore();
+  const { blockRemoteImages, setBlockRemoteImages, imageWhitelist, setImageWhitelist, addToImageWhitelist, addNotification } = useStore();
   const [newAddress, setNewAddress] = useState('');
   const [newDomain,  setNewDomain]  = useState('');
   const [saving, setSaving] = useState(false);
@@ -3743,13 +3743,9 @@ function PrivacyTab() {
     // Require at least one character before and after a single @
     const atIdx = val.indexOf('@');
     if (!val || atIdx < 1 || atIdx === val.length - 1) return;
-    const updated = {
-      ...imageWhitelist,
-      addresses: [...new Set([...(imageWhitelist.addresses || []), val])],
-    };
     setSaving(true);
     try {
-      await setImageWhitelist(updated);
+      await addToImageWhitelist({ type: 'address', value: val });
       setNewAddress('');
     } catch (_) {
       addNotification({ title: t('message.whitelistFail.title'), body: t('message.whitelistFail.body') });
@@ -3775,13 +3771,9 @@ function PrivacyTab() {
   const addDomain = async () => {
     const val = newDomain.trim().toLowerCase().replace(/^@/, '');
     if (!val || val.includes('@')) return;
-    const updated = {
-      ...imageWhitelist,
-      domains: [...new Set([...(imageWhitelist.domains || []), val])],
-    };
     setSaving(true);
     try {
-      await setImageWhitelist(updated);
+      await addToImageWhitelist({ type: 'domain', value: val });
       setNewDomain('');
     } catch (_) {
       addNotification({ title: t('message.whitelistFail.title'), body: t('message.whitelistFail.body') });

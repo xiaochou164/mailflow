@@ -280,7 +280,7 @@ function shouldBlockImages(prefs, message) {
   const allowedAddresses = Array.isArray(whitelist.addresses) ? whitelist.addresses.filter(a => typeof a === 'string').map(a => a.toLowerCase()) : [];
   const allowedDomains   = Array.isArray(whitelist.domains)   ? whitelist.domains.filter(d => typeof d === 'string').map(d => d.toLowerCase())   : [];
   if (senderEmail && allowedAddresses.includes(senderEmail)) return false;
-  if (senderDomain && allowedDomains.includes(senderDomain)) return false;
+  if (senderDomain && allowedDomains.some(d => senderDomain === d || senderDomain.endsWith('.' + d))) return false;
   return true;
 }
 
