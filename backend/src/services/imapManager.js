@@ -1243,7 +1243,6 @@ export class ImapManager {
     this.backfillRunning.add(backfillKey);
 
     const cfg = providerProfile(account);
-    console.log(`Starting backfill for ${logAccount(account)} (batch=${cfg.batchSize}, delay=${cfg.batchDelay}ms, fetchBody=${cfg.fetchBody})`);
 
     // Dedicated connection managed here — completely independent of the shared pool
     // so backfilling never blocks the user from opening emails.
@@ -1272,6 +1271,30 @@ export class ImapManager {
     };
 
     try {
+      // DB-only pre-check: if this folder has a stored uid_validity (meaning a
+      // previous backfill connected and verified it) and the DB message count is
+      // at least as large as the cached folder total, skip opening a connection.
+      // syncMessages handles new arrivals via IDLE and the periodic sync interval;
+      // backfill is only needed for historical gaps and first-time population.
+      // A false skip is self-correcting: the next reconnect or explicit sync will
+      // re-evaluate, and syncMessages independently checks UIDVALIDITY changes.
+      const folderMeta = await query(
+        'SELECT uid_validity, total_count FROM folders WHERE account_id = $1 AND path = $2',
+        [account.id, folder]
+      );
+      const meta = folderMeta.rows[0];
+      if (meta?.uid_validity && meta.total_count > 0) {
+        const countRow = await query(
+          'SELECT COUNT(*) AS n FROM messages WHERE account_id = $1 AND folder = $2 AND is_deleted = false',
+          [account.id, folder]
+        );
+        if (Number(countRow.rows[0].n) >= Number(meta.total_count)) {
+          logger.debug(`Backfill skipped for ${logAccount(account)}/${folder} — DB pre-check: ${countRow.rows[0].n} msgs ≥ cached total ${meta.total_count}`);
+          return;
+        }
+      }
+
+      console.log(`Starting backfill for ${logAccount(account)}/${folder} (batch=${cfg.batchSize}, delay=${cfg.batchDelay}ms, fetchBody=${cfg.fetchBody})`);
       await openBfClient();
 
       // Step 1 — ask the server for every UID in the mailbox.
