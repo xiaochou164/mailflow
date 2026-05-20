@@ -76,10 +76,18 @@ export function usePushNotifications() {
       const { publicKey } = await api.getPushVapidKey();
       const reg = regRef.current ?? (await navigator.serviceWorker.ready);
 
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly:      true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      // Race against a 30-second timeout: pushManager.subscribe() contacts the
+      // browser's push service (FCM / Apple APNs / Mozilla) and can hang
+      // indefinitely if that service is unreachable from the user's network.
+      const sub = await Promise.race([
+        reg.pushManager.subscribe({
+          userVisibleOnly:      true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Push service unreachable — check network connectivity')), 30000)
+        ),
+      ]);
 
       await api.pushSubscribe(sub.toJSON());
       setSubscribed(true);
