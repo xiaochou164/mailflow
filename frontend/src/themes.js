@@ -603,7 +603,8 @@ export function applyTheme(themeName) {
 
 const FAVICON_PX = 32;
 let _badgeCount  = 0;
-let _pendingUrl  = null; // blob URL of the in-flight render; stale renders are discarded
+let _renderSeq   = 0; // incremented on every render call
+let _appliedSeq  = 0; // sequence number of the last render that was applied to the DOM
 
 function _applyFavicon(accent) {
   // Rasterise the SVG to a canvas and export as PNG. PNG data URIs go through
@@ -613,19 +614,21 @@ function _applyFavicon(accent) {
   const svgStr = buildFaviconSvg(accent, _badgeCount);
   const blob   = new Blob([svgStr], { type: 'image/svg+xml' });
   const url    = URL.createObjectURL(blob);
-  _pendingUrl  = url;
+  const seq    = ++_renderSeq;
 
   const img    = new Image(FAVICON_PX, FAVICON_PX);
   img.onload = () => {
-    // A newer call may have started while this image was loading; drop this result.
-    if (_pendingUrl !== url) { URL.revokeObjectURL(url); return; }
-    _pendingUrl = null;
+    URL.revokeObjectURL(url);
+    // Only skip this render if a *later* render already applied its result.
+    // This allows the fast exists_hint render to land immediately rather than
+    // being cancelled simply because a newer async render was started.
+    if (seq < _appliedSeq) return;
+    _appliedSeq = seq;
 
     const canvas  = document.createElement('canvas');
     canvas.width  = FAVICON_PX;
     canvas.height = FAVICON_PX;
     canvas.getContext('2d').drawImage(img, 0, 0, FAVICON_PX, FAVICON_PX);
-    URL.revokeObjectURL(url);
 
     document.querySelectorAll("link[rel~='icon']").forEach(l => l.remove());
     const link = document.createElement('link');
@@ -634,10 +637,7 @@ function _applyFavicon(accent) {
     link.href  = canvas.toDataURL('image/png');
     document.head.appendChild(link);
   };
-  img.onerror = () => {
-    URL.revokeObjectURL(url);
-    if (_pendingUrl === url) _pendingUrl = null;
-  };
+  img.onerror = () => URL.revokeObjectURL(url);
   img.src = url;
 }
 
