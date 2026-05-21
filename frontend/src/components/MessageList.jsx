@@ -1513,9 +1513,10 @@ export default function MessageList() {
     ? `Search: "${searchQuery}"`
     : isUnified ? t('sidebar.allInboxes') : selectedFolder;
 
+  // Non-INBOX folders omitted: byAccount is account-total, not folder-specific, so it would mislead.
   const headerUnread = isUnified
     ? unreadCounts.total
-    : (unreadCounts.byAccount[selectedAccountId] ?? 0);
+    : (selectedFolder === 'INBOX' ? (unreadCounts.byAccount[selectedAccountId] ?? 0) : 0);
 
   // Derived bulk-selection values (computed fresh each render, no stale closure risk)
   const selectionMode = selectedIds.size > 0 || selectionModeActive;
