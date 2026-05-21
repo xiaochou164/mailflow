@@ -593,12 +593,20 @@ export function applyTheme(themeName) {
   }
 
   // Update browser tab favicon to match the active accent colour, preserving
-  // any unread badge that was previously set. Invalidate the base cache so
-  // the new accent is rasterized on the next badge update.
+  // any unread badge that was previously set. Only invalidate the base cache
+  // when the accent actually changes — the double applyTheme call at startup
+  // (localStorage then server prefs) often uses the same accent, and
+  // needlessly invalidating the cache creates a window where exists_hint
+  // falls through to the slow async path.
   if (accent && accent.startsWith('#')) {
-    _baseCanvas = null;
-    _baseAccent = null;
+    if (_baseAccent !== accent) {
+      _baseCanvas = null;
+      _baseAccent = null;
+    }
     _applyFavicon(accent);
+    // If there's an active badge, also warm the base so subsequent badge updates
+    // hit the fast synchronous path rather than going through async rasterization.
+    if (_badgeCount > 0) _warmBase(accent);
   }
 }
 
@@ -615,13 +623,29 @@ let _appliedSeq  = 0;
 let _baseCanvas = null;
 let _baseAccent = null;
 
+// Persistent <link rel="icon"> element. We update href in-place rather than
+// removing/adding the element each time. DOM remove+add causes Chrome to briefly
+// show no favicon between the two mutations, making updates appear sluggish.
+let _faviconLink = null;
+
 function _setFaviconLink(dataUri) {
-  document.querySelectorAll("link[rel~='icon']").forEach(l => l.remove());
-  const link = document.createElement('link');
-  link.rel  = 'icon';
-  link.type = 'image/png';
-  link.href = dataUri;
-  document.head.appendChild(link);
+  if (!_faviconLink || !_faviconLink.isConnected) {
+    // Reuse the existing icon element from index.html on first call so Chrome
+    // processes a href change on a known element rather than discovering a new one.
+    _faviconLink = document.querySelector("link[rel='icon']") || (() => {
+      const el = document.createElement('link');
+      el.rel = 'icon';
+      document.head.appendChild(el);
+      return el;
+    })();
+    // Remove any competing icon links (e.g. a second link added by HMR or SSR)
+    // but leave apple-touch-icon and other non-standard rel values alone.
+    document.querySelectorAll("link[rel='icon']").forEach(l => {
+      if (l !== _faviconLink) l.remove();
+    });
+  }
+  _faviconLink.type = 'image/png';
+  _faviconLink.href = dataUri;
 }
 
 function _rasterise(svgStr, onCanvas) {
@@ -680,6 +704,10 @@ export function updateFaviconBadge(count) {
 
   // Fast synchronous path: base favicon is cached — composite badge directly.
   if (_baseCanvas && _baseAccent === accent) {
+    // Advance the sequence counter so any in-flight slow-path renders that
+    // complete later are treated as stale and don't overwrite this result.
+    _appliedSeq = ++_renderSeq;
+
     const canvas = document.createElement('canvas');
     canvas.width  = FAVICON_PX;
     canvas.height = FAVICON_PX;
