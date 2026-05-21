@@ -191,19 +191,20 @@ router.get('/thread/:threadId', async (req, res) => {
 });
 
 // Unread counts
+// Reads directly from the messages table (source of truth) rather than the
+// folders.unread_count cache. The cache is updated at the START of each sync
+// cycle, before new messages are inserted, so it lags by one full sync interval
+// (~60 s) after new mail arrives. Querying messages directly means the count
+// returned immediately after the new_messages WS event is always authoritative.
 router.get('/unread-counts', async (req, res) => {
-  const accountsResult = await query(
-    'SELECT id FROM email_accounts WHERE user_id = $1 AND enabled = true',
-    [req.session.userId]
-  );
-  const userAccountIds = accountsResult.rows.map(r => r.id);
-  if (!userAccountIds.length) return res.json({ total: 0, byAccount: {} });
-
   const result = await query(`
-    SELECT account_id, COALESCE(unread_count, 0) AS count
-    FROM folders
-    WHERE account_id = ANY($1) AND path = 'INBOX'
-  `, [userAccountIds]);
+    SELECT m.account_id, COUNT(*) AS count
+    FROM messages m
+    JOIN email_accounts a ON a.id = m.account_id
+    WHERE a.user_id = $1 AND a.enabled = true
+      AND m.folder = 'INBOX' AND m.is_read = false AND m.is_deleted = false
+    GROUP BY m.account_id
+  `, [req.session.userId]);
 
   const byAccount = {};
   let total = 0;
@@ -211,6 +212,7 @@ router.get('/unread-counts', async (req, res) => {
     byAccount[row.account_id] = parseInt(row.count);
     total += parseInt(row.count);
   }
+  res.set('Cache-Control', 'no-store');
   res.json({ total, byAccount });
 });
 
