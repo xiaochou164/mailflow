@@ -59,6 +59,7 @@ export const useStore = create((set, get) => ({
   })),
   removeMessage: (id) => set(state => ({
     messages: state.messages.filter(m => m.id !== id),
+    searchResults: state.searchResults.filter(m => m.id !== id),
     selectedMessageId: state.selectedMessageId === id ? null : state.selectedMessageId,
   })),
   messagesOffset: 0,

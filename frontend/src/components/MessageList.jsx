@@ -1102,13 +1102,14 @@ export default function MessageList() {
     };
 
     const onArchive = () => {
-      const { messages, selectedMessageId, removeMessage, decrementUnread, addNotification } = getState();
+      const { messages, searchResults, searchQuery, selectedMessageId, removeMessage, decrementUnread, addNotification } = getState();
+      const pool = searchQuery.trim() ? searchResults : messages;
       const ids = [...scRef.current.selectedIds];
       if (ids.length > 0) {
-        const msgs = messages.filter(m => ids.includes(m.id));
+        const msgs = pool.filter(m => ids.includes(m.id));
         bulkArchiveRef.current(ids, msgs);
       } else if (selectedMessageId) {
-        const msg = messages.find(m => m.id === selectedMessageId);
+        const msg = pool.find(m => m.id === selectedMessageId);
         if (!msg) return;
         removeMessage(selectedMessageId);
         if (!msg.is_read) decrementUnread(msg.account_id);
@@ -1121,13 +1122,14 @@ export default function MessageList() {
     };
 
     const onDelete = () => {
-      const { messages, selectedMessageId } = getState();
+      const { messages, searchResults, searchQuery, selectedMessageId } = getState();
+      const pool = searchQuery.trim() ? searchResults : messages;
       const ids = [...scRef.current.selectedIds];
       if (ids.length > 0) {
-        const msgs = messages.filter(m => ids.includes(m.id));
+        const msgs = pool.filter(m => ids.includes(m.id));
         bulkDeleteRef.current(ids, msgs);
       } else if (selectedMessageId) {
-        const msg = messages.find(m => m.id === selectedMessageId);
+        const msg = pool.find(m => m.id === selectedMessageId);
         if (!msg) return;
         scheduleDeleteRef.current(msg);
       }
