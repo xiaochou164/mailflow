@@ -207,6 +207,7 @@
     "folderMenu": {
       "markAllRead": "Tout marquer comme lu",
       "syncFolder": "Synchroniser le dossier",
+      "renameFavorite": "Rename favorite",
       "rename": "Renommer",
       "createSubfolder": "Créer un sous-dossier",
       "hide": "Masquer le dossier",

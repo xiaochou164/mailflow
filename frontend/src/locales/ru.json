@@ -207,6 +207,7 @@
     "folderMenu": {
       "markAllRead": "Отметить все как прочитанные",
       "syncFolder": "Синхронизировать папку",
+      "renameFavorite": "Rename favorite",
       "rename": "Переименовать",
       "createSubfolder": "Создать подпапку",
       "hide": "Скрыть папку",

@@ -364,6 +364,21 @@ export const useStore = create((set, get) => ({
     set({ favoriteFolders: next });
     schedulePrefSave({ favoriteFolders: next });
   },
+  renameFavoriteFolder: ({ accountId, path, label }) => {
+    const next = get().favoriteFolders.map(f => {
+      if (f.accountId !== accountId || f.path !== path) return f;
+      const { label: _old, ...base } = f;
+      return label ? { ...base, label } : base;
+    });
+    localStorage.setItem('mailflow_favorite_folders', JSON.stringify(next));
+    set({ favoriteFolders: next });
+    schedulePrefSave({ favoriteFolders: next });
+  },
+  reorderFavoriteFolders: (next) => {
+    localStorage.setItem('mailflow_favorite_folders', JSON.stringify(next));
+    set({ favoriteFolders: next });
+    schedulePrefSave({ favoriteFolders: next });
+  },
 
   // Fetch server preferences and apply them — call after any successful login.
   // Sets localStorage so subsequent page loads apply the right values instantly.

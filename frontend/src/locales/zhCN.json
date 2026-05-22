@@ -207,6 +207,7 @@
     "folderMenu": {
       "markAllRead": "全部标为已读",
       "syncFolder": "同步此文件夹",
+      "renameFavorite": "Rename favorite",
       "rename": "重命名",
       "createSubfolder": "新建子文件夹",
       "hide": "隐藏文件夹",

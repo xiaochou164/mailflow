@@ -207,6 +207,7 @@
     "folderMenu": {
       "markAllRead": "Segna tutto come letto",
       "syncFolder": "Sincronizza cartella",
+      "renameFavorite": "Rename favorite",
       "rename": "Rinomina",
       "createSubfolder": "Crea sottocartella",
       "hide": "Nascondi cartella",

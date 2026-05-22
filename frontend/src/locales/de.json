@@ -209,6 +209,7 @@
     "folderMenu": {
       "markAllRead": "Alle als gelesen markieren",
       "syncFolder": "Ordner synchronisieren",
+      "renameFavorite": "Rename favorite",
       "rename": "Umbenennen",
       "createSubfolder": "Unterordner erstellen",
       "hide": "Ordner ausblenden",

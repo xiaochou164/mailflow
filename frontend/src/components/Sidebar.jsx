@@ -254,7 +254,7 @@ export default function Sidebar() {
     folders, setFolders, setAccounts, user, setUser, sidebarCollapsed: sidebarCollapsedPref, toggleSidebar,
     blockRemoteImages, setBlockRemoteImages, setMobileSidebarOpen, addNotification,
     hiddenFolders, setHiddenFolders,
-    favoriteFolders, addFavoriteFolder, removeFavoriteFolder,
+    favoriteFolders, addFavoriteFolder, removeFavoriteFolder, renameFavoriteFolder, reorderFavoriteFolders,
     expandedAccounts, setExpandedAccounts,
     collapsedFolders, toggleCollapsedFolder,
     accountsReady,
@@ -301,9 +301,17 @@ export default function Sidebar() {
   const [folderCtxMenu, setFolderCtxMenu] = useState(null); // {x, y, accountId, folderObj}
   const [accountCtxMenu, setAccountCtxMenu] = useState(null); // {x, y, account}
 
-  // Inline rename
+  // Inline rename (IMAP folder)
   const [renamingFolder, setRenamingFolder] = useState(null); // {accountId, path, value}
   const renameInputRef = useRef(null);
+
+  // Inline rename (favorite alias)
+  const [renamingFav, setRenamingFav] = useState(null); // {accountId, path, value}
+  const renameFavInputRef = useRef(null);
+
+  // Drag-and-drop state for favorites reorder
+  const [favDragIdx, setFavDragIdx] = useState(null);
+  const [favDropIdx, setFavDropIdx] = useState(null);
 
   // Inline create folder
   const [creatingFolder, setCreatingFolder] = useState(null); // {accountId}
@@ -376,6 +384,9 @@ export default function Sidebar() {
   useEffect(() => {
     if (renamingFolder && renameInputRef.current) renameInputRef.current.focus();
   }, [renamingFolder]);
+  useEffect(() => {
+    if (renamingFav && renameFavInputRef.current) renameFavInputRef.current.focus();
+  }, [renamingFav]);
   useEffect(() => {
     if (creatingFolder && createInputRef.current) createInputRef.current.focus();
   }, [creatingFolder]);
@@ -560,6 +571,14 @@ export default function Sidebar() {
           ? removeFavoriteFolder({ accountId, path: folderObj.path })
           : addFavoriteFolder({ accountId, path: folderObj.path }),
       },
+      ...(isFavorite ? [{
+        label: t('sidebar.folderMenu.renameFavorite', 'Rename favorite'),
+        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8"/><path d="M8 8h5"/></svg>,
+        action: () => {
+          const fav = favoriteFolders.find(f => f.accountId === accountId && f.path === folderObj.path);
+          setRenamingFav({ accountId, path: folderObj.path, value: fav?.label || folderObj.name || folderObj.path.split('/').pop() || folderObj.path });
+        },
+      }] : []),
       { separator: true },
       {
         label: t('sidebar.folderMenu.rename'),
@@ -764,17 +783,43 @@ export default function Sidebar() {
               <div style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-tertiary)', padding: '8px 10px 3px' }}>
                 {t('sidebar.favorites', 'Favorites')}
               </div>
-              {visibleFaves.map(({ accountId, path }) => {
+              {visibleFaves.map((fav, idx) => {
+                const { accountId, path, label } = fav;
                 const account = accounts.find(a => a.id === accountId);
                 if (!account) return null;
                 const accountFolders = folders[accountId] || [];
                 const folderObj = accountFolders.find(f => f.path === path);
                 const isActive = selectedAccountId === accountId && selectedFolder === path;
                 const unreadCount = folderObj?.unread_count || 0;
+                const isRenamingThis = renamingFav?.accountId === accountId && renamingFav?.path === path;
+                const isDragging = favDragIdx === idx;
+                const isDropTarget = favDropIdx === idx && favDragIdx !== null && favDragIdx !== idx;
+                const canDrag = visibleFaves.length >= 2;
                 return (
                   <div
                     key={`${accountId}:${path}`}
-                    onClick={() => setSelectedAccount(accountId, path)}
+                    draggable={canDrag}
+                    onDragStart={canDrag ? () => { setFavDragIdx(idx); setFavDropIdx(null); } : undefined}
+                    onDragOver={canDrag ? e => { e.preventDefault(); setFavDropIdx(idx); } : undefined}
+                    onDrop={canDrag ? e => {
+                      e.preventDefault();
+                      if (favDragIdx !== null && favDragIdx !== idx) {
+                        const fullArr = [...favoriteFolders];
+                        const fromItem = visibleFaves[favDragIdx];
+                        const toItem = visibleFaves[idx];
+                        const fromFullIdx = fullArr.findIndex(f => f.accountId === fromItem.accountId && f.path === fromItem.path);
+                        const toFullIdx = fullArr.findIndex(f => f.accountId === toItem.accountId && f.path === toItem.path);
+                        if (fromFullIdx !== -1 && toFullIdx !== -1) {
+                          const [moved] = fullArr.splice(fromFullIdx, 1);
+                          fullArr.splice(toFullIdx, 0, moved);
+                          reorderFavoriteFolders(fullArr);
+                        }
+                      }
+                      setFavDragIdx(null);
+                      setFavDropIdx(null);
+                    } : undefined}
+                    onDragEnd={canDrag ? () => { setFavDragIdx(null); setFavDropIdx(null); } : undefined}
+                    onClick={() => { if (!isRenamingThis) setSelectedAccount(accountId, path); }}
                     onContextMenu={e => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -785,20 +830,54 @@ export default function Sidebar() {
                     style={{
                       display: 'flex', alignItems: 'center',
                       gap: 8, padding: '7px 10px',
-                      borderRadius: 7, cursor: 'pointer',
+                      borderRadius: 7, cursor: canDrag ? 'grab' : 'pointer',
                       background: isActive ? 'var(--bg-hover)' : 'transparent',
                       color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                       transition: 'background 0.1s, color 0.1s',
+                      opacity: isDragging ? 0.4 : 1,
+                      borderTop: isDropTarget ? '2px solid var(--accent)' : '2px solid transparent',
                     }}
                     onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = 'var(--bg-tertiary)'; e.currentTarget.style.color = 'var(--text-primary)'; } }}
                     onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
                   >
+                    {canDrag && (
+                      <span style={{ color: 'var(--text-tertiary)', flexShrink: 0, display: 'flex', opacity: 0.4, cursor: 'grab' }}>
+                        <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+                          <circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/>
+                          <circle cx="2" cy="7" r="1.5"/><circle cx="8" cy="7" r="1.5"/>
+                          <circle cx="2" cy="12" r="1.5"/><circle cx="8" cy="12" r="1.5"/>
+                        </svg>
+                      </span>
+                    )}
                     <span style={{ color: 'var(--text-tertiary)', flexShrink: 0, display: 'flex' }}>
                       {folderIcon(path, folderObj?.special_use, account.folder_mappings)}
                     </span>
-                    <span style={{ fontSize: 13, fontWeight: isActive ? 500 : 400, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {folderObj?.name || path.split('/').pop() || path}
-                    </span>
+                    {isRenamingThis ? (
+                      <input
+                        ref={renameFavInputRef}
+                        value={renamingFav.value}
+                        onChange={e => setRenamingFav(prev => ({ ...prev, value: e.target.value }))}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            renameFavoriteFolder({ accountId, path, label: renamingFav.value.trim() });
+                            setRenamingFav(null);
+                          }
+                          if (e.key === 'Escape') setRenamingFav(null);
+                          e.stopPropagation();
+                        }}
+                        onBlur={() => setRenamingFav(null)}
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          flex: 1, fontSize: 13, background: 'var(--bg-primary)',
+                          border: '1px solid var(--accent)', borderRadius: 4,
+                          color: 'var(--text-primary)', padding: '2px 6px', outline: 'none', minWidth: 0,
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: 13, fontWeight: isActive ? 500 : 400, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {label || folderObj?.name || path.split('/').pop() || path}
+                      </span>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                       {unreadCount > 0 && (
                         <span style={{ fontSize: 10, color: 'var(--text-tertiary)', background: 'var(--bg-elevated)', padding: '1px 5px', borderRadius: 8 }}>
@@ -810,6 +889,27 @@ export default function Sidebar() {
                   </div>
                 );
               })}
+              {favDragIdx !== null && (
+                <div
+                  onDragOver={e => { e.preventDefault(); setFavDropIdx(visibleFaves.length); }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    if (favDragIdx !== null && favDragIdx !== visibleFaves.length - 1) {
+                      const fullArr = [...favoriteFolders];
+                      const fromItem = visibleFaves[favDragIdx];
+                      const fromFullIdx = fullArr.findIndex(f => f.accountId === fromItem.accountId && f.path === fromItem.path);
+                      if (fromFullIdx !== -1) {
+                        const [moved] = fullArr.splice(fromFullIdx, 1);
+                        fullArr.push(moved);
+                        reorderFavoriteFolders(fullArr);
+                      }
+                    }
+                    setFavDragIdx(null);
+                    setFavDropIdx(null);
+                  }}
+                  style={{ height: 6, borderTop: favDropIdx === visibleFaves.length ? '2px solid var(--accent)' : '2px solid transparent' }}
+                />
+              )}
               <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 4px 4px' }} />
             </>
           );
