@@ -47,8 +47,14 @@ const PRESETS = {
 };
 
 // ─── Account Form (Add or Edit) ───────────────────────────────────────────────
+function isMicrosoftImapHost(host) {
+  const h = (host || '').toLowerCase();
+  return h.includes('.outlook.com') || h.includes('office365.com') || h.includes('.hotmail.com') || h.includes('.live.com');
+}
+
 function AccountForm({ initial, onSave, onCancel }) {
   const { t } = useTranslation();
+  const { setAdminTab } = useStore();
   const isEdit = !!initial?.id;
   const [form, setForm] = useState(initial || {
     name: '', email_address: '', color: '#6366f1', protocol: 'imap',
@@ -198,7 +204,32 @@ function AccountForm({ initial, onSave, onCancel }) {
         </Field>
       </div>
 
-      <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0 16px' }} />
+      {isMicrosoftImapHost(form.imap_host) && (
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          padding: '10px 14px', marginTop: 10,
+          background: 'rgba(251,191,36,0.08)',
+          border: '1px solid rgba(251,191,36,0.35)',
+          borderRadius: 8, fontSize: 13, color: 'var(--text-primary)',
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(251,191,36,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 3 }}>{t('admin.accounts.microsoftOAuthRequired')}</div>
+            <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{t('admin.accounts.microsoftOAuthNote')}</div>
+            <button onClick={() => { setAdminTab('integrations'); onCancel(); }} style={{
+              marginTop: 8, padding: '5px 12px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+              background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.4)',
+              color: 'var(--text-primary)', cursor: 'pointer',
+            }}>
+              {t('admin.accounts.microsoftGoToIntegrations')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0 16px', marginTop: isMicrosoftImapHost(form.imap_host) ? 16 : '4px' }} />
       <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
         {t('admin.accounts.smtpSection')}
       </div>
