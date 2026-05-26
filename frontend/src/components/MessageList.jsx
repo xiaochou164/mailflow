@@ -2238,7 +2238,7 @@ export default function MessageList() {
             accounts={accounts}
             onClearSearch={() => { setSearchQuery(''); }}
             onShowAll={() => setUnreadOnly(false)}
-            onCompose={() => openCompose({})}
+            onCompose={() => openCompose({ accountId: selectedAccountId || undefined })}
           />
         )}
 
@@ -2691,7 +2691,7 @@ export default function MessageList() {
 
       {isMobile && (
         <button
-          onClick={() => openCompose({})}
+          onClick={() => openCompose({ accountId: selectedAccountId || undefined })}
           aria-label="Compose new message"
           style={{
             position: 'fixed',
