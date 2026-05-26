@@ -132,7 +132,7 @@ async function applyAction(action, msg, account, imapManager) {
       const destFolder = action.value;
       if (!destFolder) break;
       await query('UPDATE messages SET folder = $1 WHERE id = $2', [destFolder, msg.id]);
-      imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, destFolder).catch(err => {
+      await imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, destFolder).catch(err => {
         console.error('inboxRules: bulkMoveMessages failed:', err.message);
       });
       break;
@@ -142,7 +142,7 @@ async function applyAction(action, msg, account, imapManager) {
       const archiveFolder = await resolveArchiveFolder(account.id, account.folder_mappings);
       if (!archiveFolder) break;
       await query('UPDATE messages SET folder = $1 WHERE id = $2', [archiveFolder, msg.id]);
-      imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, archiveFolder).catch(err => {
+      await imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, archiveFolder).catch(err => {
         console.error('inboxRules: archive bulkMoveMessages failed:', err.message);
       });
       break;
@@ -155,12 +155,12 @@ async function applyAction(action, msg, account, imapManager) {
       if (strategy.action === 'no_trash') break;
       if (strategy.action === 'move') {
         await query('UPDATE messages SET folder = $1 WHERE id = $2', [strategy.destination, msg.id]);
-        imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, strategy.destination).catch(err => {
+        await imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, strategy.destination).catch(err => {
           console.error('inboxRules: delete move failed:', err.message);
         });
       } else if (strategy.action === 'expunge') {
         await query('UPDATE messages SET is_deleted = true WHERE id = $1', [msg.id]);
-        imapManager.setFlag(account, msg.uid, msg.folder, '\\Deleted', true).catch(err => {
+        await imapManager.setFlag(account, msg.uid, msg.folder, '\\Deleted', true).catch(err => {
           console.error('inboxRules: setFlag \\Deleted failed:', err.message);
         });
       }
