@@ -205,7 +205,7 @@ export default function MailApp() {
 
   // Subscribe to global actions that MailApp owns
   useEffect(() => {
-    const onCompose   = () => openCompose({ accountId: selectedAccountId || undefined });
+    const onCompose   = () => openCompose({ accountId: useStore.getState().selectedAccountId || undefined });
     const onGoInbox   = () => setSelectedAccount(null, 'INBOX');
     const onShowHelp  = () => { if (!isMobile) setShowShortcutHelp(v => !v); };
 

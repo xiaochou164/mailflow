@@ -133,7 +133,12 @@ export default function ComposeModal() {
     if (composeData?.aliasId && composeData?.accountId) {
       return `alias:${composeData.aliasId}:${composeData.accountId}`;
     }
-    const acctId = composeData?.accountId || accounts[0]?.id || '';
+    const lastUsedId = localStorage.getItem('mailflow_last_from_account');
+    const acctId = composeData?.accountId
+      || useStore.getState().selectedAccountId
+      || (lastUsedId && accounts.find(a => a.id === lastUsedId) ? lastUsedId : null)
+      || accounts[0]?.id
+      || '';
     return acctId ? `account:${acctId}` : '';
   };
   const [fromValue, setFromValue] = useState(initialFromValue);
@@ -372,6 +377,7 @@ export default function ComposeModal() {
     const { accountId, aliasId } = resolveFrom(fromValue);
     const toFinal = [...toChips, ...(toInput.trim() ? [toInput.trim()] : [])];
     if (!toFinal.length || !accountId) return;
+    localStorage.setItem('mailflow_last_from_account', accountId);
     setSending(true);
     setError('');
     const bodyToSend = plaintextEmail ? body : (htmlMode ? htmlSource : (editor?.getHTML() ?? ''));
