@@ -4,11 +4,9 @@
     "save": "Сохранить",
     "delete": "Удалить",
     "edit": "Редактировать",
-    "close": "Закрыть",
     "add": "Добавить",
     "remove": "Удалить",
     "copy": "Копировать",
-    "copied": "Скопировано!",
     "back": "Назад",
     "undo": "Отменить",
     "view": "Просмотр",
@@ -18,7 +16,8 @@
     "never": "Никогда",
     "noSubject": "(без темы)",
     "unknown": "Неизвестно",
-    "error": "Ошибка: {{message}}"
+    "error": "Ошибка: {{message}}",
+    "dismiss": "Скрыть"
   },
   "login": {
     "tagline": "Ваш единый почтовый ящик",
@@ -41,7 +40,9 @@
       "verify": "Проверить",
       "verifying": "Проверка…",
       "backToLogin": "← Назад ко входу"
-    }
+    },
+    "ssoOnly": "Войти через SSO",
+    "ssoOnlyDesc": "Вход с паролем отключён на этом сервере."
   },
   "compose": {
     "newMessage": "Новое сообщение",
@@ -61,10 +62,21 @@
     "sendTooltip": "Отправить (Ctrl+Enter)",
     "sending": "Отправка…",
     "discard": "Удалить черновик",
-    "minimize": "Свернуть",
     "sent": {
       "title": "Сообщение отправлено",
       "action": "Просмотреть"
+    },
+    "toolbar": {
+      "removeTable": "Удалить таблицу",
+      "textColor": "Цвет текста",
+      "removeColor": "Убрать цвет",
+      "insertImage": "Вставить изображение",
+      "minimize": "Свернуть",
+      "close": "Закрыть",
+      "attachFile": "Прикрепить файл",
+      "insertLink": "Вставить ссылку",
+      "apply": "Применить",
+      "insertTable": "Вставить таблицу"
     }
   },
   "message": {
@@ -108,7 +120,8 @@
     "whitelistFail": {
       "title": "Не удалось сохранить настройку",
       "body": "Не удалось обновить белый список изображений."
-    }
+    },
+    "emailFrameTitle": "Содержимое письма"
   },
   "messageList": {
     "search": "Поиск…",
@@ -137,7 +150,6 @@
     "pageOf": "Страница {{current}} из {{total}}",
     "loadMore": "Загрузить ещё",
     "noMoreMessages": "Больше сообщений нет",
-    "markAllRead": "Отметить все как прочитанные",
     "deleted": {
       "title": "Сообщение удалено",
       "body": "Перемещено в корзину.",
@@ -191,7 +203,12 @@
       "after": "После даты",
       "before": "До даты",
       "tip": "Комбинируйте операторы с ключевыми словами · например"
-    }
+    },
+    "emptyInbox": "Всё прочитано",
+    "emptyInboxDesc": "Нет непрочитанных сообщений",
+    "composeAriaLabel": "Написать новое письмо",
+    "noAccounts": "Аккаунты не добавлены",
+    "noAccountsDesc": "Добавьте почтовый аккаунт, чтобы начать"
   },
   "sidebar": {
     "allInboxes": "Все входящие",
@@ -209,7 +226,7 @@
     "folderMenu": {
       "markAllRead": "Отметить все как прочитанные",
       "syncFolder": "Синхронизировать папку",
-      "renameFavorite": "Rename favorite",
+      "renameFavorite": "Переименовать избранное",
       "rename": "Переименовать",
       "createSubfolder": "Создать подпапку",
       "hide": "Скрыть папку",
@@ -297,8 +314,7 @@
     "then": "затем"
   },
   "notifications": {
-    "newMessage": "Новое сообщение",
-    "undo": "Отменить"
+    "newMessage": "Новое сообщение"
   },
   "signatureEditor": {
     "bold": "Жирный (Ctrl+B)",
@@ -350,7 +366,6 @@
       "title": "Правила входящих",
       "newButton": "Новое правило",
       "empty": "Правил пока нет. Правила автоматически фильтруют входящую почту.",
-      "enabledToggle": "Включено",
       "editButton": "Изменить",
       "deleteButton": "Удалить",
       "deleteConfirm": "Удалить это правило?",
@@ -423,7 +438,6 @@
       "presetGmail": "Gmail",
       "presetYahoo": "Yahoo Mail",
       "presetIcloud": "iCloud",
-      "presetMicrosoft": "Outlook",
       "presetCustom": "Другое",
       "errorRequired": "Требуются адрес электронной почты, имя пользователя и IMAP-сервер",
       "errorPasswordRequired": "Для новых аккаунтов требуется пароль",
@@ -432,7 +446,9 @@
       "reindex": "Переиндексировать для поиска",
       "reindexing": "Индексирование сообщений...",
       "reindexProgress": "Проиндексировано {{synced}} / {{total}} сообщений",
-      "reindexError": "Не удалось запустить переиндексацию"
+      "reindexError": "Не удалось запустить переиндексацию",
+      "senderNamePh": "напр. Алиса Смит",
+      "senderName": "Имя отправителя"
     },
     "folderMappings": {
       "title": "Сопоставление папок",
@@ -530,7 +546,12 @@
       "hoverQuickActionsOff": "Выкл",
       "hoverQuickActionsOffDesc": "Скрывать быстрые действия до использования контекстного меню или горячих клавиш.",
       "hoverQuickActionsOn": "Вкл",
-      "hoverQuickActionsOnDesc": "Показывать значки быстрых действий в строках сообщений при наведении указателя."
+      "hoverQuickActionsOnDesc": "Показывать значки быстрых действий в строках сообщений при наведении указателя.",
+      "defaultReplyAll": "Ответить всем",
+      "defaultReplyDesc": "Кнопка «Ответить» отправляет только отправителю",
+      "defaultReplyAction": "Действие ответа по умолчанию",
+      "defaultReply": "Ответить",
+      "defaultReplyAllDesc": "Кнопка «Ответить» отправляет всем получателям"
     },
     "notifications": {
       "title": "Уведомления",
@@ -595,7 +616,32 @@
       "ssoUnlinkTitle": "Отвязать {{provider}}?",
       "ssoUnlinkBody": "Вы больше не сможете входить через этого провайдера. Убедитесь, что у вас есть другой способ входа.",
       "ssoUnlinkConfirm": "Отвязать",
-      "ssoNoProviders": "На этом сервере не настроены SSO-провайдеры."
+      "ssoNoProviders": "На этом сервере не настроены SSO-провайдеры.",
+      "activityColEvent": "Событие",
+      "activityColStatus": "Статус",
+      "activityColTime": "Время",
+      "activityColIP": "IP-адрес",
+      "activityEmpty": "Активность ещё не зарегистрирована.",
+      "eventLoginSuccess": "Вход",
+      "windowMinutes": "Окно блокировки (минут)",
+      "protectionSaved": "Сохранено",
+      "eventTotpSuccess": "2FA подтверждено",
+      "activityAllowed": "Разрешено",
+      "eventLoginFail": "Неудачный вход",
+      "activityLoading": "Загрузка…",
+      "activityDesc": "Последние события аутентификации по всем пользователям.",
+      "saveProtection": "Сохранить",
+      "eventTotpFail": "Ошибка 2FA",
+      "maxAttempts": "Макс. попыток",
+      "loginProtectionDesc": "Количество неудачных попыток входа с одного IP-адреса перед временной блокировкой.",
+      "activityRefresh": "Обновить",
+      "activityColUser": "Пользователь",
+      "activityBlocked": "Заблокировано",
+      "savingProtection": "Сохранение…",
+      "eventSsoLogin": "Вход через SSO",
+      "activityTitle": "Активность входа",
+      "loginProtectionTitle": "Защита входа",
+      "qrCodeAlt": "QR-код"
     },
     "privacy": {
       "title": "Конфиденциальность",
@@ -725,8 +771,17 @@
       "disabledBadge": "Отключён",
       "errorRequired": "Требуются название, slug, URL издателя и Client ID.",
       "errorSecretRequired": "Требуется Client secret.",
-      "allowInsecure": "Allow local / self-signed connections",
-      "allowInsecureDesc": "Bypasses host validation and TLS certificate checks. Use only for LAN-only providers (e.g. pocketid.internal). Not recommended for internet-facing deployments."
+      "allowInsecure": "Разрешить локальные / самоподписанные соединения",
+      "allowInsecureDesc": "Обходит проверку хоста и TLS-сертификата. Используйте только для LAN-провайдеров (например, pocketid.internal). Не рекомендуется для интернет-развёртываний.",
+      "passwordLoginDisableMsg": "Пользователи смогут входить только через SSO. Если провайдер SSO станет недоступен, потребуется прямой доступ к базе данных для повторного включения входа с паролем.",
+      "passwordLoginDisableTitle": "Отключить вход с паролем?",
+      "passwordLoginDisabled": "Вход с паролем отключён",
+      "passwordLoginTitle": "Вход с паролем",
+      "passwordLoginDisableConfirm": "Отключить вход с паролем",
+      "passwordLoginDisabledDesc": "Пользователи должны входить через SSO",
+      "passwordLoginDesc": "При отключении пользователи могут входить только через SSO. Требуется хотя бы один включённый провайдер SSO и привязка учётной записи администратора к удостоверению SSO.",
+      "passwordLoginEnabledDesc": "Пользователи могут входить с именем пользователя и паролем",
+      "passwordLoginEnabled": "Вход с паролем включён"
     },
     "integrations": {
       "title": "Интеграции",
@@ -780,7 +835,6 @@
       "title": "Ошибка SSO"
     },
     "about": {
-      "title": "О приложении MailFlow",
       "subtitle": "Почтовый клиент с открытым исходным кодом для самостоятельного хостинга",
       "version": "Версия",
       "backendBuild": "Сборка бэкенда",
@@ -790,10 +844,5 @@
       "sourceCode": "Исходный код",
       "sponsor": "Поддержать разработку"
     }
-  },
-  "thread": {
-    "messages_one": "{{count}} сообщение",
-    "messages_other": "{{count}} сообщений",
-    "collapse": "Свернуть"
   }
 }

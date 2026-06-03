@@ -4,11 +4,9 @@
     "save": "Speichern",
     "delete": "Löschen",
     "edit": "Bearbeiten",
-    "close": "Schließen",
     "add": "Hinzufügen",
     "remove": "Entfernen",
     "copy": "Kopieren",
-    "copied": "Kopiert!",
     "back": "Zurück",
     "undo": "Rückgängig",
     "view": "Ansehen",
@@ -18,7 +16,8 @@
     "never": "Nie",
     "noSubject": "(kein Betreff)",
     "unknown": "Unbekannt",
-    "error": "Fehler: {{message}}"
+    "error": "Fehler: {{message}}",
+    "dismiss": "Ausblenden"
   },
   "login": {
     "tagline": "Dein einheitlicher Posteingang",
@@ -63,10 +62,21 @@
     "sendTooltip": "Senden (Ctrl+Eingabe)",
     "sending": "Wird gesendet…",
     "discard": "Verwerfen",
-    "minimize": "Minimieren",
     "sent": {
       "title": "Nachricht gesendet",
       "action": "Anzeigen"
+    },
+    "toolbar": {
+      "removeTable": "Tabelle entfernen",
+      "textColor": "Textfarbe",
+      "removeColor": "Farbe entfernen",
+      "insertImage": "Bild einfügen",
+      "minimize": "Minimieren",
+      "close": "Schließen",
+      "attachFile": "Datei anhängen",
+      "insertLink": "Link einfügen",
+      "apply": "Anwenden",
+      "insertTable": "Tabelle einfügen"
     }
   },
   "message": {
@@ -110,7 +120,8 @@
     "whitelistFail": {
       "title": "Einstellung konnte nicht gespeichert werden",
       "body": "Bild-Whitelist konnte nicht aktualisiert werden."
-    }
+    },
+    "emailFrameTitle": "E-Mail-Inhalt"
   },
   "messageList": {
     "search": "Suchen…",
@@ -139,7 +150,6 @@
     "pageOf": "Seite {{current}} von {{total}}",
     "loadMore": "Mehr laden",
     "noMoreMessages": "Keine weiteren Nachrichten",
-    "markAllRead": "Alle als gelesen markieren",
     "deleted": {
       "title": "Nachricht gelöscht",
       "body": "In den Papierkorb verschoben.",
@@ -193,7 +203,12 @@
       "after": "Nach Datum",
       "before": "Vor Datum",
       "tip": "Operatoren mit Stichwörtern kombinieren · z.B."
-    }
+    },
+    "emptyInbox": "Alles gelesen",
+    "emptyInboxDesc": "Keine ungelesenen Nachrichten",
+    "composeAriaLabel": "Neue Nachricht verfassen",
+    "noAccounts": "Noch keine Konten",
+    "noAccountsDesc": "E-Mail-Konto hinzufügen, um loszulegen"
   },
   "sidebar": {
     "allInboxes": "Alle Posteingänge",
@@ -211,7 +226,7 @@
     "folderMenu": {
       "markAllRead": "Alle als gelesen markieren",
       "syncFolder": "Ordner synchronisieren",
-      "renameFavorite": "Rename favorite",
+      "renameFavorite": "Favorit umbenennen",
       "rename": "Umbenennen",
       "createSubfolder": "Unterordner erstellen",
       "hide": "Ordner ausblenden",
@@ -272,7 +287,8 @@
       "loading": "Ordner werden geladen…",
       "empty": "Keine Ordner gefunden",
       "recent": "Zuletzt verwendet"
-    }
+    },
+    "createRule": "Regel aus Nachricht erstellen"
   },
   "commandPalette": {
     "placeholder": "Aktionen suchen…",
@@ -298,8 +314,7 @@
     "then": "dann"
   },
   "notifications": {
-    "newMessage": "Neue Nachricht",
-    "undo": "Rückgängig"
+    "newMessage": "Neue Nachricht"
   },
   "signatureEditor": {
     "bold": "Fett (Ctrl+B)",
@@ -344,7 +359,8 @@
       "integrations": "Integrationen",
       "theme": "Design",
       "fontsAndLanguage": "Sprache & Schrift",
-      "about": "Über"
+      "about": "Über",
+      "rules": "Regeln"
     },
     "accounts": {
       "title": "E-Mail-Konten",
@@ -383,7 +399,6 @@
       "presetGmail": "Gmail",
       "presetYahoo": "Yahoo Mail",
       "presetIcloud": "iCloud",
-      "presetMicrosoft": "Outlook",
       "presetCustom": "Benutzerdefiniert",
       "errorRequired": "E-Mail, Benutzername und IMAP-Host sind erforderlich",
       "errorPasswordRequired": "Für neue Konten ist ein Passwort erforderlich",
@@ -490,7 +505,12 @@
       "hoverQuickActionsOff": "Aus",
       "hoverQuickActionsOffDesc": "Schnellaktionen ausblenden, bis das Kontextmenü oder Tastenkürzel verwendet werden.",
       "hoverQuickActionsOn": "Ein",
-      "hoverQuickActionsOnDesc": "Schnellaktion-Symbole in Nachrichtenzeilen anzeigen, wenn der Mauszeiger darüber ist."
+      "hoverQuickActionsOnDesc": "Schnellaktion-Symbole in Nachrichtenzeilen anzeigen, wenn der Mauszeiger darüber ist.",
+      "defaultReplyAll": "Allen antworten",
+      "defaultReplyDesc": "Die Schaltfläche Antworten sendet nur an den Absender",
+      "defaultReplyAction": "Standard-Antwortoption",
+      "defaultReply": "Antworten",
+      "defaultReplyAllDesc": "Die Schaltfläche Antworten sendet an alle Empfänger"
     },
     "notifications": {
       "title": "Benachrichtigungen",
@@ -579,7 +599,8 @@
       "eventLoginFail": "Fehlgeschlagene Anmeldung",
       "eventTotpSuccess": "2FA bestätigt",
       "eventTotpFail": "Fehlgeschlagene 2FA",
-      "eventSsoLogin": "SSO-Anmeldung"
+      "eventSsoLogin": "SSO-Anmeldung",
+      "qrCodeAlt": "QR-Code"
     },
     "privacy": {
       "title": "Datenschutz",
@@ -718,8 +739,8 @@
       "disabledBadge": "Deaktiviert",
       "errorRequired": "Name, Slug, Aussteller-URL und Client-ID sind erforderlich.",
       "errorSecretRequired": "Client-Secret ist erforderlich.",
-      "allowInsecure": "Allow local / self-signed connections",
-      "allowInsecureDesc": "Bypasses host validation and TLS certificate checks. Use only for LAN-only providers (e.g. pocketid.internal). Not recommended for internet-facing deployments."
+      "allowInsecure": "Lokale / selbstsignierte Verbindungen erlauben",
+      "allowInsecureDesc": "Umgeht die Host-Validierung und TLS-Zertifikatsprüfungen. Nur für LAN-seitige Anbieter (z. B. pocketid.internal) verwenden. Nicht empfohlen für internetfähige Deployments."
     },
     "integrations": {
       "title": "Integrationen",
@@ -773,7 +794,6 @@
       "title": "SSO-Fehler"
     },
     "about": {
-      "title": "Über MailFlow",
       "subtitle": "Quelloffener, selbst gehosteter E-Mail-Client",
       "version": "Version",
       "backendBuild": "Backend-Build",
@@ -782,11 +802,47 @@
       "website": "Website",
       "sourceCode": "Quellcode",
       "sponsor": "Entwicklung unterstützen"
+    },
+    "rules": {
+      "conditionLogicOr": "eine Bedingung (ODER)",
+      "accountAll": "Alle Konten",
+      "actionsLabel": "Aktionen",
+      "newButton": "Neue Regel",
+      "actionDelete": "In den Papierkorb verschieben",
+      "empty": "Noch keine Regeln. Regeln filtern eingehende E-Mails automatisch.",
+      "accountLabel": "Anwenden auf",
+      "opStartsWith": "beginnt mit",
+      "errorMoveFolder": "Bitte einen Zielordner für die Verschieben-Aktion angeben.",
+      "title": "Posteingangsregeln",
+      "conditionLogicLabel": "Übereinstimmen",
+      "formTitleAdd": "Neue Regel",
+      "conditionsLabel": "Bedingungen",
+      "stopProcessing": "Keine weiteren Regeln verarbeiten, wenn diese Regel zutrifft",
+      "actionStar": "Markieren",
+      "actionArchive": "Archivieren",
+      "opNotContains": "enthält nicht",
+      "addCondition": "Bedingung hinzufügen",
+      "opEndsWith": "endet mit",
+      "saving": "Speichern…",
+      "fieldSubject": "Betreff",
+      "saveButton": "Regel speichern",
+      "opEquals": "ist genau",
+      "conditionLogicAnd": "alle Bedingungen (UND)",
+      "deleteButton": "Löschen",
+      "actionMovePlaceholder": "Ordnername",
+      "errorRequired": "Regelname und mindestens eine Bedingung und Aktion sind erforderlich.",
+      "actionMove": "In Ordner verschieben",
+      "nameLabel": "Regelname",
+      "editButton": "Bearbeiten",
+      "deleteConfirm": "Diese Regel löschen?",
+      "errorSave": "Regel konnte nicht gespeichert werden.",
+      "formTitleEdit": "Regel bearbeiten",
+      "fieldTo": "An",
+      "fieldHasAttachment": "Hat Anhang",
+      "namePlaceholder": "z. B. Newsletter verschieben",
+      "opContains": "enthält",
+      "actionMarkRead": "Als gelesen markieren",
+      "fieldFrom": "Von"
     }
-  },
-  "thread": {
-    "messages_one": "{{count}} Nachricht",
-    "messages_other": "{{count}} Nachrichten",
-    "collapse": "Einklappen"
   }
 }

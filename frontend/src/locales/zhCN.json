@@ -4,11 +4,9 @@
     "save": "保存",
     "delete": "删除",
     "edit": "编辑",
-    "close": "关闭",
     "add": "添加",
     "remove": "移除",
     "copy": "复制",
-    "copied": "已复制！",
     "back": "返回",
     "undo": "撤销",
     "view": "查看",
@@ -18,7 +16,8 @@
     "never": "从不",
     "noSubject": "（无主题）",
     "unknown": "未知",
-    "error": "错误：{{message}}"
+    "error": "错误：{{message}}",
+    "dismiss": "忽略"
   },
   "login": {
     "tagline": "您的统一收件箱",
@@ -41,7 +40,9 @@
       "verify": "验证",
       "verifying": "验证中…",
       "backToLogin": "← 返回登录"
-    }
+    },
+    "ssoOnly": "通过 SSO 登录",
+    "ssoOnlyDesc": "此服务器已禁用密码登录。"
   },
   "compose": {
     "newMessage": "新邮件",
@@ -61,10 +62,21 @@
     "sendTooltip": "发送（Ctrl+Enter）",
     "sending": "发送中…",
     "discard": "丢弃",
-    "minimize": "最小化",
     "sent": {
       "title": "邮件已发送",
       "action": "查看"
+    },
+    "toolbar": {
+      "removeTable": "删除表格",
+      "textColor": "文字颜色",
+      "removeColor": "移除颜色",
+      "insertImage": "插入图片",
+      "minimize": "最小化",
+      "close": "关闭",
+      "attachFile": "附加文件",
+      "insertLink": "插入链接",
+      "apply": "应用",
+      "insertTable": "插入表格"
     }
   },
   "message": {
@@ -108,7 +120,8 @@
     "whitelistFail": {
       "title": "无法保存偏好设置",
       "body": "更新图片白名单失败。"
-    }
+    },
+    "emailFrameTitle": "邮件内容"
   },
   "messageList": {
     "search": "搜索…",
@@ -137,7 +150,6 @@
     "pageOf": "第 {{current}} 页，共 {{total}} 页",
     "loadMore": "加载更多",
     "noMoreMessages": "没有更多邮件了",
-    "markAllRead": "全部标为已读",
     "deleted": {
       "title": "邮件已删除",
       "body": "已移至废件箱。",
@@ -191,7 +203,12 @@
       "after": "在此日期之后",
       "before": "在此日期之前",
       "tip": "将操作符与关键词组合使用 · 例如"
-    }
+    },
+    "emptyInbox": "全部已读",
+    "emptyInboxDesc": "这里没有未读邮件",
+    "composeAriaLabel": "撰写新邮件",
+    "noAccounts": "暂无账户",
+    "noAccountsDesc": "添加邮件账户以开始使用"
   },
   "sidebar": {
     "allInboxes": "所有收件箱",
@@ -209,7 +226,7 @@
     "folderMenu": {
       "markAllRead": "全部标为已读",
       "syncFolder": "同步此文件夹",
-      "renameFavorite": "Rename favorite",
+      "renameFavorite": "重命名收藏夹",
       "rename": "重命名",
       "createSubfolder": "新建子文件夹",
       "hide": "隐藏文件夹",
@@ -297,8 +314,7 @@
     "then": "然后"
   },
   "notifications": {
-    "newMessage": "新邮件",
-    "undo": "撤销"
+    "newMessage": "新邮件"
   },
   "signatureEditor": {
     "bold": "加粗（Ctrl+B）",
@@ -350,7 +366,6 @@
       "title": "收件箱规则",
       "newButton": "新建规则",
       "empty": "暂无规则。规则可自动过滤收件箱中的邮件。",
-      "enabledToggle": "启用",
       "editButton": "编辑",
       "deleteButton": "删除",
       "deleteConfirm": "删除此规则？",
@@ -425,7 +440,6 @@
       "presetGmail": "Gmail",
       "presetYahoo": "Yahoo Mail",
       "presetIcloud": "iCloud",
-      "presetMicrosoft": "Outlook",
       "presetCustom": "自定义",
       "errorRequired": "邮箱地址、用户名和 IMAP 服务器为必填项",
       "errorPasswordRequired": "添加新账户时必须填写密码",
@@ -532,7 +546,12 @@
       "hoverQuickActionsOff": "关闭",
       "hoverQuickActionsOffDesc": "隐藏快速操作，直到使用右键菜单或快捷键。",
       "hoverQuickActionsOn": "开启",
-      "hoverQuickActionsOnDesc": "当指针悬停在消息行上时，显示快速操作图标。"
+      "hoverQuickActionsOnDesc": "当指针悬停在消息行上时，显示快速操作图标。",
+      "defaultReplyAll": "回复全部",
+      "defaultReplyDesc": "回复按钮仅发送给发件人",
+      "defaultReplyAction": "默认回复方式",
+      "defaultReply": "回复",
+      "defaultReplyAllDesc": "回复按钮将发送给所有收件人"
     },
     "notifications": {
       "title": "通知",
@@ -597,7 +616,32 @@
       "ssoUnlinkTitle": "解除绑定 {{provider}}？",
       "ssoUnlinkBody": "解除后您将无法再通过此服务商登录。请确保您还有其他登录方式。",
       "ssoUnlinkConfirm": "解除绑定",
-      "ssoNoProviders": "此服务器尚未配置任何 SSO 服务商。"
+      "ssoNoProviders": "此服务器尚未配置任何 SSO 服务商。",
+      "activityColEvent": "事件",
+      "activityColStatus": "状态",
+      "activityColTime": "时间",
+      "activityColIP": "IP 地址",
+      "activityEmpty": "暂无记录。",
+      "eventLoginSuccess": "登录",
+      "windowMinutes": "封锁时间窗口（分钟）",
+      "protectionSaved": "已保存",
+      "eventTotpSuccess": "双重认证成功",
+      "activityAllowed": "允许",
+      "eventLoginFail": "登录失败",
+      "activityLoading": "加载中…",
+      "activityDesc": "所有用户的最近认证事件。",
+      "saveProtection": "保存",
+      "eventTotpFail": "双重认证失败",
+      "maxAttempts": "最大尝试次数",
+      "loginProtectionDesc": "单个 IP 地址在被临时封锁前允许的登录失败次数。",
+      "activityRefresh": "刷新",
+      "activityColUser": "用户",
+      "activityBlocked": "已拦截",
+      "savingProtection": "保存中…",
+      "eventSsoLogin": "SSO 登录",
+      "activityTitle": "登录活动",
+      "loginProtectionTitle": "登录保护",
+      "qrCodeAlt": "QR码"
     },
     "privacy": {
       "title": "隐私",
@@ -727,8 +771,17 @@
       "disabledBadge": "已停用",
       "errorRequired": "名称、标识符、颁发者 URL 和客户端 ID 为必填项。",
       "errorSecretRequired": "客户端密钥为必填项。",
-      "allowInsecure": "Allow local / self-signed connections",
-      "allowInsecureDesc": "Bypasses host validation and TLS certificate checks. Use only for LAN-only providers (e.g. pocketid.internal). Not recommended for internet-facing deployments."
+      "allowInsecure": "允许本地/自签名连接",
+      "allowInsecureDesc": "绕过主机验证和 TLS 证书检查。仅用于局域网专用提供商（例如 pocketid.internal）。不建议用于面向互联网的部署。",
+      "passwordLoginDisableMsg": "用户将只能通过 SSO 登录。如果 SSO 提供商不可用，则需要直接访问数据库才能重新启用密码登录。",
+      "passwordLoginDisableTitle": "是否禁用密码登录？",
+      "passwordLoginDisabled": "密码登录已禁用",
+      "passwordLoginTitle": "密码登录",
+      "passwordLoginDisableConfirm": "禁用密码登录",
+      "passwordLoginDisabledDesc": "用户必须通过 SSO 登录",
+      "passwordLoginDesc": "禁用后，用户只能通过 SSO 登录。至少需要一个已启用的 SSO 提供商，且管理员账户必须关联到 SSO 身份。",
+      "passwordLoginEnabledDesc": "用户可以使用用户名和密码登录",
+      "passwordLoginEnabled": "密码登录已启用"
     },
     "integrations": {
       "title": "集成",
@@ -782,7 +835,6 @@
       "title": "SSO 错误"
     },
     "about": {
-      "title": "关于 MailFlow",
       "subtitle": "开源自托管邮件客户端",
       "version": "版本",
       "backendBuild": "后端构建",
@@ -792,10 +844,5 @@
       "sourceCode": "源代码",
       "sponsor": "支持开发"
     }
-  },
-  "thread": {
-    "messages_one": "{{count}} 封邮件",
-    "messages_other": "{{count}} 封邮件",
-    "collapse": "折叠"
   }
 }

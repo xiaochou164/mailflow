@@ -4,11 +4,9 @@
     "save": "Save",
     "delete": "Delete",
     "edit": "Edit",
-    "close": "Close",
     "add": "Add",
     "remove": "Remove",
     "copy": "Copy",
-    "copied": "Copied!",
     "back": "Back",
     "undo": "Undo",
     "view": "View",
@@ -18,7 +16,8 @@
     "never": "Never",
     "noSubject": "(no subject)",
     "unknown": "Unknown",
-    "error": "Error: {{message}}"
+    "error": "Error: {{message}}",
+    "dismiss": "Dismiss"
   },
   "login": {
     "tagline": "Your unified inbox",
@@ -63,10 +62,21 @@
     "sendTooltip": "Send (Ctrl+Enter)",
     "sending": "Sending…",
     "discard": "Discard",
-    "minimize": "Minimize",
     "sent": {
       "title": "Message sent",
       "action": "View"
+    },
+    "toolbar": {
+      "removeTable": "Remove table",
+      "textColor": "Text color",
+      "removeColor": "Remove color",
+      "insertImage": "Insert image",
+      "minimize": "Minimize",
+      "close": "Close",
+      "attachFile": "Attach file",
+      "insertLink": "Insert link",
+      "apply": "Apply",
+      "insertTable": "Insert table"
     }
   },
   "message": {
@@ -110,7 +120,8 @@
     "whitelistFail": {
       "title": "Could not save preference",
       "body": "Failed to update image whitelist."
-    }
+    },
+    "emailFrameTitle": "Email content"
   },
   "messageList": {
     "search": "Search…",
@@ -139,7 +150,6 @@
     "pageOf": "Page {{current}} of {{total}}",
     "loadMore": "Load more",
     "noMoreMessages": "No more messages",
-    "markAllRead": "Mark all as read",
     "deleted": {
       "title": "Message deleted",
       "body": "Removed.",
@@ -193,7 +203,12 @@
       "after": "After date",
       "before": "Before date",
       "tip": "Combine operators with keywords · e.g."
-    }
+    },
+    "emptyInbox": "All caught up",
+    "emptyInboxDesc": "No unread messages here",
+    "composeAriaLabel": "Compose new message",
+    "noAccounts": "No accounts yet",
+    "noAccountsDesc": "Add an email account to get started"
   },
   "sidebar": {
     "allInboxes": "All Inboxes",
@@ -299,8 +314,7 @@
     "then": "then"
   },
   "notifications": {
-    "newMessage": "New message",
-    "undo": "Undo"
+    "newMessage": "New message"
   },
   "signatureEditor": {
     "bold": "Bold (Ctrl+B)",
@@ -352,7 +366,6 @@
       "title": "Inbox rules",
       "newButton": "New rule",
       "empty": "No rules yet. Rules automatically filter incoming mail.",
-      "enabledToggle": "Enabled",
       "editButton": "Edit",
       "deleteButton": "Delete",
       "deleteConfirm": "Delete this rule?",
@@ -427,7 +440,6 @@
       "presetGmail": "Gmail",
       "presetYahoo": "Yahoo Mail",
       "presetIcloud": "iCloud",
-      "presetMicrosoft": "Outlook",
       "presetCustom": "Custom",
       "errorRequired": "Email, username, and IMAP host are required",
       "errorPasswordRequired": "Password is required for new accounts",
@@ -628,7 +640,8 @@
       "eventLoginFail": "Failed login",
       "eventTotpSuccess": "2FA verified",
       "eventTotpFail": "Failed 2FA",
-      "eventSsoLogin": "SSO login"
+      "eventSsoLogin": "SSO login",
+      "qrCodeAlt": "QR code"
     },
     "privacy": {
       "title": "Privacy",
@@ -822,7 +835,6 @@
       "title": "SSO error"
     },
     "about": {
-      "title": "About MailFlow",
       "subtitle": "Open-source, self-hosted email client",
       "version": "Version",
       "backendBuild": "Backend build",
@@ -832,10 +844,5 @@
       "sourceCode": "Source code",
       "sponsor": "Support development"
     }
-  },
-  "thread": {
-    "messages_one": "{{count}} message",
-    "messages_other": "{{count}} messages",
-    "collapse": "Collapse"
   }
 }

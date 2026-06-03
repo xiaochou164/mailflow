@@ -1249,7 +1249,7 @@ export default function MessagePane() {
               scrolling="no"
               style={{ width: '1px', minWidth: '100%', border: 'none', display: 'block', height: '300px' }}
               sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-              title="Email content"
+              title={t('message.emailFrameTitle')}
             />
           </div>
         </div>
