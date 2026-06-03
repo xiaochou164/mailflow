@@ -41,7 +41,7 @@
  *     'some.key': [['en','fr'],      // two independent groups; cross-group
  *                  ['es','it']]      // duplicates would still fail
  *
- * SUITE 3 — source coverage (detail)
+ * SUITE 1 (detail) — source coverage
  *   Every key must be referenced at least once in the frontend source.
  *   Keys with no reference are dead and should be removed from all locale files.
  *
