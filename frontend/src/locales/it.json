@@ -398,6 +398,7 @@
       "actionMove": "Sposta nella cartella",
       "actionMovePlaceholder": "Nome cartella",
       "stopProcessing": "Interrompi l'elaborazione delle regole successive se questa corrisponde",
+      "stopProcessingHint": "Se questa regola corrisponde, le regole successive non verranno eseguite per lo stesso messaggio.",
       "saveButton": "Salva regola",
       "saving": "Salvataggio…",
       "errorRequired": "Nome, almeno una condizione e un'azione sono obbligatori.",

@@ -398,6 +398,7 @@
       "actionMove": "Mover a carpeta",
       "actionMovePlaceholder": "Nombre de la carpeta",
       "stopProcessing": "Detener el procesamiento de reglas posteriores si esta coincide",
+      "stopProcessingHint": "Si esta regla coincide, las reglas posteriores no se ejecutarán para el mismo mensaje.",
       "saveButton": "Guardar regla",
       "saving": "Guardando…",
       "errorRequired": "Se requiere nombre, al menos una condición y una acción.",

@@ -819,6 +819,7 @@
       "formTitleAdd": "Neue Regel",
       "conditionsLabel": "Bedingungen",
       "stopProcessing": "Keine weiteren Regeln verarbeiten, wenn diese Regel zutrifft",
+      "stopProcessingHint": "Wenn diese Regel zutrifft, werden nachfolgende Regeln für dieselbe Nachricht nicht ausgeführt.",
       "actionStar": "Markieren",
       "actionArchive": "Archivieren",
       "opNotContains": "enthält nicht",
