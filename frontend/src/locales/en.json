@@ -398,6 +398,7 @@
       "actionMove": "Move to folder",
       "actionMovePlaceholder": "Folder name",
       "stopProcessing": "Stop processing further rules if this rule matches",
+      "stopProcessingHint": "If this rule matches, later rules won't run for the same message.",
       "saveButton": "Save rule",
       "saving": "Saving…",
       "errorRequired": "Rule name and at least one condition and action are required.",
