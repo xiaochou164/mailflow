@@ -4,11 +4,9 @@
     "save": "Enregistrer",
     "delete": "Supprimer",
     "edit": "Modifier",
-    "close": "Fermer",
     "add": "Ajouter",
     "remove": "Retirer",
     "copy": "Copier",
-    "copied": "Copié !",
     "back": "Retour",
     "undo": "Annuler",
     "view": "Voir",
@@ -18,7 +16,8 @@
     "never": "Jamais",
     "noSubject": "(sans objet)",
     "unknown": "Inconnu",
-    "error": "Erreur : {{message}}"
+    "error": "Erreur : {{message}}",
+    "dismiss": "Ignorer"
   },
   "login": {
     "tagline": "Votre boîte de réception unifiée",
@@ -41,7 +40,9 @@
       "verify": "Vérifier",
       "verifying": "Vérification…",
       "backToLogin": "← Retour à la connexion"
-    }
+    },
+    "ssoOnly": "Se connecter avec SSO",
+    "ssoOnlyDesc": "La connexion par mot de passe est désactivée sur ce serveur."
   },
   "compose": {
     "newMessage": "Nouveau message",
@@ -61,10 +62,21 @@
     "sendTooltip": "Envoyer (Ctrl+Entrée)",
     "sending": "Envoi…",
     "discard": "Supprimer",
-    "minimize": "Réduire",
     "sent": {
       "title": "Message envoyé",
       "action": "Voir"
+    },
+    "toolbar": {
+      "removeTable": "Supprimer le tableau",
+      "textColor": "Couleur du texte",
+      "removeColor": "Supprimer la couleur",
+      "insertImage": "Insérer une image",
+      "minimize": "Réduire",
+      "close": "Fermer",
+      "attachFile": "Joindre un fichier",
+      "insertLink": "Insérer un lien",
+      "apply": "Appliquer",
+      "insertTable": "Insérer un tableau"
     }
   },
   "message": {
@@ -109,7 +121,8 @@
     "whitelistFail": {
       "title": "Impossible d'enregistrer la préférence",
       "body": "Échec de la mise à jour de la liste blanche des images."
-    }
+    },
+    "emailFrameTitle": "Contenu de l'e-mail"
   },
   "messageList": {
     "search": "Rechercher…",
@@ -138,7 +151,6 @@
     "pageOf": "Page {{current}} sur {{total}}",
     "loadMore": "Charger plus",
     "noMoreMessages": "Aucun message supplémentaire",
-    "markAllRead": "Tout marquer comme lu",
     "deleted": {
       "title": "Message supprimé",
       "body": "Déplacé vers la corbeille.",
@@ -192,7 +204,12 @@
       "after": "Après le",
       "before": "Avant le",
       "tip": "Combinez opérateurs et mots-clés · ex."
-    }
+    },
+    "emptyInbox": "Tout est lu",
+    "emptyInboxDesc": "Aucun message non lu ici",
+    "composeAriaLabel": "Rédiger un nouveau message",
+    "noAccounts": "Aucun compte pour l'instant",
+    "noAccountsDesc": "Ajoutez un compte e-mail pour commencer"
   },
   "sidebar": {
     "allInboxes": "Toutes les boîtes",
@@ -210,7 +227,7 @@
     "folderMenu": {
       "markAllRead": "Tout marquer comme lu",
       "syncFolder": "Synchroniser le dossier",
-      "renameFavorite": "Rename favorite",
+      "renameFavorite": "Renommer le favori",
       "rename": "Renommer",
       "createSubfolder": "Créer un sous-dossier",
       "hide": "Masquer le dossier",
@@ -298,8 +315,7 @@
     "then": "puis"
   },
   "notifications": {
-    "newMessage": "Nouveau message",
-    "undo": "Annuler"
+    "newMessage": "Nouveau message"
   },
   "signatureEditor": {
     "bold": "Gras (Ctrl+B)",
@@ -351,7 +367,6 @@
       "title": "Règles de boîte de réception",
       "newButton": "Nouvelle règle",
       "empty": "Aucune règle pour l'instant. Les règles filtrent automatiquement le courrier entrant.",
-      "enabledToggle": "Activée",
       "editButton": "Modifier",
       "deleteButton": "Supprimer",
       "deleteConfirm": "Supprimer cette règle ?",
@@ -424,7 +439,6 @@
       "presetGmail": "Gmail",
       "presetYahoo": "Yahoo Mail",
       "presetIcloud": "iCloud",
-      "presetMicrosoft": "Outlook",
       "presetCustom": "Personnalisé",
       "errorRequired": "L'e-mail, le nom d'utilisateur et le serveur IMAP sont requis",
       "errorPasswordRequired": "Le mot de passe est requis pour les nouveaux comptes",
@@ -433,7 +447,9 @@
       "reindex": "Réindexer pour la recherche",
       "reindexing": "Indexation des messages...",
       "reindexProgress": "{{synced}} / {{total}} messages indexés",
-      "reindexError": "Échec du démarrage de la réindexation"
+      "reindexError": "Échec du démarrage de la réindexation",
+      "senderNamePh": "ex. Alice Smith",
+      "senderName": "Nom de l'expéditeur"
     },
     "folderMappings": {
       "title": "Mappage des dossiers",
@@ -531,7 +547,12 @@
       "hoverQuickActionsOff": "Désactivé",
       "hoverQuickActionsOffDesc": "Garder les actions rapides masquées jusqu'à l'utilisation du menu contextuel ou des raccourcis.",
       "hoverQuickActionsOn": "Activé",
-      "hoverQuickActionsOnDesc": "Afficher les icônes d'action rapide dans les lignes de messages lorsque le pointeur les survole."
+      "hoverQuickActionsOnDesc": "Afficher les icônes d'action rapide dans les lignes de messages lorsque le pointeur les survole.",
+      "defaultReplyAll": "Répondre à tous",
+      "defaultReplyDesc": "Le bouton Répondre envoie uniquement à l'expéditeur",
+      "defaultReplyAction": "Action de réponse par défaut",
+      "defaultReply": "Répondre",
+      "defaultReplyAllDesc": "Le bouton Répondre envoie à tous les destinataires"
     },
     "notifications": {
       "title": "Notifications",
@@ -596,7 +617,32 @@
       "ssoUnlinkTitle": "Délier {{provider}} ?",
       "ssoUnlinkBody": "Vous ne pourrez plus vous connecter avec ce fournisseur. Assurez-vous d'avoir une autre méthode de connexion.",
       "ssoUnlinkConfirm": "Délier",
-      "ssoNoProviders": "Aucun fournisseur SSO n'est configuré sur ce serveur."
+      "ssoNoProviders": "Aucun fournisseur SSO n'est configuré sur ce serveur.",
+      "activityColEvent": "Événement",
+      "activityColStatus": "Statut",
+      "activityColTime": "Heure",
+      "activityColIP": "Adresse IP",
+      "activityEmpty": "Aucune activité enregistrée pour l'instant.",
+      "eventLoginSuccess": "Connexion",
+      "windowMinutes": "Fenêtre de blocage (minutes)",
+      "protectionSaved": "Enregistré",
+      "eventTotpSuccess": "2FA vérifié",
+      "activityAllowed": "Autorisé",
+      "eventLoginFail": "Échec de connexion",
+      "activityLoading": "Chargement…",
+      "activityDesc": "Événements d'authentification récents pour tous les utilisateurs.",
+      "saveProtection": "Enregistrer",
+      "eventTotpFail": "Échec 2FA",
+      "maxAttempts": "Tentatives max.",
+      "loginProtectionDesc": "Tentatives de connexion échouées autorisées depuis une seule adresse IP avant d'être temporairement bloquée.",
+      "activityRefresh": "Actualiser",
+      "activityColUser": "Utilisateur",
+      "activityBlocked": "Bloqué",
+      "savingProtection": "Enregistrement…",
+      "eventSsoLogin": "Connexion SSO",
+      "activityTitle": "Activité de connexion",
+      "loginProtectionTitle": "Protection de connexion",
+      "qrCodeAlt": "code QR"
     },
     "privacy": {
       "title": "Confidentialité",
@@ -726,8 +772,17 @@
       "disabledBadge": "Désactivé",
       "errorRequired": "Le nom, l'identifiant, l'URL de l'émetteur et l'ID client sont requis.",
       "errorSecretRequired": "Le secret client est requis.",
-      "allowInsecure": "Allow local / self-signed connections",
-      "allowInsecureDesc": "Bypasses host validation and TLS certificate checks. Use only for LAN-only providers (e.g. pocketid.internal). Not recommended for internet-facing deployments."
+      "allowInsecure": "Autoriser les connexions locales / auto-signées",
+      "allowInsecureDesc": "Contourne la validation de l'hôte et les vérifications du certificat TLS. À utiliser uniquement pour les fournisseurs en réseau local (ex. pocketid.internal). Déconseillé pour les déploiements accessibles depuis Internet.",
+      "passwordLoginDisableMsg": "Les utilisateurs ne pourront se connecter que via SSO. Si votre fournisseur SSO devient indisponible, un accès direct à la base de données sera nécessaire pour réactiver la connexion par mot de passe.",
+      "passwordLoginDisableTitle": "Désactiver la connexion par mot de passe ?",
+      "passwordLoginDisabled": "La connexion par mot de passe est désactivée",
+      "passwordLoginTitle": "Connexion par mot de passe",
+      "passwordLoginDisableConfirm": "Désactiver la connexion par mot de passe",
+      "passwordLoginDisabledDesc": "Les utilisateurs doivent se connecter via SSO",
+      "passwordLoginDesc": "Lorsque désactivé, les utilisateurs peuvent uniquement se connecter via SSO. Nécessite au moins un fournisseur SSO activé et que votre compte administrateur soit lié à une identité SSO.",
+      "passwordLoginEnabledDesc": "Les utilisateurs peuvent se connecter avec un nom d'utilisateur et un mot de passe",
+      "passwordLoginEnabled": "La connexion par mot de passe est activée"
     },
     "integrations": {
       "title": "Intégrations",
@@ -781,20 +836,14 @@
       "title": "Erreur SSO"
     },
     "about": {
-      "title": "À propos de MailFlow",
       "subtitle": "Client e-mail open source auto-hébergé",
       "version": "Version",
-      "backendBuild": "Build backend",
-      "frontendBuild": "Build frontend",
+      "backendBuild": "Version du backend",
+      "frontendBuild": "Version du frontend",
       "license": "Licence",
       "website": "Site web",
       "sourceCode": "Code source",
       "sponsor": "Soutenir le développement"
     }
-  },
-  "thread": {
-    "messages_one": "{{count}} message",
-    "messages_other": "{{count}} messages",
-    "collapse": "Réduire"
   }
 }
