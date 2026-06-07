@@ -4005,12 +4005,22 @@ function RulesTab() {
     setFormData(prev => ({ ...prev, conditions: prev.conditions.filter((_, i) => i !== idx) }));
   }
 
+  // move, archive, and delete are mutually exclusive destination actions —
+  // only one can apply to a given message. mark_read and star are independent.
+  const DESTINATION_ACTIONS = new Set(['move', 'archive', 'delete']);
+
   function toggleAction(type) {
     setFormData(prev => {
       const has = prev.actions.some(a => a.type === type);
-      const actions = has
-        ? prev.actions.filter(a => a.type !== type)
-        : [...prev.actions, { type, value: '' }];
+      let actions;
+      if (has) {
+        actions = prev.actions.filter(a => a.type !== type);
+      } else if (DESTINATION_ACTIONS.has(type)) {
+        // Deselect any other destination action before adding this one
+        actions = [...prev.actions.filter(a => !DESTINATION_ACTIONS.has(a.type)), { type, value: '' }];
+      } else {
+        actions = [...prev.actions, { type, value: '' }];
+      }
       return { ...prev, actions };
     });
   }
@@ -4175,13 +4185,17 @@ function RulesTab() {
           })}
         </Field>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', marginBottom: 20 }}>
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, cursor: 'pointer', marginBottom: 20 }}>
           <input
             type="checkbox"
             checked={fd.stopProcessing}
             onChange={e => setFormData(p => ({ ...p, stopProcessing: e.target.checked }))}
+            style={{ marginTop: 2, flexShrink: 0 }}
           />
-          {t('admin.rules.stopProcessing')}
+          <div>
+            <div>{t('admin.rules.stopProcessing')}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>{t('admin.rules.stopProcessingHint')}</div>
+          </div>
         </label>
 
         {formError && (
