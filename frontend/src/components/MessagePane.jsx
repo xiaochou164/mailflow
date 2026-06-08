@@ -452,7 +452,11 @@ export default function MessagePane() {
           ? message.cc_addresses
           : JSON.parse(message.cc_addresses || '[]');
         const allEmails = [...toArr, ...ccArr].map(t => t.email?.toLowerCase()).filter(Boolean);
-        const match = aliases.find(al => allEmails.includes(al.email.toLowerCase()));
+        const fromEmail = (message.from_email || '').toLowerCase();
+        const match = aliases.find(al => {
+          const aliasEmail = al.email.toLowerCase();
+          return allEmails.includes(aliasEmail) || fromEmail === aliasEmail;
+        });
         return match ? match.id : null;
       } catch (_) { return null; }
     })();
