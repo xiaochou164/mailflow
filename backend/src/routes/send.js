@@ -229,10 +229,14 @@ router.post('/send', async (req, res) => {
     const smtpResolved = await resolveForConnection(account.smtp_host);
     const smtpTls = { rejectUnauthorized: !account.imap_skip_tls_verify };
     if (smtpResolved.servername) smtpTls.servername = smtpResolved.servername;
+    // For 'SSL': force direct TLS. For 'none': plain with no upgrade.
+    // For 'STARTTLS' (or any other/legacy value): fall back to port-based detection
+    // so existing accounts stored with the default 'STARTTLS' on port 465 keep working.
+    const smtpSecure = account.smtp_tls === 'SSL' || (account.smtp_tls !== 'none' && account.smtp_port === 465);
     const transport = nodemailer.createTransport({
       host: smtpResolved.host,
       port: account.smtp_port,
-      secure: account.smtp_tls === 'SSL',
+      secure: smtpSecure,
       ...(account.smtp_tls === 'none' ? { ignoreTLS: true } : {}),
       auth: smtpAuth,
       tls: smtpTls,
