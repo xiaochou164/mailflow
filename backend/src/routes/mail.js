@@ -1256,18 +1256,24 @@ router.post('/messages/:id/snooze', async (req, res) => {
   const account = accountResult.rows[0];
 
   let snoozedUid = null;
+  imapManager._guardMoveUid(msg.account_id, msg.folder, msg.uid);
   try {
-    await imapManager.ensureFolder(account, snoozedFolder);
-    snoozedUid = await imapManager.moveMessage(account, msg.uid, msg.folder, snoozedFolder);
-  } catch (err) {
-    console.error(`Snooze IMAP move failed for message ${id}:`, err.message);
-    return res.status(500).json({ error: 'Failed to move message to Snoozed folder' });
-  }
-
-  if (snoozedUid != null) {
-    await query('UPDATE messages SET folder = $1, uid = $2 WHERE id = $3', [snoozedFolder, snoozedUid, id]);
-  } else {
-    await query('UPDATE messages SET folder = $1 WHERE id = $2', [snoozedFolder, id]);
+    try {
+      await imapManager.ensureFolder(account, snoozedFolder);
+      snoozedUid = await imapManager.moveMessage(account, msg.uid, msg.folder, snoozedFolder);
+    } catch (err) {
+      console.error(`Snooze IMAP move failed for message ${id}:`, err.message);
+      return res.status(500).json({ error: 'Failed to move message to Snoozed folder' });
+    }
+    if (snoozedUid != null) {
+      await query('UPDATE messages SET folder = $1, uid = $2 WHERE id = $3', [snoozedFolder, snoozedUid, id]);
+    } else {
+      imapManager._guardMoveUid(msg.account_id, snoozedFolder, msg.uid);
+      await query('UPDATE messages SET folder = $1 WHERE id = $2', [snoozedFolder, id]);
+      setTimeout(() => imapManager._unguardMoveUid(msg.account_id, snoozedFolder, msg.uid), 10_000);
+    }
+  } finally {
+    imapManager._unguardMoveUid(msg.account_id, msg.folder, msg.uid);
   }
 
   await query(
@@ -1308,18 +1314,28 @@ router.delete('/messages/:id', async (req, res) => {
   }
 
   if (strategy.action === 'move') {
-    // Move to Trash.
+    // Guard the source UID before the IMAP move so reconcileDeletes cannot delete
+    // the DB row if an EXPUNGE arrives while the move is in flight.
+    imapManager._guardMoveUid(message.account_id, message.folder, message.uid);
     let newUid = null;
     try {
-      newUid = await imapManager.moveMessage(account, message.uid, message.folder, trashPath);
-    } catch (err) {
-      console.error('IMAP move to trash failed:', err.message);
-      return res.status(500).json({ error: 'Failed to delete message' });
-    }
-    if (newUid != null) {
-      await query('UPDATE messages SET folder = $1, uid = $2 WHERE id = $3', [trashPath, newUid, id]);
-    } else {
-      await query('UPDATE messages SET folder = $1 WHERE id = $2', [trashPath, id]);
+      try {
+        newUid = await imapManager.moveMessage(account, message.uid, message.folder, trashPath);
+      } catch (err) {
+        console.error('IMAP move to trash failed:', err.message);
+        return res.status(500).json({ error: 'Failed to delete message' });
+      }
+      if (newUid != null) {
+        await query('UPDATE messages SET folder = $1, uid = $2 WHERE id = $3', [trashPath, newUid, id]);
+      } else {
+        // Non-UIDPLUS: DB holds the stale source UID at the destination. Guard it so
+        // reconcileDeletes does not treat it as an orphan before the next sync corrects it.
+        imapManager._guardMoveUid(message.account_id, trashPath, message.uid);
+        await query('UPDATE messages SET folder = $1 WHERE id = $2', [trashPath, id]);
+        setTimeout(() => imapManager._unguardMoveUid(message.account_id, trashPath, message.uid), 10_000);
+      }
+    } finally {
+      imapManager._unguardMoveUid(message.account_id, message.folder, message.uid);
     }
     adjustFolderCounts(message.account_id, message.folder, -1, -wasUnread);
     adjustFolderCounts(message.account_id, trashPath, 1, wasUnread);
