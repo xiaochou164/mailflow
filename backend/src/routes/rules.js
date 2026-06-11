@@ -7,6 +7,24 @@ router.use(requireAuth);
 
 const DESTINATION_ACTIONS = new Set(['move', 'archive', 'delete']);
 
+// Fields where the condition value must be a non-empty string.
+// has_attachment has no value; all others are string-match conditions.
+const FIELDS_REQUIRING_VALUE = new Set(['from', 'to', 'subject', 'body', 'header']);
+
+// Validates condition shapes. Returns an error string on the first problem,
+// or null when all conditions are valid. Exported for unit testing.
+export function validateConditions(conditions) {
+  for (const cond of conditions) {
+    if (!cond || typeof cond.field !== 'string') {
+      return 'Each condition must have a valid field';
+    }
+    if (FIELDS_REQUIRING_VALUE.has(cond.field) && !String(cond.value || '').trim()) {
+      return 'Condition value cannot be empty';
+    }
+  }
+  return null;
+}
+
 // Strip duplicate destination actions (keeping the first) and trim move values.
 // Silently drops malformed entries (null, non-object, missing/non-string type).
 export function normalizeActions(actions) {
@@ -41,6 +59,8 @@ router.post('/', async (req, res) => {
   if (!Array.isArray(conditions) || !Array.isArray(actions)) {
     return res.status(400).json({ error: 'conditions and actions must be arrays' });
   }
+  const conditionError = validateConditions(conditions);
+  if (conditionError) return res.status(400).json({ error: conditionError });
   try {
     if (accountId) {
       const owned = await query(
@@ -49,7 +69,10 @@ router.post('/', async (req, res) => {
       );
       if (!owned.rows.length) return res.status(403).json({ error: 'Account not found' });
     }
-    const normalizedActions = normalizeActions(actions);
+    // Strip move actions for all-account rules — a move needs a known account to
+    // resolve folder paths. The UI enforces this but a direct API call could bypass it.
+    const normalizedActions = normalizeActions(actions)
+      .filter(a => accountId || a.type !== 'move');
     const moveAction = normalizedActions.find(a => a.type === 'move' && a.value?.trim());
     if (moveAction && accountId) {
       const folderResult = await query(
@@ -96,6 +119,8 @@ router.put('/:id', async (req, res) => {
   if (!Array.isArray(conditions) || !Array.isArray(actions)) {
     return res.status(400).json({ error: 'conditions and actions must be arrays' });
   }
+  const conditionError = validateConditions(conditions);
+  if (conditionError) return res.status(400).json({ error: conditionError });
   try {
     if (accountId) {
       const owned = await query(
@@ -104,7 +129,8 @@ router.put('/:id', async (req, res) => {
       );
       if (!owned.rows.length) return res.status(403).json({ error: 'Account not found' });
     }
-    const normalizedActions = normalizeActions(actions);
+    const normalizedActions = normalizeActions(actions)
+      .filter(a => accountId || a.type !== 'move');
     const moveAction = normalizedActions.find(a => a.type === 'move' && a.value?.trim());
     if (moveAction && accountId) {
       const folderResult = await query(

@@ -3,7 +3,35 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('../services/db.js', () => ({ query: vi.fn() }));
 vi.mock('../middleware/auth.js', () => ({ requireAuth: vi.fn() }));
 
-import { normalizeActions } from './rules.js';
+import { normalizeActions, validateConditions } from './rules.js';
+
+describe('validateConditions', () => {
+  it('returns null for a well-formed condition', () => {
+    expect(validateConditions([{ field: 'subject', operator: 'contains', value: 'invoice' }])).toBeNull();
+  });
+
+  it('returns null for has_attachment which has no value', () => {
+    expect(validateConditions([{ field: 'has_attachment', operator: 'equals', value: '' }])).toBeNull();
+  });
+
+  it('returns an error when a string-match condition has a blank value', () => {
+    expect(validateConditions([{ field: 'from', operator: 'contains', value: '' }])).toBeTruthy();
+    expect(validateConditions([{ field: 'subject', operator: 'contains', value: '   ' }])).toBeTruthy();
+    expect(validateConditions([{ field: 'body', operator: 'contains', value: '' }])).toBeTruthy();
+  });
+
+  it('returns an error for a null condition entry', () => {
+    expect(validateConditions([null])).toBeTruthy();
+  });
+
+  it('returns an error when field is not a string', () => {
+    expect(validateConditions([{ field: 42, operator: 'contains', value: 'x' }])).toBeTruthy();
+  });
+
+  it('returns null for an empty conditions array', () => {
+    expect(validateConditions([])).toBeNull();
+  });
+});
 
 describe('normalizeActions', () => {
   it('returns actions unchanged when there are no destination actions', () => {

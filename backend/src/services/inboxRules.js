@@ -6,7 +6,7 @@ async function getRulesForAccount(userId, accountId) {
     `SELECT * FROM inbox_rules
      WHERE user_id = $1 AND enabled = true
        AND (account_id IS NULL OR account_id = $2)
-     ORDER BY priority ASC`,
+     ORDER BY priority ASC, created_at ASC`,
     [userId, accountId]
   );
   return result.rows;
@@ -19,6 +19,11 @@ function normalizeStr(val) {
 function matchOperator(operator, fieldVal, ruleVal) {
   const f = normalizeStr(fieldVal);
   const r = normalizeStr(ruleVal);
+  // A blank rule value with contains/starts_with/ends_with matches every string
+  // in JavaScript (e.g. 'anything'.includes('') === true). Treat it as no-match
+  // so a rule whose condition value was accidentally left empty never becomes a
+  // silent match-all that deletes or moves every incoming message.
+  if (!r) return false;
   switch (operator) {
     case 'contains':     return f.includes(r);
     case 'not_contains': return !f.includes(r);
@@ -42,6 +47,7 @@ function matchOperator(operator, fieldVal, ruleVal) {
 }
 
 function evaluateCondition(cond, msg) {
+  if (!cond || typeof cond.field !== 'string') return false;
   const { field, operator, value } = cond;
   switch (field) {
     case 'from': {
@@ -103,7 +109,7 @@ export async function applyInboxRules(messages, account, imapManager) {
   // If any rule matches on body, batch-fetch body_text from DB (it's not on the
   // parsed message object — it was stored to DB during processMsg).
   const needsBody = rules.some(r =>
-    Array.isArray(r.conditions) && r.conditions.some(c => c.field === 'body')
+    Array.isArray(r.conditions) && r.conditions.some(c => c?.field === 'body')
   );
 
   if (needsBody) {
@@ -134,7 +140,14 @@ export async function applyInboxRules(messages, account, imapManager) {
 
   for (const msg of messages) {
     for (const rule of rules) {
-      if (!evaluateRule(rule, msg)) continue;
+      let matches;
+      try {
+        matches = evaluateRule(rule, msg);
+      } catch (err) {
+        console.error(`inboxRules: rule ${rule.id} evaluation error for msg ${msg.id}:`, err.message);
+        continue;
+      }
+      if (!matches) continue;
 
       const actions = Array.isArray(rule.actions) ? rule.actions : [];
       let destSeen = false;
@@ -188,7 +201,12 @@ export async function applyBlockList(messages, account, imapManager) {
       if (strategy.action === 'move') {
         const result = await imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, strategy.destination);
         if (!result.failed?.length) {
-          await query('UPDATE messages SET folder = $1 WHERE id = $2', [strategy.destination, msg.id]);
+          const newUid = result.uidMap?.get(Number(msg.uid));
+          if (newUid) {
+            await query('UPDATE messages SET folder = $1, uid = $2 WHERE id = $3', [strategy.destination, newUid, msg.id]);
+          } else {
+            await query('UPDATE messages SET folder = $1 WHERE id = $2', [strategy.destination, msg.id]);
+          }
         } else {
           remaining.push(msg);
         }
@@ -240,7 +258,17 @@ async function applyAction(action, msg, account, imapManager) {
       // the relocation logic.
       const moveResult = await imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, destFolder);
       if (moveResult.failed?.length) throw new Error(`IMAP move to ${destFolder} failed for uid ${msg.uid}`);
-      await query('UPDATE messages SET folder = $1 WHERE id = $2', [destFolder, msg.id]);
+      // Update UID alongside folder. The IMAP MOVE assigns the message a new UID in
+      // the destination folder. Without this, reconcileDeletes fires ~1.5 s later
+      // (triggered by the EXPUNGE IDLE event), sees the old source UID absent from
+      // the destination's server UID set, and deletes the DB row — silently losing
+      // the message. mail.js user-initiated moves already do this correctly.
+      const newUid = moveResult.uidMap?.get(Number(msg.uid));
+      if (newUid) {
+        await query('UPDATE messages SET folder = $1, uid = $2 WHERE id = $3', [destFolder, newUid, msg.id]);
+      } else {
+        await query('UPDATE messages SET folder = $1 WHERE id = $2', [destFolder, msg.id]);
+      }
       return true;
     }
 
@@ -249,7 +277,12 @@ async function applyAction(action, msg, account, imapManager) {
       if (!archiveFolder) return false;
       const archiveResult = await imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, archiveFolder);
       if (archiveResult.failed?.length) throw new Error(`IMAP archive failed for uid ${msg.uid}`);
-      await query('UPDATE messages SET folder = $1 WHERE id = $2', [archiveFolder, msg.id]);
+      const newArchiveUid = archiveResult.uidMap?.get(Number(msg.uid));
+      if (newArchiveUid) {
+        await query('UPDATE messages SET folder = $1, uid = $2 WHERE id = $3', [archiveFolder, newArchiveUid, msg.id]);
+      } else {
+        await query('UPDATE messages SET folder = $1 WHERE id = $2', [archiveFolder, msg.id]);
+      }
       return true;
     }
 
@@ -261,7 +294,12 @@ async function applyAction(action, msg, account, imapManager) {
       if (strategy.action === 'move') {
         const deleteResult = await imapManager.bulkMoveMessages(account, [msg.uid], msg.folder, strategy.destination);
         if (deleteResult.failed?.length) throw new Error(`IMAP delete-move failed for uid ${msg.uid}`);
-        await query('UPDATE messages SET folder = $1 WHERE id = $2', [strategy.destination, msg.id]);
+        const newDeleteUid = deleteResult.uidMap?.get(Number(msg.uid));
+        if (newDeleteUid) {
+          await query('UPDATE messages SET folder = $1, uid = $2 WHERE id = $3', [strategy.destination, newDeleteUid, msg.id]);
+        } else {
+          await query('UPDATE messages SET folder = $1 WHERE id = $2', [strategy.destination, msg.id]);
+        }
       } else if (strategy.action === 'expunge') {
         await imapManager.setFlag(account, msg.uid, msg.folder, '\\Deleted', true);
         await query('UPDATE messages SET is_deleted = true WHERE id = $1', [msg.id]);
