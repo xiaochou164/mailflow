@@ -287,42 +287,49 @@ export default function Sidebar() {
     if (!raw) return;
     let payload;
     try { payload = JSON.parse(raw); } catch { return; }
-    const { messageId } = payload;
     const state = useStore.getState();
-    const msg = state.messages.find(m => m.id === messageId) || state.searchResults.find(m => m.id === messageId);
-    if (!msg || msg.folder === targetFolder) return;
-    state.removeMessage(messageId);
-    if (!msg.is_read) state.decrementUnread(msg.account_id);
+    const pool = [...state.messages, ...state.searchResults];
+    const ids = payload.messageIds ?? [payload.messageId];
+    const msgs = ids
+      .map(id => pool.find(m => m.id === id))
+      .filter(m => m != null && m.folder !== targetFolder);
+    if (!msgs.length) return;
+    msgs.forEach(msg => {
+      state.removeMessage(msg.id);
+      if (!msg.is_read) state.decrementUnread(msg.account_id);
+    });
+    const movedIds = msgs.map(m => m.id);
     let undone = false;
     const timer = setTimeout(async () => {
       if (undone) return;
       try {
-        const result = await api.bulkMove([messageId], targetFolder);
+        const result = await api.bulkMove(movedIds, targetFolder);
         const movedSet = new Set(result.moved ?? []);
+        const failedMsgs = msgs.filter(m => !movedSet.has(m.id));
         const s = useStore.getState();
-        if (!movedSet.has(messageId)) {
-          s.restoreMessages([msg]);
-          if (!msg.is_read) s.incrementUnread(msg.account_id);
-          s.addNotification({ title: t('messageList.bulkMoved.failTitle'), body: t('messageList.bulkMoved.failBody', { count: 1 }) });
+        if (failedMsgs.length > 0) {
+          s.restoreMessages(failedMsgs);
+          failedMsgs.forEach(m => { if (!m.is_read) s.incrementUnread(m.account_id); });
+          s.addNotification({ title: t('messageList.bulkMoved.failTitle'), body: t('messageList.bulkMoved.failBody', { count: failedMsgs.length }) });
         } else {
-          s.recordRecentFolder({ accountId: msg.account_id, path: targetFolder });
+          s.recordRecentFolder({ accountId: msgs[0].account_id, path: targetFolder });
         }
       } catch {
         const s = useStore.getState();
-        s.restoreMessages([msg]);
-        if (!msg.is_read) s.incrementUnread(msg.account_id);
-        s.addNotification({ title: t('messageList.bulkMoved.failTitle'), body: t('messageList.bulkMoved.failBody', { count: 1 }) });
+        s.restoreMessages(msgs);
+        msgs.forEach(m => { if (!m.is_read) s.incrementUnread(m.account_id); });
+        s.addNotification({ title: t('messageList.bulkMoved.failTitle'), body: t('messageList.bulkMoved.failBody', { count: movedIds.length }) });
       }
     }, 4500);
     state.addNotification({
-      title: t('messageList.bulkMoved.title', { count: 1 }),
+      title: t('messageList.bulkMoved.title', { count: msgs.length }),
       body: targetFolder,
       onUndo: () => {
         undone = true;
         clearTimeout(timer);
         const s = useStore.getState();
-        s.restoreMessages([msg]);
-        if (!msg.is_read) s.incrementUnread(msg.account_id);
+        s.restoreMessages(msgs);
+        msgs.forEach(m => { if (!m.is_read) s.incrementUnread(m.account_id); });
       },
     });
   }, [t]);

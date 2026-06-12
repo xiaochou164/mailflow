@@ -1104,6 +1104,16 @@ export default function MessageList() {
     setContextMenu({ x: rect.left, y: rect.bottom + 4, message: msg, defaultMoveView: true });
   }, []);
 
+  const handleRowDragStart = useCallback((e, message) => {
+    const { selectedIds } = scRef.current;
+    const isMulti = selectedIds.size > 1 && selectedIds.has(message.id);
+    const payload = isMulti
+      ? { messageIds: [...selectedIds], accountId: message.account_id }
+      : { messageId: message.id, accountId: message.account_id };
+    e.dataTransfer.setData('application/x-mailflow-message', JSON.stringify(payload));
+    e.dataTransfer.effectAllowed = 'move';
+  }, []);
+
   const handleBulkArchive = useCallback((ids, msgs) => {
     ids.forEach(id => removeMessage(id));
     msgs.forEach(msg => { if (!msg.is_read) decrementUnread(msg.account_id); });
@@ -2680,6 +2690,7 @@ export default function MessageList() {
                   setContextMenu({ x: e.clientX, y: e.clientY, message: msg });
                 }}
                 onMove={handleRowMove}
+                onDragStart={handleRowDragStart}
                 isMobile={isMobile}
                 swipeLeftAction={swipeLeftAction}
                 swipeRightAction={swipeRightAction}
@@ -3317,7 +3328,7 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
   );
 }
 
-function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, showAccount, isNarrow, onSelect, onToggleSelect, onRangeSelect, onAvatarClick, onMarkRead, onStar, onDelete, hoverQuickActions, onContextMenu, onMove, isMobile, swipeLeftAction, swipeRightAction, onSwipeLeft, onSwipeRight, onLongPress }) {
+function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, showAccount, isNarrow, onSelect, onToggleSelect, onRangeSelect, onAvatarClick, onMarkRead, onStar, onDelete, hoverQuickActions, onContextMenu, onMove, onDragStart, isMobile, swipeLeftAction, swipeRightAction, onSwipeLeft, onSwipeRight, onLongPress }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [avatarHovered, setAvatarHovered] = useState(false);
@@ -3383,10 +3394,7 @@ function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, s
       <div
         ref={isMobile ? contentRef : undefined}
         draggable={!isMobile}
-        onDragStart={!isMobile ? (e) => {
-          e.dataTransfer.setData('application/x-mailflow-message', JSON.stringify({ messageId: message.id, accountId: message.account_id }));
-          e.dataTransfer.effectAllowed = 'move';
-        } : undefined}
+        onDragStart={!isMobile ? (e) => onDragStart(e, message) : undefined}
         onClick={handleClick}
         onContextMenu={!isMobile ? (e => onContextMenu(e, message)) : undefined}
         style={{
