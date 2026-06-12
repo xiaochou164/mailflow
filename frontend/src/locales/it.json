@@ -423,7 +423,7 @@
       "fieldHeader": "Intestazione",
       "opRegex": "corrisponde a regex",
       "headerNamePlaceholder": "Nome intestazione (es. X-Spam-Status)",
-      "bodyConditionNote": "La ricerca nel corpo funziona solo per i messaggi già scaricati completamente. I nuovi messaggi potrebbero non corrispondere finché il loro contenuto non è stato scaricato.",
+      "bodyConditionNote": "Le regole sul corpo vengono eseguite solo se il testo del messaggio è già scaricato. Se non è ancora stato recuperato all'arrivo del messaggio, la regola viene ignorata e il messaggio resta nella posta in arrivo — le regole sul corpo non si applicano retroattivamente.",
       "subTabRules": "Regole",
       "subTabBlockList": "Lista blocchi",
       "actionMoveSelectFolder": "Seleziona una cartella…",

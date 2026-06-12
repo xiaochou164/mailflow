@@ -423,7 +423,7 @@
       "fieldHeader": "Encabezado",
       "opRegex": "coincide con regex",
       "headerNamePlaceholder": "Nombre del encabezado (ej. X-Spam-Status)",
-      "bodyConditionNote": "La búsqueda en el cuerpo solo funciona para mensajes ya descargados. Los mensajes nuevos pueden no coincidir hasta que su contenido haya sido descargado.",
+      "bodyConditionNote": "Las reglas de cuerpo solo se ejecutan si el cuerpo del mensaje ya está descargado. Si aún no se ha obtenido cuando llega el mensaje, la regla se omite y el mensaje permanece en la bandeja de entrada — las reglas de cuerpo no se aplican retroactivamente.",
       "subTabRules": "Reglas",
       "subTabBlockList": "Lista de bloqueo",
       "actionMoveSelectFolder": "Seleccionar carpeta…",
