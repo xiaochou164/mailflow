@@ -187,6 +187,7 @@ export default function ComposeModal() {
   const composeWindowRef = useRef(null);
   const posRef = useRef(null);
   const customSizeRef = useRef(null);
+  const dragCleanupRef = useRef(null);
   posRef.current = pos;
   customSizeRef.current = customSize;
 
@@ -335,59 +336,115 @@ export default function ComposeModal() {
     if (e.target.closest('button, select, a')) return;
     if (maximized) return;
     e.preventDefault();
-    const rect = composeWindowRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const el = composeWindowRef.current;
+    if (!el) return;
+    // Cancel any in-progress interaction before starting a new one.
+    dragCleanupRef.current?.({ commit: false });
+    const captureEl = e.currentTarget;
+    const pointerId = e.pointerId;
+    captureEl.setPointerCapture(pointerId);
+    // Finish any entry animation so getBoundingClientRect reflects the final position.
+    el.getAnimations().forEach(a => a.finish());
+    const rect = el.getBoundingClientRect();
     const startMouseX = e.clientX;
     const startMouseY = e.clientY;
     const startX = rect.left;
     const startY = rect.top;
     const w = rect.width;
+    // Immediately switch from bottom/right to top/left in the DOM — no re-render
+    // needed, so there is no frame where the window jumps to a stale position.
+    el.style.bottom = '';
+    el.style.right = '';
+    el.style.top = startY + 'px';
+    el.style.left = startX + 'px';
+    // Sync React state so subsequent re-renders use the pos !== null style branch.
     setPos({ x: startX, y: startY });
     document.body.style.cursor = 'grabbing';
     document.body.style.userSelect = 'none';
+    let curX = startX;
+    let curY = startY;
+    // Mutate the DOM directly during drag — avoids a React re-render on every
+    // pointermove event, which was the source of lag and jerkiness.
     const onMove = (ev) => {
-      const newX = Math.max(0, Math.min(window.innerWidth - w, startX + ev.clientX - startMouseX));
-      const newY = Math.max(0, Math.min(window.innerHeight - 40, startY + ev.clientY - startMouseY));
-      setPos({ x: newX, y: newY });
+      curX = Math.max(0, Math.min(window.innerWidth - w, startX + ev.clientX - startMouseX));
+      curY = Math.max(0, Math.min(window.innerHeight - 40, startY + ev.clientY - startMouseY));
+      el.style.left = curX + 'px';
+      el.style.top = curY + 'px';
     };
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+    const cleanup = ({ commit = true } = {}) => {
+      captureEl.removeEventListener('pointermove', onMove);
+      captureEl.removeEventListener('pointerup', cleanup);
+      captureEl.removeEventListener('pointercancel', cleanupNoCommit);
+      window.removeEventListener('blur', cleanupNoCommit);
+      if (captureEl.hasPointerCapture?.(pointerId)) captureEl.releasePointerCapture(pointerId);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      dragCleanupRef.current = null;
+      // Commit final position to React state; React will reconcile to the same
+      // pixel values already in the DOM so there is no visible jump.
+      if (commit) setPos({ x: curX, y: curY });
     };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    const cleanupNoCommit = () => cleanup({ commit: false });
+    dragCleanupRef.current = cleanup;
+    captureEl.addEventListener('pointermove', onMove);
+    captureEl.addEventListener('pointerup', cleanup);
+    captureEl.addEventListener('pointercancel', cleanupNoCommit);
+    window.addEventListener('blur', cleanupNoCommit);
   }, [maximized]);
 
   const handleResizeDragStart = useCallback((e) => {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    const rect = composeWindowRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const el = composeWindowRef.current;
+    if (!el) return;
+    // Cancel any in-progress interaction before starting a new one.
+    dragCleanupRef.current?.({ commit: false });
+    const captureEl = e.currentTarget;
+    const pointerId = e.pointerId;
+    captureEl.setPointerCapture(pointerId);
+    el.getAnimations().forEach(a => a.finish());
+    const rect = el.getBoundingClientRect();
     const startMouseX = e.clientX;
     const startMouseY = e.clientY;
     const startWidth = rect.width;
     const startHeight = rect.height;
-    setPos(prev => prev || { x: rect.left, y: rect.top });
+    // Switch to top/left positioning if not already positioned.
+    el.style.bottom = '';
+    el.style.right = '';
+    if (!el.style.top) el.style.top = rect.top + 'px';
+    if (!el.style.left) el.style.left = rect.left + 'px';
+    setPos(prev => prev ?? { x: rect.left, y: rect.top });
     document.body.style.cursor = 'nwse-resize';
     document.body.style.userSelect = 'none';
+    let curW = startWidth;
+    let curH = startHeight;
     const onMove = (ev) => {
-      setCustomSize({
-        width: Math.min(window.innerWidth - 16, Math.max(360, startWidth + ev.clientX - startMouseX)),
-        height: Math.min(window.innerHeight - 40, Math.max(200, startHeight + ev.clientY - startMouseY)),
-      });
+      curW = Math.min(window.innerWidth - 16, Math.max(360, startWidth + ev.clientX - startMouseX));
+      curH = Math.min(window.innerHeight - 40, Math.max(200, startHeight + ev.clientY - startMouseY));
+      el.style.width = curW + 'px';
+      el.style.height = curH + 'px';
     };
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+    const cleanup = ({ commit = true } = {}) => {
+      captureEl.removeEventListener('pointermove', onMove);
+      captureEl.removeEventListener('pointerup', cleanup);
+      captureEl.removeEventListener('pointercancel', cleanupNoCommit);
+      window.removeEventListener('blur', cleanupNoCommit);
+      if (captureEl.hasPointerCapture?.(pointerId)) captureEl.releasePointerCapture(pointerId);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      dragCleanupRef.current = null;
+      if (commit) setCustomSize({ width: curW, height: curH });
     };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    const cleanupNoCommit = () => cleanup({ commit: false });
+    dragCleanupRef.current = cleanup;
+    captureEl.addEventListener('pointermove', onMove);
+    captureEl.addEventListener('pointerup', cleanup);
+    captureEl.addEventListener('pointercancel', cleanupNoCommit);
+    window.addEventListener('blur', cleanupNoCommit);
   }, []);
+
+  useEffect(() => { return () => { dragCleanupRef.current?.({ commit: false }); }; }, []);
 
   // Initialise/reset the signature when the From identity changes, or when the
   // signature first becomes available (accounts loaded after component mount).
@@ -1037,7 +1094,7 @@ export default function ComposeModal() {
         position: 'fixed', bottom: 0, right: 24,
         width: 540, maxWidth: 'calc(100vw - 48px)',
         background: 'var(--bg-secondary)', border: '1px solid var(--border)',
-        borderBottom: 'none', borderRadius: '10px 10px 0 0',
+        borderRadius: 10,
         boxShadow: 'var(--shadow-modal)',
         zIndex: 1000, display: 'flex', flexDirection: 'column',
         maxHeight: '75vh',
@@ -1048,7 +1105,7 @@ export default function ComposeModal() {
       <input ref={imageInputRef} type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) insertImageIntoEditor(f); e.target.value = ''; }} style={{ display: 'none' }} />
       {/* Title bar */}
       <div
-        onMouseDown={handleTitleDragStart}
+        onPointerDown={handleTitleDragStart}
         style={{
           padding: '10px 14px', display: 'flex', alignItems: 'center',
           justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)',
@@ -1131,7 +1188,7 @@ export default function ComposeModal() {
               <line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
           </TitleBtn>
-          <TitleBtn onClick={() => setMaximized(m => !m)} title={maximized ? 'Restore' : 'Maximize'}>
+          <TitleBtn onClick={() => setMaximized(m => !m)} title={maximized ? t('compose.toolbar.restore') : t('compose.toolbar.maximize')}>
             {maximized ? (
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
@@ -1405,7 +1462,7 @@ export default function ComposeModal() {
 
       {!maximized && (
         <div
-          onMouseDown={handleResizeDragStart}
+          onPointerDown={handleResizeDragStart}
           style={{ position: 'absolute', bottom: 0, right: 0, width: 18, height: 18, cursor: 'nwse-resize' }}
         >
           <svg

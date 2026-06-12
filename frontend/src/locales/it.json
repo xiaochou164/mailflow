@@ -72,6 +72,8 @@
       "removeColor": "Rimuovi colore",
       "insertImage": "Inserisci immagine",
       "minimize": "Riduci",
+      "maximize": "Ingrandisci",
+      "restore": "Ripristina",
       "close": "Chiudi",
       "attachFile": "Allega file",
       "insertLink": "Inserisci link",

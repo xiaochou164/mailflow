@@ -72,6 +72,8 @@
       "removeColor": "Farbe entfernen",
       "insertImage": "Bild einfügen",
       "minimize": "Minimieren",
+      "maximize": "Maximieren",
+      "restore": "Wiederherstellen",
       "close": "Schließen",
       "attachFile": "Datei anhängen",
       "insertLink": "Link einfügen",
