@@ -35,7 +35,7 @@ function parseAddressField(raw) {
   try {
     const arr = Array.isArray(raw) ? raw : JSON.parse(raw || '[]');
     return arr.map(a => a.name ? `${a.name} <${a.email}>` : a.email).filter(Boolean).join(', ');
-  } catch (_) { return ''; }
+  } catch { return ''; }
 }
 
 const SWIPE_ACTIONS = {
@@ -91,12 +91,12 @@ export default function MessageList() {
   const { t } = useTranslation();
   const {
     selectedAccountId, selectedFolder, messages, setMessages,
-    appendMessages, messagesTotal, setMessagesTotal, messagesOffset,
+    appendMessages, messagesTotal, setMessagesTotal,
     setMessagesOffset, hasMoreMessages, setHasMoreMessages,
     loadingMessages, setLoadingMessages, selectedMessageId, lastViewedMessageId,
     setSelectedMessage, updateMessage, removeMessage,
     decrementUnread, incrementUnread, addNotification, notifications, removeNotification,
-    searchQuery, setSearchQuery, isSearching, setIsSearching,
+    searchQuery, setSearchQuery, setIsSearching,
     searchResults, setSearchResults, openCompose, accountsReady, accounts,
     messagesRefreshToken, layout, setLayout, pageSize, setPageSize, scrollMode,
     setMobileSidebarOpen, unreadCounts,
@@ -265,7 +265,7 @@ export default function MessageList() {
     };
     run();
     return () => { cancelled = true; };
-  }, [selectedAccountId, selectedFolder, unreadOnly, pageSize, scrollMode, accountsReady, accounts.length, messagesRefreshToken, threadedView]);
+  }, [selectedAccountId, selectedFolder, unreadOnly, pageSize, scrollMode, accountsReady, accounts.length, messagesRefreshToken, threadedView, applyReadGuard, setHasMoreMessages, setLoadingMessages, setMessages, setMessagesOffset, setMessagesTotal]);
 
   // Load next page (called by scroll or button)
   const loadMore = useCallback(async () => {
@@ -290,7 +290,7 @@ export default function MessageList() {
     } finally {
       setLoadingMessages(false);
     }
-  }, [selectedAccountId, selectedFolder, unreadOnly, pageSize, loadingMessages, hasMoreMessages, applyReadGuard]);
+  }, [selectedAccountId, selectedFolder, unreadOnly, pageSize, loadingMessages, hasMoreMessages, applyReadGuard, appendMessages, setHasMoreMessages, setLoadingMessages, setMessagesOffset]);
 
   // Listen for backfill refresh events from WebSocket
   useEffect(() => {
@@ -330,14 +330,14 @@ export default function MessageList() {
               setMessagesOffset(data.messages.length);
               setHasMoreMessages(data.messages.length < data.total);
             }
-          } catch (_) {}
+          } catch { /* intentional */ }
         };
         run();
       }
     };
     window.addEventListener('mailflow:refresh', handler);
     return () => window.removeEventListener('mailflow:refresh', handler);
-  }, [selectedAccountId, selectedFolder, unreadOnly, searchQuery, applyReadGuard]);
+  }, [selectedAccountId, selectedFolder, unreadOnly, searchQuery, applyReadGuard, setHasMoreMessages, setMessages, setMessagesOffset, setMessagesTotal]);
 
   // Search
   const SEARCH_PAGE = 50;
@@ -365,7 +365,7 @@ export default function MessageList() {
       }
     }, 300);
     return () => clearTimeout(searchTimer.current);
-  }, [searchQuery, selectedAccountId, applyReadGuard]);
+  }, [searchQuery, selectedAccountId, applyReadGuard, setIsSearching, setSearchResults]);
 
   const loadMoreSearch = useCallback(async () => {
     if (searchLoadingMore) return;
@@ -424,7 +424,7 @@ export default function MessageList() {
     } finally {
       setLoadingMessages(false);
     }
-  }, [selectedAccountId, selectedFolder, unreadOnly, pageSize, loadingMessages, threadedView, applyReadGuard]);
+  }, [selectedAccountId, selectedFolder, unreadOnly, pageSize, loadingMessages, threadedView, applyReadGuard, setExpandedThreadId, setHasMoreMessages, setLoadingMessages, setMessages, setMessagesOffset, setMessagesTotal]);
 
   const handleSync = async () => {
     if (syncing) return;
@@ -504,7 +504,7 @@ export default function MessageList() {
       el.removeEventListener('touchend', onTouchEnd);
       el.removeEventListener('touchcancel', resetPull);
     };
-  }, [isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isMobile]);
 
   // Animate the sync icon on WS sync_complete — the actual list refresh is handled
   // by the mailflow:refresh listener above (also fired on sync_complete), so this
@@ -550,7 +550,7 @@ export default function MessageList() {
   }, [threadMessages, setThreadMessages]);
 
   const setMessagesReadState = useCallback(async (message, read) => {
-    let actionMessages = [message];
+    let actionMessages;
     try {
       actionMessages = await resolveMessagesForThreadAction(message);
     } catch (err) {
@@ -617,7 +617,7 @@ export default function MessageList() {
   };
 
   const setMessagesStarredState = useCallback(async (message, starred) => {
-    let actionMessages = [message];
+    let actionMessages;
     try {
       actionMessages = await resolveMessagesForThreadAction(message);
     } catch (err) {
@@ -836,7 +836,7 @@ export default function MessageList() {
   const handleSwipeReply = useCallback((message, replyAll = false) => {
     const replyToArr = Array.isArray(message.reply_to)
       ? message.reply_to
-      : (() => { try { return JSON.parse(message.reply_to || '[]'); } catch (_) { return []; } })();
+      : (() => { try { return JSON.parse(message.reply_to || '[]'); } catch { return []; } })();
     const replyTarget = (replyToArr.length && replyToArr[0].email)
       ? replyToArr[0]
       : { name: message.from_name || '', email: message.from_email || '' };
@@ -866,7 +866,7 @@ export default function MessageList() {
           return allEmails.includes(aliasEmail) || fromEmail === aliasEmail;
         });
         return match ? match.id : null;
-      } catch (_) { return null; }
+      } catch { return null; }
     })();
 
     const allRecipients = (() => {
@@ -880,7 +880,7 @@ export default function MessageList() {
         return [...toArr, ...ccArr].filter(
           t => t.email && !myAddresses.has(t.email.toLowerCase()) && t.email !== replyTarget.email
         );
-      } catch (_) { return []; }
+      } catch { return []; }
     })();
 
     const referencesChain = [message.in_reply_to, message.message_id]
@@ -1180,7 +1180,7 @@ export default function MessageList() {
         if (delta > 0) markAsRead ? incrementUnread(accountId, delta) : decrementUnread(accountId, delta);
       });
     }
-  }, [updateMessage, decrementUnread, incrementUnread, addNotification, t]);
+  }, [updateMessage, decrementUnread, incrementUnread]);
 
   // Keep refs to bulk handlers so the shortcut effect (registered once) is never stale
   const bulkDeleteRef    = useRef(handleBulkDelete);
@@ -1338,7 +1338,7 @@ export default function MessageList() {
       shortcutBus.off('toggleRead',    onToggleRead);
       shortcutBus.off('focusSearch',   onFocusSearch);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOpenFolderPicker = useCallback(async (selectedMsgs) => {
     if (showFolderPicker) { setShowFolderPicker(false); return; }
@@ -1389,7 +1389,7 @@ export default function MessageList() {
 
         const replyToArr = Array.isArray(message.reply_to)
           ? message.reply_to
-          : (() => { try { return JSON.parse(message.reply_to || '[]'); } catch (_) { return []; } })();
+          : (() => { try { return JSON.parse(message.reply_to || '[]'); } catch { return []; } })();
         const replyTarget = (replyToArr.length && replyToArr[0].email)
           ? replyToArr[0]
           : { name: message.from_name || '', email: message.from_email || '' };
@@ -1419,7 +1419,7 @@ export default function MessageList() {
               return allEmails.includes(aliasEmail) || fromEmail === aliasEmail;
             });
             return match ? match.id : null;
-          } catch (_) { return null; }
+          } catch { return null; }
         })();
 
         const allRecipients = (() => {
@@ -1433,7 +1433,7 @@ export default function MessageList() {
             return [...toArr, ...ccArr].filter(
               t => t.email && !myAddresses.has(t.email.toLowerCase()) && t.email !== replyTarget.email
             );
-          } catch (_) { return []; }
+          } catch { return []; }
         })();
 
         const referencesChain = [message.in_reply_to, message.message_id]
@@ -1547,7 +1547,7 @@ export default function MessageList() {
           break;
         }
         const moved = message;
-        let moveMessages = [message];
+        let moveMessages;
         try {
           moveMessages = await resolveMessagesForThreadAction(message);
         } catch (err) {
@@ -3092,9 +3092,8 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
   const [hovered, setHovered] = useState(false);
   const messageCount = message.message_count || 1;
   const unreadCount  = parseInt(message.unread_count) || 0;
-  const tid = message.thread_id || message.id;
 
-  const { contentRef, swipeBgLeftRef, swipeBgRightRef, springBack } = useSwipeRow({
+  const { contentRef, swipeBgLeftRef, swipeBgRightRef } = useSwipeRow({
     isMobile, message, onSwipeLeft, onSwipeRight,
   });
 

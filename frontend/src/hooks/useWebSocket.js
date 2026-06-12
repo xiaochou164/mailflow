@@ -102,6 +102,7 @@ export function useWebSocket() {
 
     ws.onerror = () => ws.close();
     wsRef.current = ws;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleMessage = useCallback((data) => {
@@ -256,7 +257,7 @@ export function useWebSocket() {
         break;
       }
     }
-  }, [addNotification, updateAccount, setFolders, t]);
+  }, [addNotification, updateAccount, setFolders, setBackfillProgress, t]);
 
   useEffect(() => {
     mountedRef.current = true;

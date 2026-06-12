@@ -57,7 +57,7 @@ export default function LoginPage() {
       setOidcError(oidcErrParam);
       window.history.replaceState({}, '', '/');
     }
-  }, []);
+  }, [t]);
 
   const submit = async (e) => {
     e.preventDefault();

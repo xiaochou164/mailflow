@@ -16,7 +16,7 @@ function parseAddressField(raw) {
   try {
     const arr = Array.isArray(raw) ? raw : JSON.parse(raw || '[]');
     return arr.map(a => a.name ? `${a.name} <${a.email}>` : a.email).filter(Boolean).join(', ');
-  } catch (_) { return ''; }
+  } catch { return ''; }
 }
 
 function linkifyText(text) {
@@ -68,7 +68,7 @@ export default function MessagePane() {
   const {
     messages, searchResults, searchQuery, selectedMessageId, setSelectedMessage,
     updateMessage, removeMessage, decrementUnread, incrementUnread, openCompose, accounts, addNotification,
-    imageWhitelist, setImageWhitelist, addToImageWhitelist, blockRemoteImages, threadMessages,
+    imageWhitelist, addToImageWhitelist, blockRemoteImages, threadMessages,
     replyDefault, shortcuts,
   } = useStore();
 
@@ -404,7 +404,6 @@ export default function MessagePane() {
     if (isMobile || !selectedMessageId || !paneRef.current) return;
     const el = paneRef.current;
     el.style.animation = 'none';
-    // eslint-disable-next-line no-unused-expressions
     el.offsetHeight; // force reflow to restart animation
     el.style.animation = 'pane-fade-in 0.15s ease';
   }, [selectedMessageId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -518,7 +517,7 @@ export default function MessagePane() {
 
     const replyToArr = Array.isArray(message.reply_to)
       ? message.reply_to
-      : (() => { try { return JSON.parse(message.reply_to || '[]'); } catch (_) { return []; } })();
+      : (() => { try { return JSON.parse(message.reply_to || '[]'); } catch { return []; } })();
     const replyTarget = (replyToArr.length && replyToArr[0].email)
       ? replyToArr[0]
       : { name: message.from_name || '', email: message.from_email || '' };
@@ -544,7 +543,7 @@ export default function MessagePane() {
           return allEmails.includes(aliasEmail) || fromEmail === aliasEmail;
         });
         return match ? match.id : null;
-      } catch (_) { return null; }
+      } catch { return null; }
     })();
 
     const myAddresses = new Set([
@@ -562,7 +561,7 @@ export default function MessagePane() {
         return [...toArr, ...ccArr].filter(
           t => t.email && !myAddresses.has(t.email.toLowerCase()) && t.email !== replyTarget.email
         );
-      } catch (_) { return []; }
+      } catch { return []; }
     })();
 
     const referencesChain = [message.in_reply_to, message.message_id]
@@ -639,7 +638,7 @@ export default function MessagePane() {
       : esc(message.from_email);
 
     const parseList = (raw) => {
-      try { return Array.isArray(raw) ? raw : JSON.parse(raw || '[]'); } catch (_) { return []; }
+      try { return Array.isArray(raw) ? raw : JSON.parse(raw || '[]'); } catch { return []; }
     };
     const fmtAddr = (r) => r.name ? `${esc(r.name)} &lt;${esc(r.email)}&gt;` : esc(r.email);
     const toStr = parseList(message.to_addresses).map(fmtAddr).join(', ');
@@ -709,7 +708,7 @@ ${bodyContent}
       shortcutBus.off('toggleStar',    onToggleStar);
       shortcutBus.off('printMessage',  onPrintMessage);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDownload = async (messageId, part, filename) => {
     setDownloadingPart(part);
@@ -907,7 +906,7 @@ ${bodyContent}
       }
       bodyCacheOrder.current = bodyCacheOrder.current.filter(id => bodyCache.current[id]);
       setRetryKey(k => k + 1);
-    } catch (_) {
+    } catch {
       addNotification({ title: t('message.whitelistFail.title'), body: t('message.whitelistFail.body') });
     } finally {
       setSavingAllow(false);
@@ -927,7 +926,7 @@ ${bodyContent}
       }
       bodyCacheOrder.current = bodyCacheOrder.current.filter(id => bodyCache.current[id]);
       setRetryKey(k => k + 1);
-    } catch (_) {
+    } catch {
       addNotification({ title: t('message.whitelistFail.title'), body: t('message.whitelistFail.body') });
     } finally {
       setSavingAllow(false);
@@ -939,7 +938,7 @@ ${bodyContent}
       return Array.isArray(message.to_addresses)
         ? message.to_addresses
         : JSON.parse(message.to_addresses || '[]');
-    } catch (_) { return []; }
+    } catch { return []; }
   })();
 
   const ccList = (() => {
@@ -947,7 +946,7 @@ ${bodyContent}
       return Array.isArray(message.cc_addresses)
         ? message.cc_addresses
         : JSON.parse(message.cc_addresses || '[]');
-    } catch (_) { return []; }
+    } catch { return []; }
   })();
 
   const attachments = body?.attachments || [];

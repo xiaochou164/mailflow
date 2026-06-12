@@ -113,6 +113,8 @@ export function useSwipeRow({ isMobile, message, onSwipeLeft, onSwipeRight, onLo
       springBack();
     };
 
+    const bgLeft = swipeBgLeftRef.current;
+    const bgRight = swipeBgRightRef.current;
     el.style.touchAction = 'pan-y';
     el.addEventListener('touchstart', onStart, { passive: true });
     el.addEventListener('touchmove', onMove, { passive: false });
@@ -132,8 +134,8 @@ export function useSwipeRow({ isMobile, message, onSwipeLeft, onSwipeRight, onLo
       el.style.transform = 'translateX(0)';
       el.style.transition = '';
       el.style.boxShadow = '';
-      if (swipeBgLeftRef.current)  swipeBgLeftRef.current.style.display = 'none';
-      if (swipeBgRightRef.current) swipeBgRightRef.current.style.display = 'none';
+      if (bgLeft)  bgLeft.style.display = 'none';
+      if (bgRight) bgRight.style.display = 'none';
     };
   }, [isMobile, springBack]);
 

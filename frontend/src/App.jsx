@@ -58,7 +58,7 @@ export default function App() {
       })
       .catch(() => setUser(null))
       .finally(() => setChecking(false));
-  }, []);
+  }, [loadPreferences, setUser]);
 
   if (checking) {
     return (

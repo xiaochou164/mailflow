@@ -456,4 +456,4 @@ export function applyFontSet(fontKey) {
 
 // Font size scaling is applied reactively in MailApp via the store's fontSize
 // value using CSS transform, so no root-level changes are needed here.
-export function applyFontSize(_pct) {}
+export function applyFontSize() {}

@@ -1419,7 +1419,7 @@ export default function Sidebar() {
             <button
               onClick={async () => {
                 try { await setBlockRemoteImages(!blockRemoteImages); }
-                catch (_) { addNotification({ title: t('message.whitelistFail.title') }); }
+                catch { addNotification({ title: t('message.whitelistFail.title') }); }
               }}
               style={{
                 width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer',
@@ -1618,7 +1618,7 @@ export default function Sidebar() {
             <button
               onClick={async () => {
                 try { await setBlockRemoteImages(!blockRemoteImages); }
-                catch (_) { addNotification({ title: t('message.whitelistFail.title') }); }
+                catch { addNotification({ title: t('message.whitelistFail.title') }); }
               }}
               style={{
                 width: 36, height: 20, borderRadius: 10, border: 'none', cursor: 'pointer',

@@ -33,7 +33,7 @@ export default function LockScreen() {
     setSigningOut(true);
     try {
       await api.logout();
-    } catch (_) {}
+    } catch { /* intentional */ }
     setLocked(false);
     setUser(null);
   }

@@ -162,7 +162,7 @@ export const useStore = create((set, get) => ({
   swipeActions: (() => {
     try {
       return JSON.parse(localStorage.getItem('mailflow_swipe_actions') || 'null') || { left: 'archive', right: 'markRead' };
-    } catch (_) {
+    } catch {
       return { left: 'archive', right: 'markRead' };
     }
   })(),
@@ -382,7 +382,7 @@ export const useStore = create((set, get) => ({
   // Sidebar tree state — persisted so the tree looks the same after reload/re-login
   expandedAccounts: (() => {
     try { return JSON.parse(localStorage.getItem('mailflow_expanded_accounts') || '{}'); }
-    catch (_) { return {}; }
+    catch { return {}; }
   })(),
   setExpandedAccounts: (updater) => {
     const next = typeof updater === 'function' ? updater(get().expandedAccounts) : updater;
@@ -394,7 +394,7 @@ export const useStore = create((set, get) => ({
   // collapsedFolders stored as array of "accountId:path" keys (Set can't be JSON-serialised)
   collapsedFolders: (() => {
     try { return JSON.parse(localStorage.getItem('mailflow_collapsed_folders') || '[]'); }
-    catch (_) { return []; }
+    catch { return []; }
   })(),
   toggleCollapsedFolder: (accountId, path) => {
     const key = `${accountId}:${path}`;
@@ -408,7 +408,7 @@ export const useStore = create((set, get) => ({
   // Favorite folders — [{ accountId, path }, ...] ordered by insertion
   favoriteFolders: (() => {
     try { return JSON.parse(localStorage.getItem('mailflow_favorite_folders') || '[]'); }
-    catch (_) { return []; }
+    catch { return []; }
   })(),
   addFavoriteFolder: ({ accountId, path }) => {
     const prev = get().favoriteFolders;
@@ -427,6 +427,7 @@ export const useStore = create((set, get) => ({
   renameFavoriteFolder: ({ accountId, path, label }) => {
     const next = get().favoriteFolders.map(f => {
       if (f.accountId !== accountId || f.path !== path) return f;
+      // eslint-disable-next-line no-unused-vars
       const { label: _old, ...base } = f;
       return label ? { ...base, label } : base;
     });
@@ -443,7 +444,7 @@ export const useStore = create((set, get) => ({
   // Recent move-to folders — [{ accountId, path }, ...] most-recent first, capped at 5
   recentFolders: (() => {
     try { return JSON.parse(localStorage.getItem('mailflow_recent_folders') || '[]'); }
-    catch (_) { return []; }
+    catch { return []; }
   })(),
   recordRecentFolder: ({ accountId, path }) => {
     const prev = get().recentFolders;
@@ -564,6 +565,6 @@ export const useStore = create((set, get) => ({
         localStorage.setItem('mailflow_favicon_badge', String(prefs.showFaviconBadge));
         set({ showFaviconBadge: prefs.showFaviconBadge });
       }
-    } catch (_) {}
+    } catch { /* intentional */ }
   },
 }));

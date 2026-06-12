@@ -164,7 +164,7 @@ const SYNTHS = {
 // Call inside a user-gesture handler (file upload, settings click) so the
 // AudioContext is unlocked before a notification arrives later.
 export function warmUpAudioContext() {
-  try { getAudioCtx(); } catch (_) {}
+  try { getAudioCtx(); } catch { /* intentional */ }
 }
 
 export function playCustomSound(dataUrl) {
@@ -189,7 +189,7 @@ export function playCustomSound(dataUrl) {
         return ac.state === 'suspended' ? ac.resume().then(play) : play();
       })
       .catch(() => {});
-  } catch (_) {}
+  } catch { /* intentional */ }
 }
 
 export function playNotificationSound(id, customDataUrl) {
@@ -201,5 +201,5 @@ export function playNotificationSound(id, customDataUrl) {
   try {
     const ac = getAudioCtx();
     SYNTHS[id]?.(ac);
-  } catch (_) {}
+  } catch { /* intentional */ }
 }

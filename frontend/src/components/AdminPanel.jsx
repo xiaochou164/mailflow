@@ -52,7 +52,7 @@ function isMicrosoftImapHost(host) {
 
 function AccountForm({ initial, onSave, onCancel }) {
   const { t } = useTranslation();
-  const { setAdminTab } = useStore();
+
   const isEdit = !!initial?.id;
   const [form, setForm] = useState(initial || {
     name: '', email_address: '', color: '#6366f1', protocol: 'imap',
@@ -97,7 +97,7 @@ function AccountForm({ initial, onSave, onCancel }) {
       {/* Presets (add only) */}
       {!isEdit && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 18, flexWrap: 'wrap' }}>
-          {Object.entries(PRESETS).map(([key, p]) => {
+          {Object.entries(PRESETS).map(([key]) => {
             const active = selectedPreset === key;
             const presetLabel = key === 'gmail' ? t('admin.accounts.presetGmail') : key === 'yahoo' ? t('admin.accounts.presetYahoo') : key === 'icloud' ? t('admin.accounts.presetIcloud') : t('admin.accounts.presetCustom');
             return (
@@ -1161,7 +1161,7 @@ function FontsTab() {
 }
 
 // ─── Layout Diagram ───────────────────────────────────────────────────────────
-function LayoutDiagram({ layoutKey, layoutConfig, active }) {
+function LayoutDiagram({ layoutConfig, active }) {
   const isColumn = layoutConfig.direction === 'column';
   const accent = active ? 'var(--accent)' : 'var(--border)';
   const bg1 = active ? 'var(--accent-dim)' : 'var(--bg-elevated)';
@@ -1666,7 +1666,7 @@ function IntegrationsTab() {
       window.removeEventListener('message', handleMessage);
       if (devicePollRef.current) clearInterval(devicePollRef.current);
     };
-  }, []);
+  }, [setAccounts, t]);
 
   const handleSaveMs = async () => {
     if (!msForm.clientId || !msForm.tenantId) {
@@ -1716,7 +1716,7 @@ function IntegrationsTab() {
             api.getAccounts().then(setAccounts).catch(console.error);
             setTimeout(stopDeviceFlow, 3000);
           }
-        } catch (err) {
+        } catch {
           clearInterval(devicePollRef.current);
           devicePollRef.current = null;
           setDeviceStatus('error');
@@ -3878,7 +3878,7 @@ function RulesTab() {
       openAdd(rulesPreFill);
       setRulesPreFill(null);
     }
-  }, [rulesPreFill, setRulesPreFill]);
+  }, [rulesPreFill, setRulesPreFill]); // eslint-disable-line react-hooks/exhaustive-deps -- openAdd is a plain function; adding it would cause infinite re-runs
 
   useEffect(() => {
     if (!formMode || !formData?.accountId) return;
@@ -3957,14 +3957,14 @@ function RulesTab() {
         stopProcessing: rule.stop_processing,
       });
       setRules(prev => prev.map(r => r.id === rule.id ? saved : r));
-    } catch (_) {}
+    } catch { /* intentional */ }
   }
 
   async function handleDelete(id) {
     try {
       await api.deleteRule(id);
       setRules(prev => prev.filter(r => r.id !== id));
-    } catch (_) {}
+    } catch { /* intentional */ }
     setConfirmDelete(null);
   }
 
@@ -3999,7 +3999,7 @@ function RulesTab() {
         setRules(prev => prev.map(r => r.id === formId ? updated : r));
       }
       closeForm();
-    } catch (_) {
+    } catch {
       setFormError(t('admin.rules.errorSave'));
     } finally {
       setFormSaving(false);
@@ -4400,7 +4400,7 @@ function BlockListTab() {
       const entry = await api.addToBlockList(email);
       setEntries(prev => [entry, ...prev]);
       setNewEmail('');
-    } catch (_) {
+    } catch {
       setError(t('admin.blockList.errorAdd'));
     } finally {
       setAdding(false);
@@ -4411,7 +4411,7 @@ function BlockListTab() {
     try {
       await api.removeFromBlockList(id);
       setEntries(prev => prev.filter(e => e.id !== id));
-    } catch (_) {}
+    } catch { /* intentional */ }
   }
 
   return (
@@ -4766,7 +4766,7 @@ function PrivacyTab() {
     try {
       await addToImageWhitelist({ type: 'address', value: val });
       setNewAddress('');
-    } catch (_) {
+    } catch {
       addNotification({ title: t('message.whitelistFail.title'), body: t('message.whitelistFail.body') });
     } finally {
       setSaving(false);
@@ -4780,7 +4780,7 @@ function PrivacyTab() {
         ...imageWhitelist,
         addresses: (imageWhitelist.addresses || []).filter(a => a !== addr),
       });
-    } catch (_) {
+    } catch {
       addNotification({ title: t('message.whitelistFail.title'), body: t('message.whitelistFail.body') });
     } finally {
       setSaving(false);
@@ -4794,7 +4794,7 @@ function PrivacyTab() {
     try {
       await addToImageWhitelist({ type: 'domain', value: val });
       setNewDomain('');
-    } catch (_) {
+    } catch {
       addNotification({ title: t('message.whitelistFail.title'), body: t('message.whitelistFail.body') });
     } finally {
       setSaving(false);
@@ -4808,7 +4808,7 @@ function PrivacyTab() {
         ...imageWhitelist,
         domains: (imageWhitelist.domains || []).filter(d => d !== domain),
       });
-    } catch (_) {
+    } catch {
       addNotification({ title: t('message.whitelistFail.title'), body: t('message.whitelistFail.body') });
     } finally {
       setSaving(false);
@@ -4846,7 +4846,7 @@ function PrivacyTab() {
         <button
           onClick={async () => {
             try { await setBlockRemoteImages(!blockRemoteImages); }
-            catch (_) { addNotification({ title: t('message.whitelistFail.title') }); }
+            catch { addNotification({ title: t('message.whitelistFail.title') }); }
           }}
           style={{
             width: 42, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',

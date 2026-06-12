@@ -50,7 +50,7 @@ export default function ContextMenu({ x, y, message, onClose, onAction, defaultM
     try {
       const data = await api.getFolders(message.account_id);
       setMoveFolders(Array.isArray(data) ? data : (data.folders || []));
-    } catch (_) {
+    } catch {
       setMoveFolders([]);
     } finally {
       setMoveFoldersLoading(false);
