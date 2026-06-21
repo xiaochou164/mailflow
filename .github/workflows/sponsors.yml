@@ -28,6 +28,8 @@ jobs:
               user(login: "maathimself") {
                 sponsorshipsAsMaintainer(first: 100, includePrivate: false, activeOnly: false) {
                   nodes {
+                    createdAt
+                    isActive
                     sponsorEntity {
                       ... on User { login avatarUrl(size: 64) url }
                     }
@@ -49,7 +51,11 @@ jobs:
           const { data, errors } = await res.json();
           if (errors) { console.error(errors); process.exit(1); }
 
+          const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
+          const now = Date.now();
+
           const sponsors = data.user.sponsorshipsAsMaintainer.nodes
+            .filter(n => n.isActive || (now - new Date(n.createdAt).getTime()) <= ONE_MONTH_MS)
             .map(n => n.sponsorEntity)
             .filter(Boolean);
 
