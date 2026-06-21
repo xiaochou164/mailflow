@@ -10,10 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SPONSORS_TOKEN }}
 
       - name: Fetch sponsors and update README
         env:
@@ -75,18 +76,12 @@ jobs:
           }
           EOF
 
-      - name: Open PR if README changed
-        uses: peter-evans/create-pull-request@v7
-        id: cpr
-        with:
-          commit-message: "chore: update sponsors list"
-          branch: auto/sponsors-update
-          delete-branch: true
-          title: "chore: update sponsors list"
-          body: "Automated weekly sponsors list update."
-
-      - name: Enable auto-merge
-        if: steps.cpr.outputs.pull-request-number
-        run: gh pr merge --auto --squash ${{ steps.cpr.outputs.pull-request-number }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet README.md || (
+            git add README.md &&
+            git commit -m "chore: update sponsors list" &&
+            git push
+          )
