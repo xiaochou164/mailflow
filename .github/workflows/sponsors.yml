@@ -93,8 +93,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git diff --quiet README.md sponsors.json || (
-            git add README.md sponsors.json &&
+          git add README.md sponsors.json
+          git diff --quiet --cached || (
             git commit -m "chore: update sponsors list" &&
             git push
           )
