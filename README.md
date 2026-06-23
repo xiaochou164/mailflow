@@ -10,7 +10,7 @@
   <a href="#installation">Quick Start</a> ·
   <a href="#email-provider-setup">Setup Guide</a> ·
   <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="ROADMAP.md">Roadmap</a>
+  <a href="https://mailflow.sh/#roadmap">Roadmap</a>
 </p>
 
 ## Licensing
