@@ -9,7 +9,7 @@
 <p align="center">
   <a href="#installation">Quick Start</a> ·
   <a href="#email-provider-setup">Setup Guide</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="https://mailflow.sh/#supporters">Contributing</a> ·
   <a href="https://mailflow.sh/#roadmap">Roadmap</a>
 </p>
 
