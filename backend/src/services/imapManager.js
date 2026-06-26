@@ -1030,6 +1030,17 @@ export class ImapManager {
           SET name = $3, special_use = $5, updated_at = NOW()
         `, [account.id, mb.path, mb.name, mb.delimiter, mb.specialUse || null]);
       }
+      // Many IMAP servers omit INBOX from LIST responses (it is implicit per RFC 3501).
+      // Without a row in folders, subfolders like INBOX/Work have no parent in the map
+      // and fall to the sidebar root instead of nesting correctly.
+      if (!mailboxes.some(mb => mb.path === 'INBOX')) {
+        const delimiter = mailboxes[0]?.delimiter || '/';
+        await query(`
+          INSERT INTO folders (account_id, path, name, delimiter, special_use)
+          VALUES ($1, 'INBOX', 'INBOX', $2, NULL)
+          ON CONFLICT (account_id, path) DO NOTHING
+        `, [account.id, delimiter]);
+      }
     } catch (err) {
       console.error(`Folder sync error for ${logAccount(account)}:`, err.message);
     }
