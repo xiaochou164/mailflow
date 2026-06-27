@@ -38,6 +38,14 @@ function sanitizeSmtpError(err) {
   return 'Failed to send message. Please try again.';
 }
 
+// Extract name and email from an RFC 5322 address string.
+// Handles "Name <email>", "Name<email>", and bare "email" forms.
+function parseAddress(str) {
+  const m = str.match(/^(.+?)\s*<([^>]+)>\s*$/);
+  if (m) return { name: m[1].trim().replace(/^"|"$/g, '').trim(), email: m[2].trim().toLowerCase() };
+  return { name: '', email: str.trim().toLowerCase() };
+}
+
 // Reject any recipient address that contains newlines, null bytes, or looks
 // malformed — these are the classic email header-injection vectors.
 function normalizeRecipients(list, fieldName) {
@@ -306,6 +314,31 @@ router.post('/send', async (req, res) => {
     }
 
     await transport.sendMail(mailOptions);
+
+    // Auto-learn sent recipients so they rank above inbound-only senders in autocomplete.
+    // Fire-and-forget — a DB error here must never affect the send response.
+    const allRecipients = [...normalizedTo, ...normalizedCc, ...normalizedBcc];
+    if (allRecipients.length) {
+      const userId = req.session.userId;
+      const now = new Date();
+      setImmediate(() => {
+        Promise.allSettled(allRecipients.map(addr => {
+          const { name, email } = parseAddress(addr);
+          if (!email) return Promise.resolve();
+          return query(`
+            INSERT INTO contacts (user_id, email, name, send_count, last_sent)
+            VALUES ($1, $2, $3, 1, $4)
+            ON CONFLICT (user_id, email) DO UPDATE
+              SET send_count = contacts.send_count + 1,
+                  last_sent  = $4,
+                  name       = CASE WHEN $3 != '' THEN $3 ELSE contacts.name END
+          `, [userId, email, name, now]);
+        })).then(results => {
+          const failed = results.filter(r => r.status === 'rejected');
+          if (failed.length) console.warn('Contact upsert errors:', failed.map(r => r.reason?.message));
+        });
+      });
+    }
 
     // Get the Sent folder path (manual mapping takes priority over special_use auto-detect)
     let sentFolder = account.folder_mappings?.sent || null;

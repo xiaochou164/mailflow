@@ -163,9 +163,10 @@ router.get('/', searchLimiter, async (req, res) => {
   }
 });
 
-// Contact autocomplete — returns up to 10 unique senders matching the query.
-// Uses DISTINCT ON (from_email) with ORDER BY date DESC so the most-recently-seen
-// display name wins when the same address has appeared under multiple names.
+// Contact autocomplete — returns up to 10 addresses matching the query.
+// Priority: addresses the user has sent to (contacts table, ranked by send_count)
+// come first; inbound-only senders from messages fill remaining slots, with
+// obvious bulk/no-reply addresses filtered out.
 router.get('/contacts', searchLimiter, async (req, res) => {
   const { q } = req.query;
   const trimmed = (q || '').trim();
@@ -183,16 +184,36 @@ router.get('/contacts', searchLimiter, async (req, res) => {
 
   try {
     const result = await query(`
-      SELECT DISTINCT ON (from_email) from_name AS name, from_email AS email
-      FROM messages
-      WHERE account_id = ANY($1)
-        AND is_deleted = false
-        AND from_email IS NOT NULL
-        AND from_email != ''
-        AND (from_email ILIKE $2 OR from_name ILIKE $2)
-      ORDER BY from_email, date DESC
+      WITH sent AS (
+        SELECT email, name, send_count, last_sent
+        FROM contacts
+        WHERE user_id = $1
+          AND (email ILIKE $2 OR name ILIKE $2)
+      ),
+      inbound AS (
+        SELECT DISTINCT ON (from_email)
+          from_email AS email,
+          from_name  AS name,
+          0          AS send_count,
+          date       AS last_sent
+        FROM messages
+        WHERE account_id = ANY($3)
+          AND is_deleted = false
+          AND from_email IS NOT NULL AND from_email != ''
+          AND (from_email ILIKE $2 OR from_name ILIKE $2)
+          AND lower(from_email) NOT IN (SELECT lower(email) FROM sent)
+          AND from_email !~* '^(noreply|no-reply|donotreply|mailer-daemon|notifications?|bounce[^@]*)@'
+        ORDER BY from_email, date DESC
+      )
+      SELECT email, name
+      FROM (
+        SELECT email, name, 1 AS priority, send_count, last_sent FROM sent
+        UNION ALL
+        SELECT email, name, 2 AS priority, 0, last_sent FROM inbound
+      ) combined
+      ORDER BY priority, send_count DESC, last_sent DESC NULLS LAST
       LIMIT 10
-    `, [userAccountIds, pattern]);
+    `, [req.session.userId, pattern, userAccountIds]);
 
     res.json({ contacts: result.rows });
   } catch (err) {
