@@ -1691,6 +1691,18 @@ export default function MessageList() {
     if (!message.is_read) {
       updateMessage(message.id, { is_read: true });
       decrementUnread(message.account_id);
+      const tid = message.thread_id;
+      if (tid) {
+        if (threadMessages[tid]) {
+          setThreadMessages(tid, threadMessages[tid].map(m =>
+            m.id === message.id ? { ...m, is_read: true } : m
+          ));
+        }
+        const parent = messages.find(m => m.id === tid);
+        if (parent && parent.unread_count > 0) {
+          updateMessage(tid, { unread_count: parent.unread_count - 1 });
+        }
+      }
       setPending(message.id, message.account_id);
       api.bulkRead([message.id], true)
         .then(() => {
@@ -1702,6 +1714,18 @@ export default function MessageList() {
           console.error('markRead failed:', e.message);
           updateMessage(message.id, { is_read: false });
           incrementUnread(message.account_id);
+          if (tid) {
+            const { threadMessages: tm, messages: msgs } = useStore.getState();
+            if (tm[tid]) {
+              setThreadMessages(tid, tm[tid].map(m =>
+                m.id === message.id ? { ...m, is_read: false } : m
+              ));
+            }
+            const parent = msgs.find(m => m.id === tid);
+            if (parent) {
+              updateMessage(tid, { unread_count: (parent.unread_count || 0) + 1 });
+            }
+          }
           pendingMarkReadMap.delete(message.id);
         });
     }
