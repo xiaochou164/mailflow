@@ -610,7 +610,7 @@ export default function ComposeModal() {
           try {
             const data = await api.getThread(replyThreadId);
             if (data.messages?.length) setThreadMessages(replyThreadId, data.messages);
-          } catch (_) {}
+          } catch { /* best-effort refresh */ }
         };
         setTimeout(refreshThread, 3000);
         setTimeout(refreshThread, 10000);
