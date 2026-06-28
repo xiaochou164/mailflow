@@ -923,6 +923,10 @@
       "website": "Sito web",
       "sourceCode": "Codice sorgente",
       "sponsor": "Supporta lo sviluppo"
+    },
+    "search": {
+      "placeholder": "Cerca impostazioni…",
+      "noResults": "Nessun risultato per «{{query}}»"
     }
   },
   "blockList": {

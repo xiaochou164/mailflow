@@ -923,6 +923,10 @@
       "website": "官方网站",
       "sourceCode": "源代码",
       "sponsor": "支持开发"
+    },
+    "search": {
+      "placeholder": "搜索设置…",
+      "noResults": "未找到与“{{query}}”匹配的设置"
     }
   },
   "blockList": {

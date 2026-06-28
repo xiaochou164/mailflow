@@ -3767,8 +3767,8 @@ function LanguageTab() {
 }
 
 // ─── Sub-tab navigator (reusable within a top-level tab panel) ───────────────
-function SubTabs({ tabs }) {
-  const [active, setActive] = useState(tabs[0].id);
+function SubTabs({ tabs, initialTab }) {
+  const [active, setActive] = useState(initialTab || tabs[0].id);
   return (
     <div>
       <div style={{
@@ -3804,10 +3804,10 @@ function SubTabs({ tabs }) {
 }
 
 // ─── Merged Appearance Tab ────────────────────────────────────────────────────
-function AppearanceTab() {
+function AppearanceTab({ initialSubTab }) {
   const { t } = useTranslation();
   return (
-    <SubTabs tabs={[
+    <SubTabs initialTab={initialSubTab} tabs={[
       { id: 'theme',  label: t('admin.tabs.theme'),          content: <ThemesTab /> },
       { id: 'layout', label: t('admin.appearance.layout'),   content: <LayoutsTab /> },
       { id: 'fonts',  label: t('admin.tabs.fontsAndLanguage'), content: (
@@ -3823,10 +3823,10 @@ function AppearanceTab() {
 }
 
 // ─── Merged Security & Privacy Tab ────────────────────────────────────────────
-function SecurityPrivacyTab() {
+function SecurityPrivacyTab({ initialSubTab }) {
   const { t } = useTranslation();
   return (
-    <SubTabs tabs={[
+    <SubTabs initialTab={initialSubTab} tabs={[
       { id: 'security', label: t('admin.tabs.security'), content: <SecurityTab /> },
       { id: 'privacy',  label: t('admin.tabs.privacy'),  content: <PrivacyTab /> },
     ]} />
@@ -4530,10 +4530,10 @@ function BlockListTab() {
   );
 }
 
-function RulesAndBlockListTab() {
+function RulesAndBlockListTab({ initialSubTab }) {
   const { t } = useTranslation();
   return (
-    <SubTabs tabs={[
+    <SubTabs initialTab={initialSubTab} tabs={[
       { id: 'rules',      label: t('admin.rules.subTabRules'),     content: <RulesTab /> },
       { id: 'block-list', label: t('admin.rules.subTabBlockList'), content: <BlockListTab /> },
     ]} />
@@ -5706,11 +5706,160 @@ function LinkedIdentitiesSection() {
   );
 }
 
+const SEARCH_INDEX = [
+  // Accounts
+  { label: 'Email accounts', keywords: ['account', 'email', 'imap', 'smtp', 'gmail', 'yahoo', 'icloud', 'password', 'add account', 'connect'], tab: 'accounts', breadcrumb: 'Accounts' },
+  { label: 'Signatures', keywords: ['signature', 'sign off', 'footer', 'alias', 'send as'], tab: 'accounts', breadcrumb: 'Accounts' },
+  // Rules
+  { label: 'Filter rules', keywords: ['rule', 'filter', 'condition', 'action', 'move', 'auto', 'automate', 'inbox rule', 'sort'], tab: 'rules', subtab: 'rules', breadcrumb: 'Rules › Rules' },
+  { label: 'Block list', keywords: ['block', 'blocked', 'sender', 'blacklist', 'spam', 'domain'], tab: 'rules', subtab: 'block-list', breadcrumb: 'Rules › Block List' },
+  // Appearance > Theme
+  { label: 'Theme', keywords: ['theme', 'dark', 'light', 'color', 'colour', 'dark mode', 'light mode'], tab: 'appearance', subtab: 'theme', breadcrumb: 'Appearance › Theme' },
+  // Appearance > Layout
+  { label: 'Layout', keywords: ['layout', 'pane', 'split', 'preview', 'reading pane', 'side by side', 'stacked'], tab: 'appearance', subtab: 'layout', breadcrumb: 'Appearance › Layout' },
+  { label: 'Scrolling mode', keywords: ['scroll', 'infinite', 'paginated', 'pagination', 'pages'], tab: 'appearance', subtab: 'layout', breadcrumb: 'Appearance › Layout' },
+  { label: 'Messages per page', keywords: ['per page', 'batch', 'messages per page', 'count', '25', '50', '100', '200', 'page size'], tab: 'appearance', subtab: 'layout', breadcrumb: 'Appearance › Layout' },
+  { label: 'Hover quick actions', keywords: ['hover', 'quick actions', 'hover buttons', 'row actions'], tab: 'appearance', subtab: 'layout', breadcrumb: 'Appearance › Layout' },
+  { label: 'Swipe actions', keywords: ['swipe', 'gesture', 'mobile', 'swipe left', 'swipe right', 'touch'], tab: 'appearance', subtab: 'layout', breadcrumb: 'Appearance › Layout' },
+  { label: 'Sync interval', keywords: ['sync', 'interval', 'frequency', 'refresh', 'poll', 'check mail', '15s', '30s', '60s'], tab: 'appearance', subtab: 'layout', breadcrumb: 'Appearance › Layout' },
+  { label: 'Conversation threading', keywords: ['thread', 'conversation', 'grouping', 'threading', 'group'], tab: 'appearance', subtab: 'layout', breadcrumb: 'Appearance › Layout' },
+  { label: 'Compose format', keywords: ['compose', 'format', 'rich text', 'plain text', 'html', 'editor'], tab: 'appearance', subtab: 'layout', breadcrumb: 'Appearance › Layout' },
+  { label: 'Default reply action', keywords: ['reply', 'reply all', 'default reply'], tab: 'appearance', subtab: 'layout', breadcrumb: 'Appearance › Layout' },
+  // Appearance > Fonts & Language
+  { label: 'Language', keywords: ['language', 'locale', 'french', 'english', 'spanish', 'german', 'deutsch', 'russian', 'chinese', 'italian', 'français', 'español'], tab: 'appearance', subtab: 'fonts', breadcrumb: 'Appearance › Language & Font' },
+  { label: 'Font size', keywords: ['font size', 'text size', 'zoom', 'scale', 'accessibility', 'larger text'], tab: 'appearance', subtab: 'fonts', breadcrumb: 'Appearance › Language & Font' },
+  { label: 'Typography', keywords: ['font', 'typography', 'typeface', 'serif', 'sans', 'monospace', 'reading font'], tab: 'appearance', subtab: 'fonts', breadcrumb: 'Appearance › Language & Font' },
+  // Integrations
+  { label: 'Microsoft 365 / Outlook', keywords: ['microsoft', 'outlook', '365', 'oauth', 'azure', 'client id', 'tenant', 'ms365', 'office'], tab: 'integrations', breadcrumb: 'Integrations' },
+  // Security
+  { label: 'Two-factor authentication', keywords: ['2fa', 'totp', 'authenticator', 'two factor', 'otp', 'two-factor', 'mfa', 'security code'], tab: 'security', subtab: 'security', breadcrumb: 'Security › Security' },
+  { label: 'Linked identities', keywords: ['sso', 'linked', 'identity', 'provider', 'link', 'unlink', 'oidc', 'connect identity'], tab: 'security', subtab: 'security', breadcrumb: 'Security › Security' },
+  { label: 'Login protection', keywords: ['login', 'attempts', 'brute force', 'lockout', 'max attempts', 'rate limit'], tab: 'security', subtab: 'security', adminOnly: true, breadcrumb: 'Security › Security' },
+  { label: 'Mail server policy', keywords: ['server', 'tls', 'insecure', 'private ip', 'port', 'mail server', 'ssl'], tab: 'security', subtab: 'security', adminOnly: true, breadcrumb: 'Security › Security' },
+  { label: 'Activity log', keywords: ['log', 'activity', 'auth events', 'history', 'login history', 'audit'], tab: 'security', subtab: 'security', adminOnly: true, breadcrumb: 'Security › Security' },
+  { label: 'Block remote images', keywords: ['images', 'remote', 'block', 'privacy', 'tracking pixel', 'spy pixel', 'block images'], tab: 'security', subtab: 'privacy', breadcrumb: 'Security › Privacy' },
+  { label: 'Allowed senders & domains', keywords: ['whitelist', 'allow', 'sender', 'trusted', 'safe', 'allowed domain', 'image whitelist'], tab: 'security', subtab: 'privacy', breadcrumb: 'Security › Privacy' },
+  // Notifications
+  { label: 'Notification sound', keywords: ['sound', 'notification sound', 'audio', 'alert', 'beep', 'chime'], tab: 'notifications', breadcrumb: 'Notifications' },
+  { label: 'App badge', keywords: ['badge', 'app icon', 'pwa', 'unread count', 'icon badge'], tab: 'notifications', breadcrumb: 'Notifications' },
+  { label: 'Favicon badge', keywords: ['favicon', 'tab badge', 'browser tab', 'tab icon', 'unread dot'], tab: 'notifications', breadcrumb: 'Notifications' },
+  { label: 'Push notifications', keywords: ['push', 'notification', 'browser notification', 'desktop notification', 'permission'], tab: 'notifications', breadcrumb: 'Notifications' },
+  // Shortcuts (desktop only)
+  { label: 'Keyboard shortcuts', keywords: ['shortcut', 'keyboard', 'hotkey', 'keybind', 'key binding', 'compose shortcut', 'reply shortcut'], tab: 'shortcuts', mobileHidden: true, breadcrumb: 'Shortcuts' },
+  // Admin-only
+  { label: 'Users', keywords: ['user', 'invite', 'admin', 'role', 'manage users', 'add user'], tab: 'users', adminOnly: true, breadcrumb: 'Users' },
+  { label: 'System email', keywords: ['system email', 'smtp', 'admin email', 'invite email', 'outgoing email'], tab: 'users', adminOnly: true, breadcrumb: 'Users' },
+  { label: 'SSO / OIDC', keywords: ['sso', 'oidc', 'single sign on', 'oauth', 'provider', 'identity provider'], tab: 'sso', adminOnly: true, breadcrumb: 'SSO' },
+];
+
+function SearchResultsView({ results, query, onNavigate, t }) {
+  if (results.length === 0) {
+    return (
+      <div style={{ color: 'var(--text-tertiary)', fontSize: 13, padding: '48px 0', textAlign: 'center' }}>
+        {t('admin.search.noResults', { query })}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {results.map((item, i) => (
+        <button
+          key={i}
+          onClick={() => onNavigate(item.tab, item.subtab)}
+          style={{
+            display: 'flex', flexDirection: 'column', gap: 3,
+            padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border-subtle)',
+            background: 'var(--bg-primary)', cursor: 'pointer', textAlign: 'left',
+            transition: 'border-color 0.12s, background 0.12s', width: '100%',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-dim)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.background = 'var(--bg-primary)'; }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>{item.label}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{item.breadcrumb}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminPanel() {
   const { t } = useTranslation();
   const { setShowAdmin, adminTab, setAdminTab, user } = useStore();
   const isMobile = useMobile();
   const visibleTabs = TABS.filter(tab => (!tab.adminOnly || user?.isAdmin) && (!tab.mobileHidden || !isMobile));
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pendingSubTab, setPendingSubTab] = useState(null);
+
+  const navigateTo = (tab, subtab) => {
+    setSearchQuery('');
+    setAdminTab(tab);
+    setPendingSubTab(subtab || null);
+  };
+  const handleTabClick = (tabId) => {
+    setPendingSubTab(null);
+    setAdminTab(tabId);
+  };
+  const searchResults = searchQuery.trim()
+    ? SEARCH_INDEX.filter(item => {
+        if (item.adminOnly && !user?.isAdmin) return false;
+        if (item.mobileHidden && isMobile) return false;
+        const q = searchQuery.toLowerCase();
+        return item.label.toLowerCase().includes(q) || item.keywords.some(k => k.includes(q));
+      })
+    : null;
+
+  const searchInput = (compact) => (
+    <div style={{ position: 'relative' }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+        style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', pointerEvents: 'none' }}>
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input
+        value={searchQuery}
+        onChange={e => setSearchQuery(e.target.value)}
+        onKeyDown={e => e.key === 'Escape' && setSearchQuery('')}
+        placeholder={t('admin.search.placeholder')}
+        style={{
+          width: '100%', boxSizing: 'border-box',
+          background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+          borderRadius: 7, color: 'var(--text-primary)', outline: 'none',
+          fontSize: compact ? 12 : 13,
+          padding: compact ? '5px 24px 5px 27px' : '7px 28px 7px 30px',
+        }}
+      />
+      {searchQuery && (
+        <button
+          onClick={() => setSearchQuery('')}
+          style={{
+            position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--text-tertiary)', padding: 0, display: 'flex', alignItems: 'center',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+
+  const tabContent = (
+    <>
+      {adminTab === 'accounts' && <AccountsTab />}
+      {adminTab === 'rules' && <RulesAndBlockListTab initialSubTab={pendingSubTab} />}
+      {adminTab === 'appearance' && <AppearanceTab initialSubTab={pendingSubTab} />}
+      {adminTab === 'integrations' && <IntegrationsTab />}
+      {adminTab === 'users' && <UsersTab />}
+      {adminTab === 'sso' && <SSOTab />}
+      {adminTab === 'security' && <SecurityPrivacyTab initialSubTab={pendingSubTab} />}
+      {adminTab === 'notifications' && <NotificationsTab />}
+      {adminTab === 'shortcuts' && !isMobile && <ShortcutsTab />}
+      {adminTab === 'about' && <AboutTab />}
+    </>
+  );
 
   if (isMobile) {
     return (
@@ -5742,6 +5891,11 @@ export default function AdminPanel() {
           </button>
         </div>
 
+        {/* Search */}
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+          {searchInput(true)}
+        </div>
+
         {/* Horizontal scrollable tab bar */}
         <div className="admin-tabs" style={{
           display: 'flex', gap: 6, padding: '10px 12px',
@@ -5754,18 +5908,18 @@ export default function AdminPanel() {
           {visibleTabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setAdminTab(tab.id)}
+              onClick={() => handleTabClick(tab.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 12px', borderRadius: 20, border: 'none',
-                background: adminTab === tab.id ? 'var(--accent)' : 'var(--bg-tertiary)',
-                color: adminTab === tab.id ? '#fff' : 'var(--text-secondary)',
+                background: adminTab === tab.id && !searchResults ? 'var(--accent)' : 'var(--bg-tertiary)',
+                color: adminTab === tab.id && !searchResults ? '#fff' : 'var(--text-secondary)',
                 cursor: 'pointer', fontSize: 13, fontWeight: 500,
                 whiteSpace: 'nowrap', flexShrink: 0,
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              <span style={{ display: 'flex', opacity: adminTab === tab.id ? 1 : 0.7 }}>{tab.icon}</span>
+              <span style={{ display: 'flex', opacity: adminTab === tab.id && !searchResults ? 1 : 0.7 }}>{tab.icon}</span>
               {t(tab.labelKey)}
             </button>
           ))}
@@ -5779,16 +5933,9 @@ export default function AdminPanel() {
             el.style.boxShadow = el.scrollTop > 4 ? 'inset 0 8px 8px -8px rgba(0,0,0,0.2)' : 'none';
           }}
         >
-          {adminTab === 'accounts' && <AccountsTab />}
-          {adminTab === 'rules' && <RulesAndBlockListTab />}
-          {adminTab === 'appearance' && <AppearanceTab />}
-          {adminTab === 'integrations' && <IntegrationsTab />}
-          {adminTab === 'users' && <UsersTab />}
-          {adminTab === 'sso' && <SSOTab />}
-          {adminTab === 'security' && <SecurityPrivacyTab />}
-          {adminTab === 'notifications' && <NotificationsTab />}
-          {adminTab === 'shortcuts' && !isMobile && <ShortcutsTab />}
-          {adminTab === 'about' && <AboutTab />}
+          {searchResults !== null
+            ? <SearchResultsView results={searchResults} query={searchQuery} onNavigate={navigateTo} t={t} />
+            : tabContent}
         </div>
       </div>
     );
@@ -5826,22 +5973,26 @@ export default function AdminPanel() {
             {t('admin.title')}
           </div>
 
+          <div style={{ padding: '0 2px', marginBottom: 10 }}>
+            {searchInput(true)}
+          </div>
+
           {visibleTabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setAdminTab(tab.id)}
+              onClick={() => handleTabClick(tab.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 9,
                 padding: '8px 10px', borderRadius: 7, border: 'none',
-                background: adminTab === tab.id ? 'var(--bg-hover)' : 'transparent',
-                color: adminTab === tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                cursor: 'pointer', fontSize: 13, fontWeight: adminTab === tab.id ? 500 : 400,
+                background: adminTab === tab.id && !searchResults ? 'var(--bg-hover)' : 'transparent',
+                color: adminTab === tab.id && !searchResults ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer', fontSize: 13, fontWeight: adminTab === tab.id && !searchResults ? 500 : 400,
                 width: '100%', textAlign: 'left', transition: 'all 0.1s',
               }}
-              onMouseEnter={e => { if (adminTab !== tab.id) e.currentTarget.style.background = 'var(--bg-tertiary)'; }}
-              onMouseLeave={e => { if (adminTab !== tab.id) e.currentTarget.style.background = 'transparent'; }}
+              onMouseEnter={e => { if (!(adminTab === tab.id && !searchResults)) e.currentTarget.style.background = 'var(--bg-tertiary)'; }}
+              onMouseLeave={e => { if (!(adminTab === tab.id && !searchResults)) e.currentTarget.style.background = 'transparent'; }}
             >
-              <span style={{ color: adminTab === tab.id ? 'var(--accent)' : 'var(--text-tertiary)' }}>
+              <span style={{ color: adminTab === tab.id && !searchResults ? 'var(--accent)' : 'var(--text-tertiary)' }}>
                 {tab.icon}
               </span>
               {t(tab.labelKey)}
@@ -5876,16 +6027,7 @@ export default function AdminPanel() {
             el.style.boxShadow = el.scrollTop > 4 ? 'inset 0 8px 8px -8px rgba(0,0,0,0.2)' : 'none';
           }}
         >
-          {adminTab === 'accounts' && <AccountsTab />}
-          {adminTab === 'rules' && <RulesAndBlockListTab />}
-          {adminTab === 'appearance' && <AppearanceTab />}
-          {adminTab === 'integrations' && <IntegrationsTab />}
-          {adminTab === 'users' && <UsersTab />}
-          {adminTab === 'sso' && <SSOTab />}
-          {adminTab === 'security' && <SecurityPrivacyTab />}
-          {adminTab === 'notifications' && <NotificationsTab />}
-          {adminTab === 'shortcuts' && !isMobile && <ShortcutsTab />}
-          {adminTab === 'about' && <AboutTab />}
+          {searchResults !== null ? <SearchResultsView results={searchResults} query={searchQuery} onNavigate={navigateTo} t={t} /> : tabContent}
         </div>
       </div>
     </div>

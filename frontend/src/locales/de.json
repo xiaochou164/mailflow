@@ -923,6 +923,10 @@
       "addButton": "Blockieren",
       "removeButton": "Entfernen",
       "errorAdd": "Fehler beim Hinzufügen zur Blockliste"
+    },
+    "search": {
+      "placeholder": "Einstellungen durchsuchen…",
+      "noResults": "Keine Ergebnisse für «{{query}}»"
     }
   },
   "blockList": {
