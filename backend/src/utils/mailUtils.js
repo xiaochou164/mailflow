@@ -51,6 +51,41 @@ export async function resolveArchiveFolder(accountId, folderMappings) {
   return result.rows[0]?.path || null;
 }
 
+// Resolve the canonical spam/junk folder path for an account.
+// folder_mappings.spam (user-configured) takes priority over special_use and
+// the name heuristic. Matches the multilingual names used by major providers:
+//   - Gmail / generic:    Spam, Junk, Junk Mail
+//   - Outlook/Microsoft:  Junk Email, Courrier indésirable (fr)
+//   - Yahoo:              Bulk Mail
+//   - GMX:                Spamverdacht
+//   - Italian providers:  Indesiderata, Posta indesiderata
+export async function resolveSpamFolder(accountId, folderMappings) {
+  if (folderMappings?.spam) return folderMappings.spam;
+  const result = await query(
+    `SELECT path FROM folders WHERE account_id = $1
+     AND (special_use = '\\Junk'
+          OR lower(name) ~ '(spam|junk|bulk|indesiderata|spamverdacht|courrier ind|posta indesiderata)')
+     ORDER BY (CASE WHEN special_use = '\\Junk' THEN 0 ELSE 1 END)
+     LIMIT 1`,
+    [accountId]
+  );
+  return result.rows[0]?.path || null;
+}
+
+// Resolve ALL spam-like folder paths for an account (used for already-spam checks).
+// Same pattern as resolveAllTrashPaths: when user has configured folder_mappings.spam,
+// only that path is returned. Otherwise every folder matching the heuristic.
+export async function resolveAllSpamPaths(accountId, folderMappings) {
+  if (folderMappings?.spam) return new Set([folderMappings.spam]);
+  const result = await query(
+    `SELECT path FROM folders WHERE account_id = $1
+     AND (special_use = '\\Junk'
+          OR lower(name) ~ '(spam|junk|bulk|indesiderata|spamverdacht|courrier ind|posta indesiderata)')`,
+    [accountId]
+  );
+  return new Set(result.rows.map(r => r.path));
+}
+
 // Adjust cached folder row counts after local message mutations so that pagination
 // totals stay accurate without waiting for the next IMAP sync. Fire-and-forget —
 // errors are logged but never block the caller; sync will correct any discrepancy.

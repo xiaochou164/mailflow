@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { resolveTrashFolder, resolveArchiveFolder, getDeleteStrategy } from './mailUtils.js';
+import { resolveTrashFolder, resolveArchiveFolder, resolveSpamFolder, getDeleteStrategy } from './mailUtils.js';
 
 vi.mock('../services/db.js', () => ({
   query: vi.fn(),
@@ -69,6 +69,52 @@ describe('resolveArchiveFolder', () => {
     await resolveArchiveFolder(1, null);
     const sql = query.mock.calls[0][0];
     expect(sql).toContain("CASE WHEN special_use = '\\Archive' THEN 0 ELSE 1 END");
+  });
+});
+
+describe('resolveSpamFolder', () => {
+  it('returns folder_mappings.spam immediately without querying the DB', async () => {
+    const result = await resolveSpamFolder(1, { spam: '[Gmail]/Spam' });
+    expect(result).toBe('[Gmail]/Spam');
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('falls back to special_use=\\Junk folder when no mapping is set', async () => {
+    query.mockResolvedValue({ rows: [{ path: 'Junk' }] });
+    const result = await resolveSpamFolder(1, null);
+    expect(result).toBe('Junk');
+    expect(query).toHaveBeenCalledOnce();
+  });
+
+  it('falls back to multilingual name heuristic when no special_use match exists', async () => {
+    query.mockResolvedValue({ rows: [{ path: 'Spamverdacht' }] });
+    const result = await resolveSpamFolder(2, {});
+    expect(result).toBe('Spamverdacht');
+  });
+
+  it('matches Outlook-style "Junk Email" folder name', async () => {
+    query.mockResolvedValue({ rows: [{ path: 'Junk Email' }] });
+    const result = await resolveSpamFolder(3, {});
+    expect(result).toBe('Junk Email');
+  });
+
+  it('matches Italian "Posta indesiderata" folder name', async () => {
+    query.mockResolvedValue({ rows: [{ path: 'Posta indesiderata' }] });
+    const result = await resolveSpamFolder(4, {});
+    expect(result).toBe('Posta indesiderata');
+  });
+
+  it('returns null when no spam folder is found', async () => {
+    query.mockResolvedValue({ rows: [] });
+    const result = await resolveSpamFolder(5, undefined);
+    expect(result).toBeNull();
+  });
+
+  it('uses ORDER BY to prefer special_use match over name heuristic', async () => {
+    query.mockResolvedValue({ rows: [] });
+    await resolveSpamFolder(1, null);
+    const sql = query.mock.calls[0][0];
+    expect(sql).toContain("CASE WHEN special_use = '\\Junk' THEN 0 ELSE 1 END");
   });
 });
 
