@@ -244,6 +244,24 @@ const SAME_VALUE_ALLOWED = {
   // "{{count}} message(s)" — identical spelling in en and fr
   'thread.messages_one':   [['en', 'fr']],
   'thread.messages_other': [['en', 'fr']],
+
+  // ── Contacts ───────────────────────────────────────────────────────────────
+  // "auto" — universal technical loanword, same in all locales
+  'contacts.auto': 'any',
+  // "contacts" — same word in English and French
+  'contacts.count': [['en', 'fr']],
+  'contacts.title': [['en', 'fr']],
+  // "Email" — international term used as-is in en, es, it, ru, zhCN
+  'contacts.fields.email': [['en', 'es', 'it', 'ru', 'zhCN']],
+  // "Notes" — same spelling in English and French
+  'contacts.fields.notes': [['en', 'fr']],
+  // "Organisation" — same spelling in German and French
+  'contacts.fields.organization': [['de', 'fr']],
+  // "Casa" — Spanish and Italian share the same word for "home"
+  'contacts.emailTypes.home': [['es', 'it']],
+  'contacts.phoneTypes.home': [['es', 'it']],
+  // "Mobile" — same spelling in English, French, and Italian
+  'contacts.phoneTypes.mobile': [['en', 'fr', 'it']],
 };
 
 // Keys referenced dynamically (via a variable passed to t()) that cannot be
