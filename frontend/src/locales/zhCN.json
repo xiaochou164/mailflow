@@ -13,6 +13,7 @@
     "retry": "重试",
     "loading": "加载中…",
     "saving": "保存中…",
+    "deleting": "删除中…",
     "never": "从不",
     "noSubject": "（无主题）",
     "unknown": "未知",
@@ -937,5 +938,43 @@
   "blockList": {
     "blocked": "已屏蔽",
     "errorAdd": "屏蔽发件人失败"
+  },
+  "contacts": {
+    "title": "联系人",
+    "new": "新建",
+    "newContact": "新建联系人",
+    "editContact": "编辑联系人",
+    "search": "搜索联系人…",
+    "empty": "暂无联系人",
+    "noResults": "未找到联系人",
+    "count": "{{count}} 个联系人",
+    "auto": "auto",
+    "autoHint": "从收件中自动发现",
+    "selectHint": "选择联系人",
+    "deleteConfirm": "永久删除此联系人？",
+    "addEmail": "添加邮箱",
+    "addPhone": "添加电话",
+    "fields": {
+      "displayName": "显示名称",
+      "firstName": "名",
+      "lastName": "姓",
+      "email": "Email",
+      "phone": "电话",
+      "organization": "组织",
+      "notes": "备注",
+      "emailsSent": "已发邮件",
+      "lastContacted": "最近联系"
+    },
+    "emailTypes": {
+      "other": "其他",
+      "work": "工作",
+      "home": "家庭"
+    },
+    "phoneTypes": {
+      "mobile": "手机",
+      "work": "工作",
+      "home": "家庭",
+      "other": "其他"
+    }
   }
 }

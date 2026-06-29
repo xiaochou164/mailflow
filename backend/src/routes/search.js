@@ -184,13 +184,27 @@ router.get('/contacts', searchLimiter, async (req, res) => {
 
   try {
     const result = await query(`
-      WITH sent AS (
-        SELECT email, name, send_count, last_sent
+      WITH known AS (
+        -- Contacts the user explicitly sent to or manually created (is_auto = false)
+        SELECT primary_email AS email, display_name AS name, send_count, last_sent
         FROM contacts
         WHERE user_id = $1
-          AND (email ILIKE $2 OR name ILIKE $2)
+          AND is_auto = false
+          AND primary_email IS NOT NULL
+          AND (display_name ILIKE $2 OR primary_email ILIKE $2)
+      ),
+      auto AS (
+        -- Auto-discovered inbound contacts not already in known
+        SELECT primary_email AS email, display_name AS name, 0 AS send_count, last_sent
+        FROM contacts
+        WHERE user_id = $1
+          AND is_auto = true
+          AND primary_email IS NOT NULL
+          AND (display_name ILIKE $2 OR primary_email ILIKE $2)
+          AND lower(primary_email) NOT IN (SELECT lower(email) FROM known)
       ),
       inbound AS (
+        -- Fallback: senders not yet in contacts table, excluding bulk/robot
         SELECT email, name, send_count, last_sent
         FROM (
           SELECT DISTINCT ON (from_email)
@@ -204,7 +218,9 @@ router.get('/contacts', searchLimiter, async (req, res) => {
             AND is_deleted = false
             AND from_email IS NOT NULL AND from_email != ''
             AND (from_email ILIKE $2 OR from_name ILIKE $2)
-            AND lower(from_email) NOT IN (SELECT lower(email) FROM sent)
+            AND lower(from_email) NOT IN (
+              SELECT lower(primary_email) FROM contacts WHERE user_id = $1 AND primary_email IS NOT NULL
+            )
             AND from_email !~* '^(noreply|no-reply|donotreply|mailer-daemon|notifications?|bounce[^@]*)@'
           ORDER BY from_email, date DESC
         ) latest
@@ -212,9 +228,11 @@ router.get('/contacts', searchLimiter, async (req, res) => {
       )
       SELECT email, name
       FROM (
-        SELECT email, name, 1 AS priority, send_count, last_sent FROM sent
+        SELECT email, name, 1 AS priority, send_count, last_sent FROM known
         UNION ALL
-        SELECT email, name, 2 AS priority, 0, last_sent FROM inbound
+        SELECT email, name, 2 AS priority, 0, last_sent FROM auto
+        UNION ALL
+        SELECT email, name, 3 AS priority, 0, last_sent FROM inbound
       ) combined
       ORDER BY priority, send_count DESC, last_sent DESC NULLS LAST
       LIMIT 10

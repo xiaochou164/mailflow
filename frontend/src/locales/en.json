@@ -13,6 +13,7 @@
     "retry": "Retry",
     "loading": "Loading…",
     "saving": "Saving…",
+    "deleting": "Deleting…",
     "never": "Never",
     "noSubject": "(no subject)",
     "unknown": "Unknown",
@@ -937,5 +938,43 @@
   "blockList": {
     "blocked": "Blocked",
     "errorAdd": "Failed to block sender"
+  },
+  "contacts": {
+    "title": "Contacts",
+    "new": "New",
+    "newContact": "New Contact",
+    "editContact": "Edit Contact",
+    "search": "Search contacts…",
+    "empty": "No contacts yet",
+    "noResults": "No contacts found",
+    "count": "{{count}} contacts",
+    "auto": "auto",
+    "autoHint": "Discovered from received mail",
+    "selectHint": "Select a contact to view details",
+    "deleteConfirm": "Permanently delete this contact?",
+    "addEmail": "Add email",
+    "addPhone": "Add phone",
+    "fields": {
+      "displayName": "Display name",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "phone": "Phone",
+      "organization": "Organization",
+      "notes": "Notes",
+      "emailsSent": "Emails sent",
+      "lastContacted": "Last contacted"
+    },
+    "emailTypes": {
+      "other": "Other",
+      "work": "Work",
+      "home": "Home"
+    },
+    "phoneTypes": {
+      "mobile": "Mobile",
+      "work": "Work",
+      "home": "Home",
+      "other": "Other"
+    }
   }
 }

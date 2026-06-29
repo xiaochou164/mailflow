@@ -21,6 +21,8 @@ import totpRoutes from './routes/totp.js';
 import oidcApiRouter, { oidcBrowserRouter } from './routes/oidc.js';
 import rulesRoutes from './routes/rules.js';
 import blockListRoutes from './routes/blockList.js';
+import contactsRoutes from './routes/contacts.js';
+import carddavRouter from './routes/carddav.js';
 import { encryptExistingCredentials, query } from './services/db.js';
 import { runMigrations } from './services/migrations.js';
 import { reloadAuthSettings } from './services/authLimiter.js';
@@ -130,6 +132,12 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/totp', totpRoutes);
 app.use('/api/rules', rulesRoutes);
 app.use('/api/block-list', blockListRoutes);
+app.use('/api/contacts', contactsRoutes);
+
+// CardDAV server — body is read lazily inside each handler via rawBody()
+app.use('/carddav', carddavRouter);
+// RFC 6764 well-known redirect — handle all methods so PROPFIND probes also redirect
+app.all('/.well-known/carddav', (req, res) => res.redirect(308, '/carddav/'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/api/version', (_req, res) => res.json({ version: APP_VERSION, sha: process.env.BUILD_SHA || 'dev' }));

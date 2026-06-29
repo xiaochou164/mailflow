@@ -244,6 +244,10 @@ export const useStore = create((set, get) => ({
   adminTab: 'accounts', // 'accounts' | 'appearance' | 'integrations' | 'users'
   setShowAdmin: (v) => set({ showAdmin: v }),
   setAdminTab: (t) => set({ adminTab: t }),
+
+  // Contacts view
+  showContacts: false,
+  setShowContacts: (v) => set({ showContacts: v }),
   rulesPreFill: null, // { fromEmail, fromName, subject } — transient, set by context menu
   setRulesPreFill: (v) => set({ rulesPreFill: v }),
 

@@ -11,6 +11,8 @@ import { adjustFolderCounts } from '../utils/mailUtils.js';
 import { resolveForConnection } from './hostValidation.js';
 import { getConnectionPolicy } from './connectionPolicy.js';
 import { applyInboxRules, applyBlockList } from './inboxRules.js';
+import { generateVCard } from '../utils/vcard.js';
+import { randomUUID } from 'crypto';
 
 
 // Shorthand for log lines — keeps domain visible while masking the local part.
@@ -1333,6 +1335,22 @@ export class ImapManager {
                 .catch(err => console.warn(`Body prefetch error for ${logAccount(account)}:`, err.message));
             });
           }
+
+          // Auto-learn senders from new inbound mail (fire-and-forget).
+          // Only runs for INBOX; skips bulk and robot senders.
+          if (folder === 'INBOX') {
+            const inboundSenders = newMessages.filter(m =>
+              m.fromEmail &&
+              (m.isBulk !== true) &&
+              !/^(noreply|no-reply|donotreply|mailer-daemon|notifications?|bounce[^@]*)@/i.test(m.fromEmail)
+            );
+            if (inboundSenders.length) {
+              setImmediate(() => {
+                this.upsertAutoContacts(account.user_id, inboundSenders)
+                  .catch(err => console.warn(`Auto-contact error for ${logAccount(account)}:`, err.message));
+              });
+            }
+          }
         }
         await query('UPDATE email_accounts SET last_sync = NOW() WHERE id = $1', [account.id]);
       } finally {
@@ -1714,6 +1732,53 @@ export class ImapManager {
     } finally {
       if (bfClient) { try { await bfClient.logout(); } catch { /* already disconnected */ } }
       this.backfillRunning.delete(backfillKey);
+    }
+  }
+
+  // Insert auto-discovered contacts for inbound senders that don't already have a contact record.
+  // Existing contacts (manual or sent-to) are never modified; is_auto=true entries are never
+  // downgraded by this path.
+  async upsertAutoContacts(userId, messages) {
+    try {
+      const abResult = await query(
+        `INSERT INTO address_books (user_id, name) VALUES ($1, 'Personal')
+         ON CONFLICT (user_id, name) DO UPDATE SET updated_at = NOW()
+         RETURNING id`,
+        [userId]
+      );
+      const addressBookId = abResult.rows[0].id;
+
+      const upsertResults = await Promise.allSettled(
+        messages
+          .filter(msg => msg.fromEmail)
+          .map(msg => {
+            const primaryEmail = msg.fromEmail.toLowerCase();
+            const displayName  = (msg.fromName || '').trim() || primaryEmail;
+            const uid          = randomUUID();
+            const emails       = JSON.stringify([{ value: primaryEmail, type: 'other', primary: true }]);
+            const vcard        = generateVCard({ uid, displayName, emails: [{ value: primaryEmail, type: 'other', primary: true }] });
+            return query(`
+              INSERT INTO contacts (
+                address_book_id, user_id, uid, vcard, etag,
+                display_name, primary_email, emails, is_auto
+              )
+              VALUES ($1, $2, $3, $4, md5($4), $5, $6, $7::jsonb, true)
+              ON CONFLICT (user_id, primary_email) WHERE primary_email IS NOT NULL DO NOTHING
+            `, [addressBookId, userId, uid, vcard, displayName, primaryEmail, emails]);
+          })
+      );
+      const inserted = upsertResults.filter(r => r.status === 'fulfilled' && r.value?.rowCount > 0).length;
+
+      // Bump sync_token only when new contacts were actually added so CardDAV
+      // clients that use getctag/sync-token pick up newly discovered senders.
+      if (inserted > 0) {
+        await query(
+          'UPDATE address_books SET sync_token = gen_random_uuid()::text, updated_at = NOW() WHERE id = $1',
+          [addressBookId]
+        );
+      }
+    } catch (err) {
+      console.warn(`upsertAutoContacts error for user ${userId}:`, err.message);
     }
   }
 

@@ -13,6 +13,7 @@
     "retry": "Повторить",
     "loading": "Загрузка…",
     "saving": "Сохранение…",
+    "deleting": "Удаление…",
     "never": "Никогда",
     "noSubject": "(без темы)",
     "unknown": "Неизвестно",
@@ -937,5 +938,43 @@
   "blockList": {
     "blocked": "Заблокировано",
     "errorAdd": "Не удалось заблокировать отправителя"
+  },
+  "contacts": {
+    "title": "Контакты",
+    "new": "Новый",
+    "newContact": "Новый контакт",
+    "editContact": "Редактировать контакт",
+    "search": "Поиск контактов…",
+    "empty": "Нет контактов",
+    "noResults": "Контакты не найдены",
+    "count": "{{count}} контактов",
+    "auto": "auto",
+    "autoHint": "Обнаружен из входящей почты",
+    "selectHint": "Выберите контакт",
+    "deleteConfirm": "Удалить этот контакт?",
+    "addEmail": "Добавить email",
+    "addPhone": "Добавить телефон",
+    "fields": {
+      "displayName": "Отображаемое имя",
+      "firstName": "Имя",
+      "lastName": "Фамилия",
+      "email": "Email",
+      "phone": "Телефон",
+      "organization": "Организация",
+      "notes": "Заметки",
+      "emailsSent": "Отправлено писем",
+      "lastContacted": "Последний контакт"
+    },
+    "emailTypes": {
+      "other": "Другой",
+      "work": "Работа",
+      "home": "Дом"
+    },
+    "phoneTypes": {
+      "mobile": "Мобильный",
+      "work": "Работа",
+      "home": "Дом",
+      "other": "Другой"
+    }
   }
 }

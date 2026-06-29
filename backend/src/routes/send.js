@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash, randomUUID } from 'crypto';
 import { Router } from 'express';
 import { query } from '../services/db.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -7,6 +7,7 @@ import { refreshMicrosoftToken } from './oauth.js';
 import { decrypt } from '../services/encryption.js';
 import sanitizeHtml from 'sanitize-html';
 import { redactEmail } from '../utils/redact.js';
+import { generateVCard } from '../utils/vcard.js';
 import { resolveForConnection } from '../services/hostValidation.js';
 import { getConnectionPolicy } from '../services/connectionPolicy.js';
 import { imapManager } from '../index.js';
@@ -323,22 +324,64 @@ router.post('/send', async (req, res) => {
     if (allRecipients.length) {
       const userId = req.session.userId;
       const now = new Date();
-      setImmediate(() => {
-        Promise.allSettled(allRecipients.map(addr => {
-          const { name, email } = parseAddress(addr);
-          if (!email) return Promise.resolve();
-          return query(`
-            INSERT INTO contacts (user_id, email, name, send_count, last_sent)
-            VALUES ($1, $2, $3, 1, $4)
-            ON CONFLICT (user_id, email) DO UPDATE
-              SET send_count = contacts.send_count + 1,
-                  last_sent  = $4,
-                  name       = CASE WHEN $3 != '' THEN $3 ELSE contacts.name END
-          `, [userId, email, name, now]);
-        })).then(results => {
+      setImmediate(async () => {
+        try {
+          // Ensure the user's default address book exists
+          const abResult = await query(
+            `INSERT INTO address_books (user_id, name) VALUES ($1, 'Personal')
+             ON CONFLICT (user_id, name) DO UPDATE SET updated_at = NOW()
+             RETURNING id`,
+            [userId]
+          );
+          const addressBookId = abResult.rows[0].id;
+
+          const results = await Promise.allSettled(allRecipients.map(addr => {
+            const { name, email } = parseAddress(addr);
+            if (!email) return Promise.resolve();
+            const primaryEmail = email.toLowerCase();
+            const displayName = name || primaryEmail;
+            const uid    = randomUUID();
+            const emails = [{ value: primaryEmail, type: 'other', primary: true }];
+            const vcard  = generateVCard({ uid, displayName, emails });
+            const etag   = createHash('md5').update(vcard).digest('hex');
+            // Upsert by (user_id, primary_email) — bump send_count and promote from is_auto.
+            // On conflict, preserve an existing vcard; only fill it in if the row had none.
+            return query(`
+              INSERT INTO contacts (
+                address_book_id, user_id, uid, vcard, etag,
+                display_name, primary_email, emails, is_auto, send_count, last_sent
+              )
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, false, 1, $9)
+              ON CONFLICT (user_id, primary_email) WHERE primary_email IS NOT NULL DO UPDATE
+                SET send_count   = contacts.send_count + 1,
+                    last_sent    = $9,
+                    is_auto      = false,
+                    display_name = CASE WHEN contacts.is_auto THEN $6 ELSE contacts.display_name END,
+                    vcard        = COALESCE(contacts.vcard, EXCLUDED.vcard),
+                    etag         = COALESCE(contacts.etag,  EXCLUDED.etag),
+                    updated_at   = NOW()
+              RETURNING address_book_id
+            `, [addressBookId, userId, uid, vcard, etag, displayName, primaryEmail, JSON.stringify(emails), now]);
+          }));
+
           const failed = results.filter(r => r.status === 'rejected');
           if (failed.length) console.warn('Contact upsert errors:', failed.map(r => r.reason?.message));
-        });
+
+          // Collect distinct address books actually modified (contacts may live in non-default books).
+          const booksToSync = new Set();
+          for (const r of results) {
+            if (r.status === 'fulfilled' && r.value?.rows?.[0]?.address_book_id) {
+              booksToSync.add(r.value.rows[0].address_book_id);
+            }
+          }
+          if (!booksToSync.size) booksToSync.add(addressBookId);
+
+          await Promise.all([...booksToSync].map(bookId =>
+            query('UPDATE address_books SET sync_token = gen_random_uuid()::text, updated_at = NOW() WHERE id = $1', [bookId])
+          ));
+        } catch (err) {
+          console.warn('Contact upsert setup error:', err.message);
+        }
       });
     }
 

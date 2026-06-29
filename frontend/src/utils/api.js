@@ -152,6 +152,21 @@ export const api = {
   },
   suggestContacts: (q) => request('GET', `/search/contacts?q=${encodeURIComponent(q)}`),
 
+  // Contacts
+  getContacts:   ({ q, limit, offset, is_auto } = {}) => {
+    const p = new URLSearchParams();
+    if (q) p.set('q', q);
+    if (limit !== undefined) p.set('limit', limit);
+    if (offset !== undefined) p.set('offset', offset);
+    if (is_auto !== undefined) p.set('is_auto', is_auto);
+    const qs = p.toString();
+    return request('GET', `/contacts${qs ? '?' + qs : ''}`);
+  },
+  getContact:    (id)       => request('GET',    `/contacts/${id}`),
+  createContact: (data)     => request('POST',   '/contacts', data),
+  updateContact: (id, data) => request('PATCH',  `/contacts/${id}`, data),
+  deleteContact: (id)       => request('DELETE', `/contacts/${id}`),
+
   // Image whitelist
   addToImageWhitelist: (entry) => request('POST', '/auth/preferences/whitelist-add', entry),
 

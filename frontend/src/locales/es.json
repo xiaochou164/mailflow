@@ -13,6 +13,7 @@
     "retry": "Reintentar",
     "loading": "Cargando…",
     "saving": "Guardando…",
+    "deleting": "Eliminando…",
     "never": "Nunca",
     "noSubject": "(sin asunto)",
     "unknown": "Desconocido",
@@ -937,5 +938,43 @@
   "blockList": {
     "blocked": "Bloqueado",
     "errorAdd": "No se pudo bloquear al remitente"
+  },
+  "contacts": {
+    "title": "Contactos",
+    "new": "Nuevo",
+    "newContact": "Nuevo contacto",
+    "editContact": "Editar contacto",
+    "search": "Buscar contactos…",
+    "empty": "Sin contactos aún",
+    "noResults": "No se encontraron contactos",
+    "count": "{{count}} contactos",
+    "auto": "auto",
+    "autoHint": "Descubierto del correo recibido",
+    "selectHint": "Selecciona un contacto",
+    "deleteConfirm": "¿Eliminar permanentemente este contacto?",
+    "addEmail": "Agregar email",
+    "addPhone": "Agregar teléfono",
+    "fields": {
+      "displayName": "Nombre para mostrar",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "email": "Email",
+      "phone": "Teléfono",
+      "organization": "Organización",
+      "notes": "Notas",
+      "emailsSent": "Emails enviados",
+      "lastContacted": "Último contacto"
+    },
+    "emailTypes": {
+      "other": "Otro",
+      "work": "Trabajo",
+      "home": "Casa"
+    },
+    "phoneTypes": {
+      "mobile": "Móvil",
+      "work": "Trabajo",
+      "home": "Casa",
+      "other": "Otro"
+    }
   }
 }

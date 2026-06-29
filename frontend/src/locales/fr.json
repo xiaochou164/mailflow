@@ -13,6 +13,7 @@
     "retry": "Réessayer",
     "loading": "Chargement…",
     "saving": "Enregistrement…",
+    "deleting": "Suppression…",
     "never": "Jamais",
     "noSubject": "(sans objet)",
     "unknown": "Inconnu",
@@ -937,5 +938,43 @@
   "blockList": {
     "blocked": "Bloqué",
     "errorAdd": "Impossible de bloquer l'expéditeur"
+  },
+  "contacts": {
+    "title": "Contacts",
+    "new": "Nouveau",
+    "newContact": "Nouveau contact",
+    "editContact": "Modifier le contact",
+    "search": "Rechercher des contacts…",
+    "empty": "Aucun contact pour l'instant",
+    "noResults": "Aucun contact trouvé",
+    "count": "{{count}} contacts",
+    "auto": "auto",
+    "autoHint": "Découvert depuis les e-mails reçus",
+    "selectHint": "Sélectionnez un contact",
+    "deleteConfirm": "Supprimer définitivement ce contact ?",
+    "addEmail": "Ajouter un e-mail",
+    "addPhone": "Ajouter un téléphone",
+    "fields": {
+      "displayName": "Nom affiché",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "organization": "Organisation",
+      "notes": "Notes",
+      "emailsSent": "E-mails envoyés",
+      "lastContacted": "Dernier contact"
+    },
+    "emailTypes": {
+      "other": "Autre",
+      "work": "Travail",
+      "home": "Domicile"
+    },
+    "phoneTypes": {
+      "mobile": "Mobile",
+      "work": "Travail",
+      "home": "Domicile",
+      "other": "Autre"
+    }
   }
 }

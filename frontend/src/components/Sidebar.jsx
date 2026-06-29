@@ -66,6 +66,14 @@ const ICONS = {
       <line x1="21" y1="12" x2="9" y2="12"/>
     </svg>
   ),
+  contacts: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+      <path d="M16 3.13a4 4 0 010 7.75"/>
+    </svg>
+  ),
 };
 
 function folderIcon(path, specialUse, folderMappings) {
@@ -284,6 +292,7 @@ export default function Sidebar() {
     accountsReady,
     sidebarWidth,
     isSidebarResizing,
+    showContacts, setShowContacts,
   } = useStore();
 
   const isMobile = useMobile();
@@ -862,7 +871,7 @@ export default function Sidebar() {
           <NavItem
             icon={ICONS.inbox}
             label={t('sidebar.allInboxes')}
-            active={isUnified}
+            active={isUnified && !showContacts}
             collapsed={sidebarCollapsed}
             badge={unreadCounts.total}
             onClick={() => setSelectedAccount(null, 'INBOX')}
@@ -1076,9 +1085,6 @@ export default function Sidebar() {
             </>
           );
         })()}
-
-        {/* Divider */}
-        <div style={{ height: 1, background: 'var(--border-subtle)', margin: '8px 4px' }} />
 
         {/* Per-account */}
         {accounts.map(account => {
@@ -1551,7 +1557,26 @@ export default function Sidebar() {
           </div>
         </div>
       ) : (
-        <div style={{ padding: '8px', borderTop: '1px solid var(--border-subtle)' }}>
+        <>
+          <div style={{ padding: '4px 8px', display: 'flex', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
+            <button
+              onClick={() => { setShowContacts(!showContacts); if (isMobile) setMobileSidebarOpen(false); }}
+              title={t('contacts.title')}
+              style={{
+                width: 28, height: 28, borderRadius: 7,
+                border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: showContacts ? 'var(--bg-hover)' : 'transparent',
+                color: showContacts ? 'var(--accent)' : 'var(--text-tertiary)',
+                transition: 'background 0.1s, color 0.1s',
+              }}
+              onMouseEnter={e => { if (!showContacts) { e.currentTarget.style.background = 'var(--bg-tertiary)'; e.currentTarget.style.color = 'var(--text-secondary)'; } }}
+              onMouseLeave={e => { if (!showContacts) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-tertiary)'; } }}
+            >
+              {ICONS.contacts}
+            </button>
+          </div>
+          <div style={{ padding: '8px', borderTop: '1px solid var(--border-subtle)' }}>
           <div
             ref={userMenuBtnRef}
             onClick={openUserMenu}
@@ -1595,6 +1620,7 @@ export default function Sidebar() {
             )}
           </div>
         </div>
+        </>
       )}
 
       {/* User menu — desktop popover */}
@@ -1612,6 +1638,7 @@ export default function Sidebar() {
             zIndex: 4000,
             boxShadow: 'var(--shadow-modal)',
             overflow: 'hidden',
+            animation: 'popover-in var(--motion-fast) var(--ease-emphasized) both',
           }}
         >
           <div style={{ padding: '10px 13px 9px', borderBottom: '1px solid var(--border-subtle)' }}>

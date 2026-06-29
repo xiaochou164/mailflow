@@ -99,7 +99,7 @@ export default function MessageList() {
     searchQuery, setSearchQuery, setIsSearching,
     searchResults, setSearchResults, openCompose, accountsReady, accounts,
     messagesRefreshToken, layout, setLayout, pageSize, setPageSize, scrollMode,
-    setMobileSidebarOpen, unreadCounts,
+    setMobileSidebarOpen, unreadCounts, showContacts, setShowContacts,
     threadedView, expandedThreadId, setExpandedThreadId,
     threadMessages, setThreadMessages, loadingThread, setLoadingThread,
     hoverQuickActions,
@@ -1871,6 +1871,26 @@ export default function MessageList() {
             </svg>
           </button>
 
+          {/* Contacts */}
+          <button
+            onClick={() => setShowContacts(!showContacts)}
+            aria-label={t('contacts.title')}
+            style={{
+              background: showContacts ? 'var(--bg-hover)' : 'none', border: 'none',
+              color: showContacts ? 'var(--accent)' : 'var(--text-tertiary)',
+              cursor: 'pointer', padding: 0, borderRadius: 7, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              minWidth: 44, minHeight: 44,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+              <path d="M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+          </button>
+
           {/* Select / Cancel — replaces compose button; FAB is the primary compose affordance */}
           {selectionMode ? (
             <button
@@ -3212,7 +3232,7 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
             </div>
           ) : (
             unreadCount > 0 && (
-              <div style={{
+              <div className="unread-dot" style={{
                 position: 'absolute', left: 3, top: '50%', transform: 'translateY(-50%)',
                 width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)',
               }} />
@@ -3220,7 +3240,7 @@ function ThreadRow({ message, isExpanded, threadMsgs, isLoadingThread, selectedM
           )
         ) : (
           !selectionMode && unreadCount > 0 && (
-            <div style={{
+            <div className="unread-dot" style={{
               position: 'absolute', left: 3, top: '50%', transform: 'translateY(-50%)',
               width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)',
             }} />
@@ -3548,7 +3568,7 @@ function MessageRow({ message, selected, lastViewed, isChecked, selectionMode, s
           </div>
         ) : (
           !message.is_read && (
-            <div style={{
+            <div className="unread-dot" style={{
               position: 'absolute', left: 3, top: '50%', transform: 'translateY(-50%)',
               width: 7, height: 7, borderRadius: '50%',
               background: 'var(--accent)',

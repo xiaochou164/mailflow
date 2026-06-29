@@ -42,7 +42,13 @@ router.get('/', async (req, res) => {
 
   if (q && q.trim()) {
     params.push(`%${q.trim()}%`);
-    conditions.push(`(c.display_name ILIKE $${p} OR c.primary_email ILIKE $${p} OR c.organization ILIKE $${p})`);
+    conditions.push(`(
+      c.display_name ILIKE $${p}
+      OR c.primary_email ILIKE $${p}
+      OR c.organization ILIKE $${p}
+      OR (jsonb_typeof(c.emails) = 'array' AND EXISTS (SELECT 1 FROM jsonb_array_elements(c.emails) ae WHERE ae->>'value' ILIKE $${p}))
+      OR (jsonb_typeof(c.phones) = 'array' AND EXISTS (SELECT 1 FROM jsonb_array_elements(c.phones) ap WHERE ap->>'value' ILIKE $${p}))
+    )`);
     p++;
   }
 
@@ -110,6 +116,9 @@ router.post('/', async (req, res) => {
     organization, notes,
   } = req.body || {};
 
+  if (!Array.isArray(emails)) return res.status(400).json({ error: 'emails must be an array' });
+  if (!Array.isArray(phones)) return res.status(400).json({ error: 'phones must be an array' });
+
   const primaryEmail = emails[0]?.value
     ? emails[0].value.toLowerCase().trim()
     : null;
@@ -156,6 +165,9 @@ router.patch('/:id', async (req, res) => {
     displayName, firstName, lastName,
     emails, phones, organization, notes,
   } = req.body || {};
+
+  if (emails !== undefined && !Array.isArray(emails)) return res.status(400).json({ error: 'emails must be an array' });
+  if (phones !== undefined && !Array.isArray(phones)) return res.status(400).json({ error: 'phones must be an array' });
 
   try {
     // Load current contact

@@ -28,8 +28,12 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000).unref();
 
+// CardDAV clients can issue dozens of requests per sync (PROPFIND + per-card GET/PUT).
+// Use a generous per-IP ceiling independent of the login rate-limit config.
+const CARDDAV_MAX_REQUESTS = 500;
+
 function cardavRateLimit(req, res, next) {
-  const { maxRequests, windowMs } = authLimiterConfig;
+  const { windowMs } = authLimiterConfig;
   const key = req.ip;
   const now = Date.now();
   const bucket = cardavBuckets.get(key);
@@ -37,7 +41,7 @@ function cardavRateLimit(req, res, next) {
     cardavBuckets.set(key, { count: 1, resetAt: now + windowMs });
     return next();
   }
-  if (bucket.count >= maxRequests) {
+  if (bucket.count >= CARDDAV_MAX_REQUESTS) {
     res.setHeader('Retry-After', Math.ceil((bucket.resetAt - now) / 1000));
     return res.status(429).end();
   }
@@ -369,11 +373,17 @@ router.put('/:userId/:bookId/:filename', async (req, res) => {
     const bookId = bookResult.rows[0].id;
 
     const existing = await query(
-      'SELECT id FROM contacts WHERE address_book_id = $1 AND uid = $2',
+      'SELECT id, etag FROM contacts WHERE address_book_id = $1 AND uid = $2',
       [bookId, uid]
     );
 
     if (existing.rows.length) {
+      // Enforce If-Match precondition (RFC 6352 §6.3.2)
+      const ifMatch = req.headers['if-match'];
+      if (ifMatch && ifMatch !== '*') {
+        const clientEtag = ifMatch.replace(/^"(.*)"$/, '$1');
+        if (clientEtag !== existing.rows[0].etag) return res.status(412).end();
+      }
       // Update
       await query(`
         UPDATE contacts SET
