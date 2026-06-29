@@ -1815,20 +1815,18 @@ export class ImapManager {
         );
       }
 
-      // Update bulk flags for messages synced before this feature was added
-      await this.refreshBulkFlags(account).catch(err =>
-        console.warn(`Bulk flag refresh failed for ${logAccount(account)}:`, err.message)
-      );
     } finally {
       this.backfillAllRunning.delete(account.id);
       this.broadcast({ type: 'backfill_all_complete', accountId: account.id }, account.user_id);
+      // Both run as background jobs after the complete signal — neither should block the UI.
+      this.refreshBulkFlags(account).catch(err =>
+        console.warn(`Bulk flag refresh failed for ${logAccount(account)}:`, err.message)
+      );
       this.startSnippetIndexer(account).catch(err =>
         console.error(`Snippet indexer failed for ${logAccount(account)}:`, err.message)
       );
     }
   }
-
-
 
   // Called by the body-fetch route whenever a user opens a message that required a live
   // IMAP fetch. The timestamp is used by background jobs to back off during active sessions.
