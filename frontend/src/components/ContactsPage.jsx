@@ -52,7 +52,7 @@ const PAGE_SIZE = 100;
 
 export default function ContactsPage() {
   const { t } = useTranslation();
-  const { setMobileSidebarOpen, setShowContacts } = useStore();
+  const { setShowContacts } = useStore();
   const isMobile = useMobile();
 
   const [contacts, setContacts]     = useState([]);
