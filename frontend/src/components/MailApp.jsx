@@ -35,7 +35,7 @@ export default function MailApp() {
     mobileSidebarOpen, setMobileSidebarOpen, addNotification,
     fontSize, showAppBadge, showFaviconBadge,
     sidebarWidth, setSidebarWidth, setIsSidebarResizing,
-    showContacts,
+    showContacts, setTodoistConnected,
   } = useStore();
 
   const scale = fontSize / 100;
@@ -141,6 +141,12 @@ export default function MailApp() {
         // Even on error, mark accounts as ready so MessageList doesn't hang
         useStore.setState({ accountsReady: true });
       });
+
+    // Sync Todoist connection state — localStorage alone isn't enough across devices/sessions
+    api.todoist.status().then(({ connected }) => setTodoistConnected(connected)).catch(() => {});
+
+    // Preload ComposeModal chunk so first open is instant
+    import('./ComposeModal.jsx');
 
     // Load unread counts
     const refreshCounts = () => {
