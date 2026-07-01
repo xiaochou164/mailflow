@@ -242,7 +242,7 @@ export const useStore = create((set, get) => ({
   // Notifications
   notifications: [],
   addNotification: (n) => set(state => ({
-    notifications: [{ ...n, id: crypto.randomUUID() }, ...state.notifications].slice(0, 5)
+    notifications: [{ ...n, id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}` }, ...state.notifications].slice(0, 5)
   })),
   removeNotification: (id) => set(state => ({
     notifications: state.notifications.filter(n => n.id !== id)
