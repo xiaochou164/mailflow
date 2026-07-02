@@ -196,6 +196,17 @@ export function detectBulkFromParsedHeaders(h) {
 export function detectCategoryFromHeaders(h) {
   if (!h) return null;
 
+  // Developer platform / issue tracker notifications — must run before the generic
+  // newsletter check because services like GitHub set List-ID and Precedence: list
+  // on notification emails that are not newsletters.
+  if (h['x-github-reason'] || h['x-github-sender'] || h['x-github-delivery'] ||
+      h['x-gitlab-project-id'] || h['x-gitlab-pipeline-id'] || h['x-gitlab-noteable-type'] ||
+      h['x-linear-team-id'] || h['x-linear-issue-id'] ||
+      h['x-jira-fingerprint'] || h['x-atlassian-token'] ||
+      h['x-phabricator-sent-this-message'] ||
+      h['x-bugzilla-component'] ||
+      h['x-sentry-reply-to']) return 'automated';
+
   // Newsletter — RFC mailing list headers (same signals as is_bulk)
   if (h['list-id'] || h['list-unsubscribe'] || h['list-post']) return 'newsletter';
   const prec = (h['precedence'] || '').toLowerCase();
