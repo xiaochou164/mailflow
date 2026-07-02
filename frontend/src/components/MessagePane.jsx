@@ -903,6 +903,20 @@ ${bodyContent}
     }
   }, [showMovePicker, message?.account_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const handleMarkUnread = useCallback(() => {
+    if (!message || !message.is_read) return;
+    updateMessage(message.id, { is_read: false });
+    incrementUnread(message.account_id);
+    completedMarkReadMap.delete(message.id);
+    pendingMarkReadMap.delete(message.id);
+    api.bulkRead([message.id], false).catch(e => {
+      console.error('markUnread failed:', e.message);
+      updateMessage(message.id, { is_read: true });
+      decrementUnread(message.account_id);
+    });
+    if (isMobile) setSelectedMessage(null);
+  }, [message, updateMessage, incrementUnread, decrementUnread, isMobile, setSelectedMessage]);
+
   const handleEmailClick = useCallback((ev) => {
     const anchor = ev.target.closest('a[href]');
     if (!anchor) return;
@@ -1425,6 +1439,21 @@ ${bodyContent}
                 borderRadius: 8, overflow: 'hidden', zIndex: 100,
                 boxShadow: '0 4px 20px rgba(0,0,0,0.4)', minWidth: 190,
               }}>
+                {message.is_read && (
+                  <div
+                    onClick={() => { setShowMoreMenu(false); handleMarkUnread(); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-subtle)' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                      <path d="M22,9v9c0,1.1-.9,2-2,2H4c-1.1,0-2-.9-2-2V9"/>
+                      <polyline points="22 9 12 16 2 9"/>
+                      <polyline points="22 9 12 2 22 9"/>
+                    </svg>
+                    {t('contextMenu.markUnread')}
+                  </div>
+                )}
                 {todoistConnected && (
                   <div
                     onClick={() => { setShowTodoistModal(true); setShowMoreMenu(false); }}
@@ -1472,6 +1501,15 @@ ${bodyContent}
               <PaneBtn onClick={() => setShowTodoistModal(true)} title={t('todoist.title')}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M21 0H3C1.35 0 0 1.35 0 3v3.858s3.854 2.24 4.098 2.38c.31.18.694.177 1.004 0 .26-.147 8.02-4.608 8.136-4.675.279-.161.58-.107.748-.01.164.097.606.348.84.48.232.134.221.502.013.622l-9.712 5.59c-.346.2-.69.204-1.048.002C3.478 10.907.998 9.463 0 8.882v2.02l4.098 2.38c.31.18.694.177 1.004 0 .26-.147 8.02-4.609 8.136-4.676.279-.16.58-.106.748-.008.164.096.606.347.84.48.232.133.221.5.013.62-.208.121-9.288 5.346-9.712 5.59-.346.2-.69.205-1.048.002C3.478 14.951.998 13.506 0 12.926v2.02l4.098 2.38c.31.18.694.177 1.004 0 .26-.147 8.02-4.609 8.136-4.676.279-.16.58-.106.748-.009.164.097.606.348.84.48.232.133.221.502.013.622l-9.712 5.59c-.346.199-.69.204-1.048.001C3.478 18.994.998 17.55 0 16.97V21c0 1.65 1.35 3 3 3h18c1.65 0 3-1.35 3-3V3c0-1.65-1.35-3-3-3z"/>
+                </svg>
+              </PaneBtn>
+            )}
+            {message.is_read && (
+              <PaneBtn onClick={handleMarkUnread} title={t('contextMenu.markUnread')}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                  <path d="M22,9v9c0,1.1-.9,2-2,2H4c-1.1,0-2-.9-2-2V9"/>
+                  <polyline points="22 9 12 16 2 9"/>
+                  <polyline points="22 9 12 2 22 9"/>
                 </svg>
               </PaneBtn>
             )}
