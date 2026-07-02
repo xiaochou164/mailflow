@@ -1,7 +1,7 @@
 import { ImapFlow } from 'imapflow';
 import { query } from './db.js';
 import { parseMessage, snippetFromBody, detectBulkFromParsedHeaders, parseRawHeaders } from './messageParser.js';
-import { classifyMessage, loadSocialDomains, invalidateSocialDomainCache, getGlobalCategorizationEnabled } from './categorizer.js';
+import { classifyMessage, loadSocialDomains, getGlobalCategorizationEnabled } from './categorizer.js';
 import { refreshMicrosoftToken } from '../routes/oauth.js';
 import { sanitizeEmail } from './emailSanitizer.js';
 import { logger } from './logger.js';
