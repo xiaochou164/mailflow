@@ -88,9 +88,17 @@ export const useStore = create((set, get) => ({
   // Messages
   messages: [],
   setMessages: (messages) => set({ messages }),
-  appendMessages: (newMessages) => set(state => ({
-    messages: [...state.messages, ...newMessages]
-  })),
+  appendMessages: (newMessages) => set(state => {
+    // Deduplicate by id: if the same message already exists in state, keep the
+    // existing copy (which may carry optimistic local-only fields the network
+    // refresh just lost, like unread_count). Without this, bulk operations
+    // (Mark as Spam, moveTo, scheduleDelete...) followed by Undo + a network
+    // refresh can briefly produce visible "clones" of the same message.
+    const existing = new Set(state.messages.map(m => m.id));
+    const additions = newMessages.filter(m => m && !existing.has(m.id));
+    if (additions.length === 0) return {};
+    return { messages: [...state.messages, ...additions] };
+  }),
   updateMessage: (id, updates) => set(state => {
     const apply = (m) => m.id === id ? { ...m, ...updates } : m;
     const threadMessages = Object.fromEntries(
@@ -120,10 +128,19 @@ export const useStore = create((set, get) => ({
   restoreMessages: (msgs) => set(state => {
     const list = Array.isArray(msgs) ? msgs : [msgs];
     const sort = arr => [...arr].sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Deduplicate against both the main list and searchResults: if the message
+    // is already present (e.g. user clicked Undo after the messages had already
+    // been restored by a network refresh), skip it. The local copy carries the
+    // freshest optimistic state, so we prefer it over the server view.
+    const inMessages = new Set(state.messages.map(m => m.id));
+    const missing = list.filter(m => m && !inMessages.has(m.id));
+    if (missing.length === 0 && !state.searchQuery.trim()) return {};
+    const inSearch = new Set(state.searchResults.map(m => m.id));
+    const missingFromSearch = list.filter(m => m && !inSearch.has(m.id));
     return {
-      messages: sort([...state.messages, ...list]),
-      searchResults: state.searchQuery.trim()
-        ? sort([...state.searchResults, ...list])
+      messages: missing.length ? sort([...state.messages, ...missing]) : state.messages,
+      searchResults: state.searchQuery.trim() && missingFromSearch.length
+        ? sort([...state.searchResults, ...missingFromSearch])
         : state.searchResults,
     };
   }),
@@ -159,6 +176,24 @@ export const useStore = create((set, get) => ({
   setFolders: (accountId, folders) => set(state => ({
     folders: { ...state.folders, [accountId]: folders }
   })),
+  // Increment/decrement the unread_count of a single folder in one account's
+  // list. Used for optimistic UI updates when marking messages as read/spam/ham
+  // so the sidebar badge updates without waiting for a full folder sync.
+  // We clamp at 0 to avoid negative counters when the optimistic guess was off.
+  adjustFolderUnread: (accountId, folderPath, delta) => set(state => {
+    const accountFolders = state.folders[accountId];
+    if (!accountFolders) return {};
+    let changed = false;
+    const next = accountFolders.map(f => {
+      if (f.path === folderPath && Number.isFinite(f.unread_count)) {
+        const updated = Math.max(0, f.unread_count + delta);
+        if (updated !== f.unread_count) { changed = true; return { ...f, unread_count: updated }; }
+      }
+      return f;
+    });
+    if (!changed) return {};
+    return { folders: { ...state.folders, [accountId]: next } };
+  }),
 
   // UI state
   sidebarCollapsed: localStorage.getItem('mailflow_sidebar_collapsed') === 'true',

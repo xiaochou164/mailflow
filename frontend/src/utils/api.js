@@ -123,6 +123,13 @@ export const api = {
   bulkArchive: (ids) => request('POST', '/mail/messages/bulk-archive', { ids }),
   getUnreadCounts: () => request('GET', '/mail/unread-counts'),
 
+  // Antispam (v0.1) — manual user feedback.
+  // markSpam moves the message to the account's spam/junk folder and
+  // records the decision in spam_training_log. markHam moves it back to
+  // INBOX. No automatic classification runs here yet.
+  markSpam: (id) => request('POST', `/mail/messages/${id}/spam`),
+  markHam:  (id) => request('POST', `/mail/messages/${id}/ham`),
+
   getMessageHeaders: (id) => request('GET', `/mail/messages/${id}/headers`),
   snoozeMessage: (id, until) => request('POST', `/mail/messages/${id}/snooze`, { until }),
 

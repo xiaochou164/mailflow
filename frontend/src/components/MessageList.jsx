@@ -780,6 +780,132 @@ export default function MessageList() {
     addNotification, t,
   ]);
 
+  // Antispam helpers (v0.1).
+  //
+  // Strategy for both mark-as-spam and mark-as-ham:
+  //   1. Optimistically remove the message(s) from the visible list and decrement
+  //      unread counts — same pattern as scheduleDelete above.
+  //   2. Show a toast with Undo (4.5s window). Undo restores the message locally
+  //      and cancels the API call via a per-message timer.
+  //   3. After the timer fires, call api.markSpam / api.markHam per id in parallel
+  //      (Promise.allSettled). On any failure, restore the messages that failed
+  //      and show an error toast.
+  //
+  // Bulk is handled by collecting `messages` from selectedIds if multiple are
+  // selected; the caller (handleContextAction) decides which set to pass.
+
+  const performSpamLabel = useCallback(async (messages, label) => {
+    if (!messages.length) return;
+    const ids = messages.map(m => m.id);
+    const isBulk = ids.length > 1;
+
+    // Optimistic local update: remove from view + drop unread badge.
+    const unreadCount = messages.reduce((sum, m) => sum + (m.is_read ? 0 : 1), 0);
+    const accountId = messages[0].account_id;
+    messages.forEach(m => removeMessage(m.id));
+    if (unreadCount > 0) decrementUnread(accountId, unreadCount);
+
+    // Folder-aware unread badge updates for the sidebar.
+    //
+    // For spam (move INTO the junk folder) we decrement whichever folder the
+    // messages came from (typically INBOX, but possibly some other folder the
+    // user is in). For ham (move OUT of junk into inbox) we decrement the
+    // source folder (junk) and increment the destination folder (inbox).
+    //
+    // We aggregate by folder path because a bulk action may touch messages
+    // from different folders in theory (the UI currently only selects from
+    // one folder at a time, but the data model allows otherwise).
+    const { adjustFolderUnread } = useStore.getState();
+    const account = accounts.find(a => a.id === accountId);
+    const spamDest = account?.folder_mappings?.spam;
+    const inboxDest = account?.folder_mappings?.inbox || 'INBOX';
+    const unreadBySource = new Map();
+    const unreadByHamSource = new Map(); // for ham: track source folder
+    messages.forEach(m => {
+      if (m.is_read) return;
+      const src = m.folder;
+      if (!src) return;
+      if (label === 'spam') {
+        unreadBySource.set(src, (unreadBySource.get(src) || 0) + 1);
+      } else if (label === 'ham') {
+        unreadByHamSource.set(src, (unreadByHamSource.get(src) || 0) + 1);
+      }
+    });
+    if (label === 'spam') {
+      // origin folder loses its unread messages; junk gains them
+      for (const [src, n] of unreadBySource) adjustFolderUnread(accountId, src, -n);
+      if (spamDest && unreadCount > 0) adjustFolderUnread(accountId, spamDest, +unreadCount);
+    } else if (label === 'ham') {
+      // junk loses them; inbox gains them
+      for (const [src, n] of unreadByHamSource) adjustFolderUnread(accountId, src, -n);
+      if (inboxDest && unreadCount > 0) adjustFolderUnread(accountId, inboxDest, +unreadCount);
+    }
+
+    // Per-id timer map so Undo can cancel any pending API call.
+    const timers = new Map();
+    let settled = false;
+    const undo = () => {
+      settled = true;
+      timers.forEach(timer => clearTimeout(timer));
+      timers.clear();
+      // Restore the messages in their original position (re-sort by date).
+      useStore.getState().restoreMessages(messages);
+      if (unreadCount > 0) incrementUnread(accountId, unreadCount);
+      // Reverse the folder badge adjustments so undo behaves like the move
+      // never happened.
+      if (label === 'spam') {
+        for (const [src, n] of unreadBySource) adjustFolderUnread(accountId, src, +n);
+        if (spamDest && unreadCount > 0) adjustFolderUnread(accountId, spamDest, -unreadCount);
+      } else if (label === 'ham') {
+        for (const [src, n] of unreadByHamSource) adjustFolderUnread(accountId, src, +n);
+        if (inboxDest && unreadCount > 0) adjustFolderUnread(accountId, inboxDest, -unreadCount);
+      }
+    };
+
+    const performCall = (id) => {
+      const fn = label === 'spam' ? api.markSpam : api.markHam;
+      return fn(id).catch(err => ({ __failed: true, id, message: err.message }));
+    };
+
+    timers.set('__call__', setTimeout(async () => {
+      if (settled) return;
+      timers.delete('__call__');
+      const results = await Promise.allSettled(ids.map(performCall));
+      const failed = [];
+      results.forEach((r, i) => {
+        if (r.status === 'rejected' || r.value?.__failed) failed.push(ids[i]);
+      });
+      if (failed.length) {
+        const failedMsgs = messages.filter(m => failed.includes(m.id));
+        useStore.getState().restoreMessages(failedMsgs);
+        const failedUnread = failedMsgs.reduce((sum, m) => sum + (m.is_read ? 0 : 1), 0);
+        if (failedUnread > 0) incrementUnread(accountId, failedUnread);
+        const titleKey = label === 'spam' ? 'spam.failTitle' : 'spam.failHamTitle';
+        const bodyKey = label === 'spam' ? 'spam.failBody' : 'spam.failHamBody';
+        addNotification({
+          type: 'error',
+          title: t(titleKey),
+          body: isBulk ? t('spam.failBodyBulk', { count: failed.length }) : t(bodyKey),
+        });
+      }
+      // Safety net: after the IMAP move actually completes (or partially
+      // fails), reconcile sidebar counts and folder badges with the server.
+      // Even if our optimistic math was right, edge cases like the user
+      // moving messages between two folders that share a parent, or a
+      // concurrent IMAP IDLE update, can desync the local counters.
+      api.getUnreadCounts().then(c => useStore.getState().setUnreadCounts(c)).catch(() => {});
+      api.getFolders(accountId).then(f => useStore.getState().setFolders(accountId, f)).catch(() => {});
+    }, 4500));
+
+    addNotification({
+      title: label === 'spam'
+        ? (isBulk ? t('spam.movedToSpamBulk', { count: ids.length }) : t('spam.movedToSpam'))
+        : (isBulk ? t('spam.movedToInboxBulk', { count: ids.length }) : t('spam.movedToInbox')),
+      body: messages[0].subject || t('common.noSubject'),
+      onUndo: undo,
+    });
+  }, [removeMessage, decrementUnread, incrementUnread, addNotification, t, accounts]);
+
   // On page unload (refresh/close), fire pending deletes with keepalive:true so the
   // browser completes the request even after the page tears down. Clears the map so
   // the unmount cleanup below does not double-fire on normal navigation.
@@ -1603,6 +1729,7 @@ export default function MessageList() {
         if (selectedIds.size > 1 && selectedIds.has(message.id)) {
           const bulkMsgs = displayMessages.filter(m => selectedIds.has(m.id));
           handleBulkMove([...selectedIds], bulkMsgs, folder);
+          // handleBulkMove already clears the selection internally.
           break;
         }
         const moved = message;
@@ -1617,6 +1744,14 @@ export default function MessageList() {
         const moveIds = [...new Set(moveMessages.map(msg => msg.id).filter(Boolean))];
         removeMessage(moved.id);
         if (!moved.is_read) decrementUnread(moved.account_id);
+        // Remove the moved message from the selection so the action bar doesn't
+        // stay around claiming "X selected" for messages that are no longer here.
+        if (selectedIds.has(moved.id)) {
+          const next = new Set(selectedIds);
+          next.delete(moved.id);
+          setSelectedIds(next);
+          if (next.size === 0) setSelectionModeActive(false);
+        }
         let moveUndone = false;
         const moveTimer = setTimeout(async () => {
           if (moveUndone) return;
@@ -1646,6 +1781,12 @@ export default function MessageList() {
         if (!untilIso) break;
         removeMessage(snoozedMsg.id);
         if (!snoozedMsg.is_read) decrementUnread(snoozedMsg.account_id);
+        if (selectedIds.has(snoozedMsg.id)) {
+          const next = new Set(selectedIds);
+          next.delete(snoozedMsg.id);
+          setSelectedIds(next);
+          if (next.size === 0) setSelectionModeActive(false);
+        }
         addNotification({ title: t('message.snoozed.title'), body: snoozedMsg.subject || t('common.noSubject') });
         api.snoozeMessage(snoozedMsg.id, untilIso).catch(err => {
           console.error('Snooze failed:', err.message);
@@ -1680,6 +1821,28 @@ export default function MessageList() {
           scheduleDelete(message);
         }
         break;
+      case 'markSpam': {
+        // Bulk when more than one message is selected and the right-clicked
+        // message is among them; otherwise just the single message.
+        const targets = (selectedIds.size > 1 && selectedIds.has(message.id))
+          ? displayMessages.filter(m => selectedIds.has(m.id))
+          : [message];
+        performSpamLabel(targets, 'spam');
+        // The action bar should not claim "X selected" for messages that have
+        // just been queued for move-to-Junk. Clear the selection (handleBulk*
+        // already does this; performSpamLabel doesn't, because it's shared
+        // with the single-message toolbar path which never had a selection).
+        if (selectedIds.has(message.id)) clearSelection();
+        break;
+      }
+      case 'markHam': {
+        const targets = (selectedIds.size > 1 && selectedIds.has(message.id))
+          ? displayMessages.filter(m => selectedIds.has(m.id))
+          : [message];
+        performSpamLabel(targets, 'ham');
+        if (selectedIds.has(message.id)) clearSelection();
+        break;
+      }
       default:
         break;
     }

@@ -9,6 +9,10 @@ export default function ContextMenu({ x, y, message, onClose, onAction, defaultM
   const { t } = useTranslation();
   const recentFolders = useStore(s => s.recentFolders);
   const favoriteFolders = useStore(s => s.favoriteFolders);
+  // Pull the current account so we can render the spam/ham visibility based on
+  // folder_mappings.spam + special_use heuristics instead of a fragile name match.
+  const account = useStore(s => s.accounts.find(a => a.id === message.account_id));
+  const accountFolders = useStore(s => s.folders[message.account_id] || []);
   const menuRef = useRef(null);
   const [showHeaderModal, setShowHeaderModal] = useState(false);
   const [moveView, setMoveView] = useState(defaultMoveView);
@@ -20,6 +24,20 @@ export default function ContextMenu({ x, y, message, onClose, onAction, defaultM
   const [customTime, setCustomTime] = useState('09:00');
   const unreadCount = Number.parseInt(message.unread_count, 10);
   const hasUnread = Number.isFinite(unreadCount) ? unreadCount > 0 : !message.is_read;
+
+  // A folder is "spam-like" when either the user mapped it as spam or the IMAP
+  // server tagged it with \Junk special-use. Falls back to a multilingual name
+  // heuristic so unconfigured accounts still get sensible context-menu items.
+  // Mirrors resolveAllSpamPaths on the backend so server and client agree.
+  const SPAM_NAME_RE = /(spam|junk|bulk|indesiderata|spamverdacht|courrier\s*ind|posta\s*indesiderata)/i;
+  const spamFolderPaths = (() => {
+    const mapped = account?.folder_mappings?.spam;
+    if (mapped) return new Set([mapped]);
+    return new Set(accountFolders.filter(f =>
+      f.special_use === '\\Junk' || SPAM_NAME_RE.test(f.name || '')
+    ).map(f => f.path));
+  })();
+  const inSpamFolder = spamFolderPaths.has(message.folder);
 
   // Adjust position to stay within viewport
   const [pos, setPos] = useState({ x, y });
@@ -150,6 +168,20 @@ export default function ContextMenu({ x, y, message, onClose, onAction, defaultM
           icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>,
           action: () => onAction('addToBlockList'),
         },
+        // Spam / ham are only shown when there's a real destination for the
+        // action: "Mark as Spam" when the message isn't already in a spam-like
+        // folder, "Mark as Not Spam" when it is. They live next to "Move to
+        // folder" so the antispam workflow stays discoverable.
+        ...(spamFolderPaths.size > 0 && !inSpamFolder ? [{
+          label: t('contextMenu.markAsSpam'),
+          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><path d="M12 3L4 7v5c0 5 3.5 9.3 8 10.3C16.5 21.3 20 17 20 12V7L12 3z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+          action: () => onAction('markSpam'),
+        }] : []),
+        ...(inSpamFolder ? [{
+          label: t('contextMenu.markAsHam'),
+          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><path d="M12 3L4 7v5c0 5 3.5 9.3 8 10.3C16.5 21.3 20 17 20 12V7L12 3z"/><polyline points="9 12 11 14 15 10"/></svg>,
+          action: () => onAction('markHam'),
+        }] : []),
       ]
     },
     {
