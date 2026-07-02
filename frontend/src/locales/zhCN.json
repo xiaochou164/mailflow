@@ -18,7 +18,8 @@
     "noSubject": "（无主题）",
     "unknown": "未知",
     "error": "错误：{{message}}",
-    "dismiss": "忽略"
+    "dismiss": "忽略",
+    "loadMore": "加载更多"
   },
   "login": {
     "tagline": "您的统一收件箱",

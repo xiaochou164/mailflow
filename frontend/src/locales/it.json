@@ -18,7 +18,8 @@
     "noSubject": "(nessun oggetto)",
     "unknown": "Sconosciuto",
     "error": "Errore: {{message}}",
-    "dismiss": "Ignora"
+    "dismiss": "Ignora",
+    "loadMore": "Carica altro"
   },
   "login": {
     "tagline": "La tua casella di posta unificata",

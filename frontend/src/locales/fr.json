@@ -18,7 +18,8 @@
     "noSubject": "(sans objet)",
     "unknown": "Inconnu",
     "error": "Erreur : {{message}}",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "loadMore": "Charger plus"
   },
   "login": {
     "tagline": "Votre boîte de réception unifiée",

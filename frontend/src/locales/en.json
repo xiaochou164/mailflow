@@ -18,7 +18,8 @@
     "noSubject": "(no subject)",
     "unknown": "Unknown",
     "error": "Error: {{message}}",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "loadMore": "Load more"
   },
   "login": {
     "tagline": "Your unified inbox",

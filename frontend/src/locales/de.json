@@ -18,7 +18,8 @@
     "noSubject": "(kein Betreff)",
     "unknown": "Unbekannt",
     "error": "Fehler: {{message}}",
-    "dismiss": "Ausblenden"
+    "dismiss": "Ausblenden",
+    "loadMore": "Mehr laden"
   },
   "login": {
     "tagline": "Dein einheitlicher Posteingang",

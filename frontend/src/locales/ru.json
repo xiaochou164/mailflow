@@ -18,7 +18,8 @@
     "noSubject": "(без темы)",
     "unknown": "Неизвестно",
     "error": "Ошибка: {{message}}",
-    "dismiss": "Скрыть"
+    "dismiss": "Скрыть",
+    "loadMore": "Загрузить ещё"
   },
   "login": {
     "tagline": "Ваш единый почтовый ящик",

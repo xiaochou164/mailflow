@@ -18,7 +18,8 @@
     "noSubject": "(sin asunto)",
     "unknown": "Desconocido",
     "error": "Error: {{message}}",
-    "dismiss": "Descartar"
+    "dismiss": "Descartar",
+    "loadMore": "Cargar más"
   },
   "login": {
     "tagline": "Tu bandeja de entrada unificada",
