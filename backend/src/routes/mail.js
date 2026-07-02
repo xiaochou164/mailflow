@@ -99,8 +99,8 @@ router.get('/messages', async (req, res) => {
 });
 
 router.get('/messages/:id', async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid message ID' });
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid message ID' });
   try {
     const result = await query(`
       SELECT m.id, m.uid, m.folder, m.message_id, m.subject,

@@ -135,8 +135,9 @@ export default function MailApp() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const deepLinkId = params.get('m');
+    const deepLinkId = params.get('m') || sessionStorage.getItem('mailflow_deep_link_id');
     if (!deepLinkId) return;
+    sessionStorage.removeItem('mailflow_deep_link_id');
     history.replaceState(null, '', window.location.pathname);
     api.getMessage(deepLinkId)
       .then(msg => {

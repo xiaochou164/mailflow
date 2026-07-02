@@ -56,7 +56,14 @@ export default function App() {
         // settings survive cache clears and stay consistent across devices.
         await loadPreferences();
       })
-      .catch(() => setUser(null))
+      .catch(() => {
+        // Preserve any deep-link ?m= param through the SSO login redirect. The OIDC
+        // callback always returns to /?oidc_success=login, so the param would be lost
+        // without this. MailApp reads it back from sessionStorage after auth completes.
+        const m = new URLSearchParams(window.location.search).get('m');
+        if (m) sessionStorage.setItem('mailflow_deep_link_id', m);
+        setUser(null);
+      })
       .finally(() => setChecking(false));
   }, [loadPreferences, setUser]);
 
