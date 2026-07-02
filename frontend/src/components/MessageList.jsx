@@ -175,6 +175,21 @@ export default function MessageList() {
   useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
   useEffect(() => { setActiveCategory('primary'); }, [selectedAccountId, selectedFolder]);
   const searchTimer = useRef(null);
+
+  // Category tab scroll arrows
+  const catScrollRef = useRef(null);
+  const [catScrollEdges, setCatScrollEdges] = useState({ left: false, right: false });
+  const updateCatScrollEdges = useCallback(() => {
+    const el = catScrollRef.current;
+    if (!el) return;
+    setCatScrollEdges({
+      left: el.scrollLeft > 1,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+    });
+  }, []);
+  useEffect(() => {
+    updateCatScrollEdges();
+  }, [activeCategory, selectedAccountId, selectedFolder, categorizationEnabled, updateCatScrollEdges]);
   const searchSeq = useRef(0);
 
   // Ref that always holds the latest values needed by shortcut handlers.
@@ -2553,29 +2568,61 @@ export default function MessageList() {
 
       {/* Category tabs — shown in INBOX when categorization is enabled (globally or per-account) */}
       {(categorizationEnabled || (!isUnified && selectedAccount?.categorization_enabled)) && selectedFolder === 'INBOX' && !searchQuery.trim() && (
-        <div style={{
-          display: 'flex', borderBottom: '1px solid var(--border-subtle)',
-          overflowX: 'auto', flexShrink: 0,
-          background: 'var(--bg-secondary)',
-          scrollbarWidth: 'none',
-        }}>
-          {['primary', 'newsletter', 'promotion', 'automated', 'social'].map(cat => (
+        <div style={{ position: 'relative', flexShrink: 0, borderBottom: '1px solid var(--border-subtle)' }}>
+          {!isMobile && catScrollEdges.left && (
             <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
+              onClick={() => { catScrollRef.current?.scrollBy({ left: -120, behavior: 'smooth' }); }}
               style={{
-                padding: '8px 14px', background: 'none', border: 'none',
-                borderBottom: `2px solid ${activeCategory === cat ? 'var(--accent)' : 'transparent'}`,
-                color: activeCategory === cat ? 'var(--accent)' : 'var(--text-secondary)',
-                cursor: 'pointer', fontSize: 12, fontWeight: activeCategory === cat ? 600 : 400,
-                whiteSpace: 'nowrap', flexShrink: 0,
-                transition: 'color 0.15s, border-color 0.15s',
-                marginBottom: -1,
+                position: 'absolute', left: 0, top: 0, bottom: 0, width: 32, zIndex: 1,
+                background: 'linear-gradient(to right, var(--bg-secondary) 55%, transparent)',
+                border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                paddingLeft: 6, color: 'var(--text-tertiary)',
               }}
             >
-              {t(`messageList.categories.${cat}`)}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
-          ))}
+          )}
+          <div
+            ref={catScrollRef}
+            onScroll={updateCatScrollEdges}
+            style={{
+              display: 'flex', gap: 6, padding: '7px 10px',
+              overflowX: 'auto', scrollbarWidth: 'none',
+              background: 'var(--bg-secondary)',
+            }}
+          >
+            {['primary', 'newsletter', 'promotion', 'automated', 'social'].map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                style={{
+                  padding: '3px 11px', flexShrink: 0,
+                  borderRadius: 100,
+                  border: `1px solid ${activeCategory === cat ? 'var(--accent)' : 'var(--border)'}`,
+                  background: 'none',
+                  color: activeCategory === cat ? 'var(--accent)' : 'var(--text-secondary)',
+                  cursor: 'pointer', fontSize: 11, fontWeight: activeCategory === cat ? 500 : 400,
+                  whiteSpace: 'nowrap',
+                  transition: 'color 0.15s, border-color 0.15s',
+                }}
+              >
+                {t(`messageList.categories.${cat}`)}
+              </button>
+            ))}
+          </div>
+          {!isMobile && catScrollEdges.right && (
+            <button
+              onClick={() => { catScrollRef.current?.scrollBy({ left: 120, behavior: 'smooth' }); }}
+              style={{
+                position: 'absolute', right: 0, top: 0, bottom: 0, width: 32, zIndex: 1,
+                background: 'linear-gradient(to left, var(--bg-secondary) 55%, transparent)',
+                border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                justifyContent: 'flex-end', paddingRight: 6, color: 'var(--text-tertiary)',
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          )}
         </div>
       )}
 
@@ -3149,8 +3196,8 @@ export default function MessageList() {
         })()}
         </div>
 
-        {/* Scroll-to-top button */}
-        {showScrollTop && (
+        {/* Scroll-to-top button — desktop only (mobile handled in FAB container below) */}
+        {!isMobile && showScrollTop && (
           <button
             onClick={() => { if (listRef.current) listRef.current.scrollTo({ top: 0, behavior: 'smooth' }); }}
             title={t('messageList.backToTop')}
@@ -3184,37 +3231,62 @@ export default function MessageList() {
         />
       ))}
 
+      {/* Mobile FAB cluster — compose always present, scroll-to-top stacks above it */}
       {isMobile && (
-        <button
-          onClick={() => openCompose({ accountId: selectedAccountId || undefined })}
-          aria-label={t('messageList.composeAriaLabel')}
-          style={{
-            position: 'fixed',
-            bottom: 'calc(var(--sab) + 20px)',
-            right: 20,
-            width: 56, height: 56,
-            borderRadius: '50%',
-            background: 'var(--accent)',
-            border: 'none',
-            boxShadow: 'var(--shadow-popover)',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white',
-            zIndex: 200,
-            opacity: fabVisible ? 1 : 0,
-            transform: fabVisible ? 'scale(1)' : 'scale(0.8)',
-            transition: 'opacity 0.2s ease, transform 0.2s ease',
-            pointerEvents: fabVisible ? 'auto' : 'none',
-          }}
-          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.92)'; }}
-          onMouseUp={e => { e.currentTarget.style.transform = fabVisible ? 'scale(1)' : 'scale(0.8)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = fabVisible ? 'scale(1)' : 'scale(0.8)'; }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-          </svg>
-        </button>
+        <div style={{
+          position: 'fixed',
+          bottom: 'calc(var(--sab) + 20px)',
+          right: 20,
+          zIndex: 200,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 12,
+          pointerEvents: 'none',
+        }}>
+          {showScrollTop && (
+            <button
+              onClick={() => { if (listRef.current) listRef.current.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              title={t('messageList.backToTop')}
+              style={{
+                pointerEvents: 'auto',
+                width: 44, height: 44, borderRadius: '50%',
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                color: 'var(--text-secondary)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: 'var(--shadow-soft)',
+                animation: 'fade-in 0.15s ease',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="18 15 12 9 6 15"/>
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={() => openCompose({ accountId: selectedAccountId || undefined })}
+            aria-label={t('messageList.composeAriaLabel')}
+            style={{
+              pointerEvents: fabVisible ? 'auto' : 'none',
+              width: 44, height: 44, borderRadius: '50%',
+              background: 'var(--accent)', border: 'none',
+              boxShadow: 'var(--shadow-popover)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white',
+              opacity: fabVisible ? 1 : 0,
+              transform: fabVisible ? 'scale(1)' : 'scale(0.8)',
+              transition: 'opacity 0.2s ease, transform 0.2s ease',
+            }}
+            onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.92)'; }}
+            onMouseUp={e => { e.currentTarget.style.transform = fabVisible ? 'scale(1)' : 'scale(0.8)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = fabVisible ? 'scale(1)' : 'scale(0.8)'; }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+        </div>
       )}
     </div>
   );
