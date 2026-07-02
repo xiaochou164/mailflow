@@ -65,6 +65,28 @@
       "enable": "Activar 2FA e iniciar sesión",
       "enabling": "Activando…",
       "back": "← Atrás"
+    },
+    "forgotPassword": {
+      "link": "¿Olvidaste tu contraseña?",
+      "title": "Restablecer contraseña",
+      "desc": "Introduce tu dirección de correo de recuperación y te enviaremos un enlace.",
+      "emailPh": "Correo de recuperación",
+      "submit": "Enviar enlace",
+      "sending": "Enviando…",
+      "sentDesc": "Si existe una cuenta con ese correo de recuperación, recibirás un enlace en breve.",
+      "backToLogin": "← Volver al inicio de sesión"
+    },
+    "resetPassword": {
+      "title": "Establecer nueva contraseña",
+      "desc": "Introduce tu nueva contraseña a continuación.",
+      "newPassword": "Nueva contraseña",
+      "confirm": "Confirmar contraseña",
+      "submit": "Establecer contraseña",
+      "submitting": "Guardando…",
+      "mismatch": "Las contraseñas no coinciden",
+      "tooShort": "La contraseña debe tener al menos 8 caracteres",
+      "doneDesc": "Tu contraseña ha sido actualizada. Ya puedes iniciar sesión.",
+      "backToLogin": "← Volver al inicio de sesión"
     }
   },
   "compose": {

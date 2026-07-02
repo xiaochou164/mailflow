@@ -65,6 +65,28 @@
       "enable": "Enable 2FA & sign in",
       "enabling": "Enabling…",
       "back": "← Back"
+    },
+    "forgotPassword": {
+      "link": "Forgot password?",
+      "title": "Reset your password",
+      "desc": "Enter your recovery email address and we’ll send you a reset link.",
+      "emailPh": "Recovery email address",
+      "submit": "Send reset link",
+      "sending": "Sending…",
+      "sentDesc": "If an account with that recovery email exists, you’ll receive a reset link shortly.",
+      "backToLogin": "← Back to login"
+    },
+    "resetPassword": {
+      "title": "Set new password",
+      "desc": "Enter your new password below.",
+      "newPassword": "New password",
+      "confirm": "Confirm password",
+      "submit": "Set new password",
+      "submitting": "Saving…",
+      "mismatch": "Passwords do not match",
+      "tooShort": "Password must be at least 8 characters",
+      "doneDesc": "Your password has been updated. You can now sign in.",
+      "backToLogin": "← Back to login"
     }
   },
   "compose": {

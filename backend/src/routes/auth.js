@@ -190,10 +190,17 @@ router.post('/register', authLimiter, async (req, res) => {
     }
 
     if (inviteToken) {
-      await client.query(
-        `UPDATE invites SET used_by = $1, used_at = NOW() WHERE token = $2`,
+      const inviteUpdateResult = await client.query(
+        `UPDATE invites SET used_by = $1, used_at = NOW() WHERE token = $2 RETURNING email`,
         [newUser.id, inviteToken]
       );
+      const inviteEmail = inviteUpdateResult.rows[0]?.email;
+      if (inviteEmail) {
+        await client.query(
+          'UPDATE users SET recovery_email = $1 WHERE id = $2',
+          [inviteEmail.toLowerCase().trim(), newUser.id]
+        );
+      }
     }
 
     await client.query('COMMIT');
@@ -801,6 +808,107 @@ router.patch('/profile/recovery-email', async (req, res) => {
   }
   await query('UPDATE users SET recovery_email = $1 WHERE id = $2', [trimmed || null, req.session.userId]);
   res.json({ ok: true });
+});
+
+// ── Password reset ────────────────────────────────────────────────────────────
+
+// POST /api/auth/forgot-password — public, rate-limited
+// Looks up a user by recovery_email and sends a reset link.
+// Always returns 200 to avoid leaking whether a recovery email exists.
+router.post('/forgot-password', authLimiter, async (req, res) => {
+  const authSetting = await query(
+    "SELECT value FROM system_settings WHERE key = 'internal_auth_disabled'"
+  );
+  if (authSetting.rows[0]?.value === 'true') {
+    return res.status(403).json({ error: 'Password login is disabled on this server.' });
+  }
+
+  const { email } = req.body;
+  if (!email || typeof email !== 'string') return res.status(400).json({ error: 'Email required' });
+  const trimmed = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return res.status(400).json({ error: 'Invalid email address' });
+  }
+
+  try {
+    const result = await query(
+      'SELECT id, password_hash FROM users WHERE recovery_email = $1',
+      [trimmed]
+    );
+    const user = result.rows[0];
+
+    // Only send a reset email if the account exists and has a password.
+    // SSO-only accounts (no password_hash) silently skip — we still return 200.
+    if (user && user.password_hash) {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1-hour window
+      const resetUrl = `${process.env.APP_URL || ''}/?reset_token=${rawToken}`;
+
+      // Send the email before persisting the token. If delivery fails (e.g. system
+      // email not configured), nothing is saved and the user can retry. This avoids
+      // orphaned tokens for links that were never delivered.
+      await sendSystemEmail({
+        to: trimmed,
+        subject: 'Reset your MailFlow password',
+        text: `You requested a password reset for your MailFlow account.\n\nClick the link below to set a new password. This link expires in 1 hour.\n\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+        html: `
+          <div style="font-family:-apple-system,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;color:#1a1a1a;">
+            <div style="margin-bottom:24px;">
+              <span style="font-size:22px;font-weight:700;color:#1a1a1a;">Mail</span><span style="font-size:22px;font-weight:600;color:#7c6af7;">Flow</span>
+            </div>
+            <h2 style="margin:0 0 12px;font-size:18px;font-weight:600;">Reset your password</h2>
+            <p style="color:#555;line-height:1.6;margin:0 0 24px;">Click the button below to set a new password. This link expires in 1 hour.</p>
+            <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#7c6af7;color:white;border-radius:8px;text-decoration:none;font-weight:500;font-size:14px;margin-bottom:24px;">Reset password</a>
+            <p style="color:#999;font-size:12px;margin:0;">If you did not request a password reset, you can ignore this email. Your password will not change.</p>
+          </div>
+        `,
+      });
+
+      await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
+      await query(
+        'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+        [user.id, tokenHash, expiresAt]
+      );
+    }
+  } catch (err) {
+    console.error('forgot-password error:', err.message);
+    // Don't expose internal errors — fall through to the generic success response
+  }
+
+  res.json({ ok: true });
+});
+
+// POST /api/auth/reset-password — public, rate-limited
+router.post('/reset-password', authLimiter, async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || typeof token !== 'string') return res.status(400).json({ error: 'Token required' });
+  if (!password || typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex');
+  try {
+    const tokenResult = await query(
+      `SELECT user_id FROM password_reset_tokens
+       WHERE token_hash = $1 AND expires_at > NOW()`,
+      [tokenHash]
+    );
+    if (!tokenResult.rows.length) {
+      return res.status(400).json({ error: 'Invalid or expired reset link' });
+    }
+    const userId = tokenResult.rows[0].user_id;
+
+    const hash = await bcrypt.hash(password, 12);
+    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, userId]);
+    await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+
+    res.locals.resetRateLimit?.();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('reset-password error:', err.message);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
 });
 
 // ── Web Push ──────────────────────────────────────────────────────────────────

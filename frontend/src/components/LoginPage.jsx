@@ -30,6 +30,12 @@ export default function LoginPage() {
   const [oidcProviders, setOidcProviders] = useState([]);
   const [oidcError, setOidcError] = useState('');
   const [internalAuthDisabled, setInternalAuthDisabled] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [resetDone, setResetDone] = useState(false);
 
   useEffect(() => {
     // Check for invite token in URL
@@ -66,6 +72,16 @@ export default function LoginPage() {
     if (oidcErrParam) {
       setOidcError(oidcErrParam);
       window.history.replaceState({}, '', '/');
+    }
+
+    // Handle password reset link: ?reset_token= in URL or sessionStorage (set by App.jsx
+    // when the user was not logged in and the URL contained a reset token)
+    const resetTokenParam = params.get('reset_token') || sessionStorage.getItem('mailflow_reset_token');
+    if (resetTokenParam) {
+      sessionStorage.removeItem('mailflow_reset_token');
+      window.history.replaceState({}, '', '/login');
+      setResetToken(resetTokenParam);
+      setMode('reset');
     }
   }, [t]);
 
@@ -189,8 +205,46 @@ export default function LoginPage() {
     }
   };
 
+  const submitForgot = async (e) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) return;
+    setLoading(true);
+    setError('');
+    try {
+      await api.forgotPassword(forgotEmail.trim());
+      setForgotSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitReset = async (e) => {
+    e.preventDefault();
+    if (!newPassword || !newPasswordConfirm) return;
+    if (newPassword !== newPasswordConfirm) {
+      setError(t('login.resetPassword.mismatch'));
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError(t('login.resetPassword.tooShort'));
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      await api.resetPassword(resetToken, newPassword);
+      setResetDone(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const canRegister = !internalAuthDisabled && (registrationOpen || inviteToken);
-  const showToggle = !internalAuthDisabled && (mode === 'login' ? canRegister : true);
+  const showToggle = !internalAuthDisabled && (mode === 'login' ? canRegister : mode === 'register');
 
   return (
     <div style={{
@@ -449,6 +503,189 @@ export default function LoginPage() {
                 </button>
               </form>
             </>
+          ) : mode === 'forgot' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'var(--bg-tertiary)', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75">
+                    <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>
+                  </svg>
+                </div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, color: 'var(--text-primary)' }}>
+                  {t('login.forgotPassword.title')}
+                </h2>
+              </div>
+              {forgotSent ? (
+                <>
+                  <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+                    {t('login.forgotPassword.sentDesc')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setForgotEmail(''); setForgotSent(false); setError(''); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer', padding: 0 }}
+                  >
+                    {t('login.forgotPassword.backToLogin')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-tertiary)' }}>
+                    {t('login.forgotPassword.desc')}
+                  </p>
+                  <form onSubmit={submitForgot} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      autoFocus
+                      placeholder={t('login.forgotPassword.emailPh')}
+                      style={{
+                        width: '100%', padding: '10px 14px',
+                        background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                        borderRadius: 8, color: 'var(--text-primary)', fontSize: 14,
+                        outline: 'none', transition: 'border-color 0.15s', boxSizing: 'border-box',
+                      }}
+                      onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+                      onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                    />
+                    {error && (
+                      <div style={{
+                        padding: '10px 14px', background: 'rgba(248,113,113,0.1)',
+                        border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8,
+                        color: 'var(--red)', fontSize: 13,
+                      }}>{error}</div>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={loading || !forgotEmail.trim()}
+                      style={{
+                        padding: '11px 24px', background: 'var(--accent)',
+                        border: 'none', borderRadius: 8, color: 'white',
+                        fontSize: 14, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer',
+                        opacity: loading || !forgotEmail.trim() ? 0.6 : 1, marginTop: 4,
+                      }}
+                    >
+                      {loading ? t('login.forgotPassword.sending') : t('login.forgotPassword.submit')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMode('login'); setForgotEmail(''); setError(''); }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer', padding: 0 }}
+                    >
+                      {t('login.forgotPassword.backToLogin')}
+                    </button>
+                  </form>
+                </>
+              )}
+            </>
+          ) : mode === 'reset' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'var(--bg-tertiary)', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.75">
+                    <rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>
+                    <circle cx="12" cy="16" r="1" fill="var(--accent)" stroke="none"/>
+                  </svg>
+                </div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, color: 'var(--text-primary)' }}>
+                  {t('login.resetPassword.title')}
+                </h2>
+              </div>
+              {resetDone ? (
+                <>
+                  <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.6 }}>
+                    {t('login.resetPassword.doneDesc')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setResetDone(false); setNewPassword(''); setNewPasswordConfirm(''); setError(''); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer', padding: 0 }}
+                  >
+                    {t('login.resetPassword.backToLogin')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text-tertiary)' }}>
+                    {t('login.resetPassword.desc')}
+                  </p>
+                  <form onSubmit={submitReset} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                        {t('login.resetPassword.newPassword')}
+                      </label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        autoFocus
+                        style={{
+                          width: '100%', padding: '10px 14px',
+                          background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                          borderRadius: 8, color: 'var(--text-primary)', fontSize: 14,
+                          outline: 'none', transition: 'border-color 0.15s', boxSizing: 'border-box',
+                        }}
+                        onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+                        onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                        {t('login.resetPassword.confirm')}
+                      </label>
+                      <input
+                        type="password"
+                        value={newPasswordConfirm}
+                        onChange={e => setNewPasswordConfirm(e.target.value)}
+                        style={{
+                          width: '100%', padding: '10px 14px',
+                          background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+                          borderRadius: 8, color: 'var(--text-primary)', fontSize: 14,
+                          outline: 'none', transition: 'border-color 0.15s', boxSizing: 'border-box',
+                        }}
+                        onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+                        onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                      />
+                    </div>
+                    {error && (
+                      <div style={{
+                        padding: '10px 14px', background: 'rgba(248,113,113,0.1)',
+                        border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8,
+                        color: 'var(--red)', fontSize: 13,
+                      }}>{error}</div>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={loading || !newPassword || !newPasswordConfirm}
+                      style={{
+                        padding: '11px 24px', background: 'var(--accent)',
+                        border: 'none', borderRadius: 8, color: 'white',
+                        fontSize: 14, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer',
+                        opacity: loading || !newPassword || !newPasswordConfirm ? 0.6 : 1, marginTop: 4,
+                      }}
+                    >
+                      {loading ? t('login.resetPassword.submitting') : t('login.resetPassword.submit')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setMode('login'); setNewPassword(''); setNewPasswordConfirm(''); setError(''); }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer', padding: 0 }}
+                    >
+                      {t('login.resetPassword.backToLogin')}
+                    </button>
+                  </form>
+                </>
+              )}
+            </>
           ) : mfaEnrollRequired ? (
             <>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -650,9 +887,20 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                {t('login.password')}
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                <label style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                  {t('login.password')}
+                </label>
+                {mode === 'login' && !internalAuthDisabled && (
+                  <button
+                    type="button"
+                    onClick={() => { setMode('forgot'); setError(''); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, cursor: 'pointer', padding: 0 }}
+                  >
+                    {t('login.forgotPassword.link')}
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 value={password}

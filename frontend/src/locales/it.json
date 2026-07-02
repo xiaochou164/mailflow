@@ -65,6 +65,28 @@
       "enable": "Abilita 2FA e accedi",
       "enabling": "Abilitazione…",
       "back": "← Indietro"
+    },
+    "forgotPassword": {
+      "link": "Password dimenticata?",
+      "title": "Reimposta la password",
+      "desc": "Inserisci il tuo indirizzo e-mail di recupero e ti invieremo un link.",
+      "emailPh": "Indirizzo e-mail di recupero",
+      "submit": "Invia link",
+      "sending": "Invio in corso…",
+      "sentDesc": "Se esiste un account con quella e-mail di recupero, riceverai un link a breve.",
+      "backToLogin": "← Torna al login"
+    },
+    "resetPassword": {
+      "title": "Imposta nuova password",
+      "desc": "Inserisci la tua nuova password qui sotto.",
+      "newPassword": "Nuova password",
+      "confirm": "Conferma password",
+      "submit": "Imposta password",
+      "submitting": "Salvataggio…",
+      "mismatch": "Le password non corrispondono",
+      "tooShort": "La password deve contenere almeno 8 caratteri",
+      "doneDesc": "La tua password è stata aggiornata. Ora puoi accedere.",
+      "backToLogin": "← Torna al login"
     }
   },
   "compose": {
