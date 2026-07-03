@@ -353,6 +353,8 @@ const HARDCODED_OK = new Set([
   '---------- Forwarded message ----------',
   // Search-syntax example shown inside a <code> tag — demonstrating format, not UI text
   'from:amazon invoice',
+  // Beta badge label — universally understood technical term, same in all languages
+  'BETA',
 ]);
 
 // Matches: someAttr="string value" (not someAttr={...})
