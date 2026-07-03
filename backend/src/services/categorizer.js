@@ -1,4 +1,5 @@
 import { query } from './db.js';
+import { decrypt } from './encryption.js';
 import { detectCategoryFromHeaders } from './messageParser.js';
 
 // In-memory cache of social domains per user. Populated on first use,
@@ -30,6 +31,23 @@ export async function getGlobalCategorizationEnabled(userId) {
 export function invalidateGlobalCategorizationCache(userId) {
   globalCategorizationCache.delete(userId);
 }
+
+// Known shipping carrier / logistics sender domains → 'automated'.
+// Kept narrow (pure carriers) to avoid false-positives on domains like
+// amazon.com that also send promotional and transactional mail.
+const SHIPPING_DOMAINS = new Set([
+  'ups.com', 'pkginfo.ups.com', 'email.ups.com',
+  'fedex.com', 'email.fedex.com', 'fedexemail.com',
+  'usps.com', 'informeddelivery.usps.com',
+  'dhl.com', 'dhlparcel.com',
+  'ontrac.com',
+  'lasership.com', 'lasership-email.com',
+  'dpd.com', 'dpd.de', 'dpd.fr',
+  'royalmail.com',
+  'canadapost.ca', 'canadapost-postescanada.ca',
+  'auspost.com.au',
+  'gls-group.eu', 'gls-group.com',
+]);
 
 // Known built-in social domain sets bundled with the app.
 // Users enable these by name; domains are resolved here, not in the DB.
@@ -93,8 +111,73 @@ export function classifyMessage(parsedHeaders, fromEmail, socialDomains) {
     if (domain && socialDomains.has(domain)) return 'social';
   }
 
+  // Known shipping carrier domains → automated, checked before headers so
+  // these always land in Automated even if they also set list headers.
+  if (fromEmail) {
+    const addr = fromEmail.toLowerCase().trim();
+    const atIdx = addr.indexOf('@');
+    const domain = atIdx >= 0 ? addr.slice(atIdx + 1) : null;
+    if (domain && SHIPPING_DOMAINS.has(domain)) return 'automated';
+  }
+
   const headerCategory = detectCategoryFromHeaders(parsedHeaders);
   return headerCategory ?? 'primary';
+}
+
+// Use the configured AI provider to classify a message that has no header
+// signals. Returns a valid category string, or null if AI is unavailable or
+// the response is unusable. Errors are swallowed — the caller treats null as
+// 'keep primary'.
+export async function aiClassifyMessage(subject, fromEmail, snippet) {
+  const cfgResult = await query("SELECT value FROM system_settings WHERE key = 'ai_config'").catch(() => null);
+  if (!cfgResult?.rows?.length) return null;
+  let cfg;
+  try { cfg = JSON.parse(cfgResult.rows[0].value); } catch { return null; }
+  if (!cfg.enabled || !cfg.baseUrl || !cfg.model) return null;
+
+  const apiKey = cfg.apiKey ? decrypt(cfg.apiKey) : null;
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  const prompt = `Classify this email into exactly one category. Reply with only the category name, nothing else.
+
+Categories:
+- primary: personal email, work correspondence, direct replies
+- newsletter: mailing lists, blog digests, subscribed newsletters
+- promotion: marketing, sales, discount offers, advertisements
+- automated: transactional email, receipts, notifications, alerts, password resets
+- social: social media notifications (Facebook, Twitter, LinkedIn, etc.)
+
+From: ${fromEmail || '(unknown)'}
+Subject: ${(subject || '').slice(0, 200)}
+${snippet ? `Preview: ${snippet.slice(0, 300)}` : ''}
+
+Category:`;
+
+  try {
+    const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: cfg.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1024,
+        stream: false,
+        think: false,
+      }),
+      signal: AbortSignal.timeout(60000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const raw = (data.choices?.[0]?.message?.content || '').toLowerCase().trim();
+    const VALID = ['primary', 'newsletter', 'promotion', 'automated', 'social'];
+    for (const cat of VALID) {
+      if (raw.includes(cat)) return cat;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 // Assigns a category to a message and writes it to the DB.

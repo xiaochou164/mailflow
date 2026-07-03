@@ -222,7 +222,19 @@
       "title": "No se pudo guardar la preferencia",
       "body": "Error al actualizar la lista blanca de imágenes."
     },
-    "emailFrameTitle": "Contenido del correo"
+    "emailFrameTitle": "Contenido del correo",
+    "unsubscribe": {
+      "info": "Puedes darte de baja de esta lista de correo.",
+      "button": "Darse de baja",
+      "done": "Dado de baja correctamente.",
+      "error": "Error al darse de baja."
+    },
+    "aiClassify": {
+      "info": "Este correo no tiene categoría. ¿Clasificar con IA?",
+      "button": "Clasificar con IA",
+      "done": "Clasificado como {{category}}",
+      "error": "La clasificación con IA falló."
+    }
   },
   "messageList": {
     "search": "Buscar…",
@@ -390,6 +402,7 @@
       "nextWeek": "La próxima semana",
       "custom": "Personalizado..."
     },
+    "categorize": "Categorizar como…",
     "createRule": "Crear regla desde este mensaje",
     "addToBlockList": "Añadir a la lista de bloqueo",
     "markAsSpam": "Marcar como Spam",

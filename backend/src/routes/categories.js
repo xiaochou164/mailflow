@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { query } from '../services/db.js';
 import { requireAuth } from '../middleware/auth.js';
-import { invalidateSocialDomainCache, backfillCategories, BUILTIN_SETS } from '../services/categorizer.js';
+import { invalidateSocialDomainCache, backfillCategories, aiClassifyMessage, BUILTIN_SETS } from '../services/categorizer.js';
 
 const router = Router();
 
@@ -222,6 +222,38 @@ router.post('/categories/recategorize/:accountId', requireAuth, async (req, res)
   })();
 
   res.status(202).json({ ok: true });
+});
+
+// ── AI-classify a single message ─────────────────────────────────────────────
+
+const UUID_RE_CAT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+router.post('/categories/ai-classify/:messageId', requireAuth, async (req, res) => {
+  const { messageId } = req.params;
+  if (!UUID_RE_CAT.test(messageId)) return res.status(400).json({ error: 'Invalid message id' });
+
+  const msgResult = await query(`
+    SELECT m.subject, m.from_email, m.snippet
+    FROM messages m
+    JOIN email_accounts a ON m.account_id = a.id
+    WHERE m.id = $1 AND a.user_id = $2 AND m.is_deleted = false
+  `, [messageId, req.session.userId]);
+
+  if (!msgResult.rows.length) return res.status(404).json({ error: 'Message not found' });
+  const { subject, from_email, snippet } = msgResult.rows[0];
+
+  const category = await aiClassifyMessage(subject, from_email, snippet);
+  if (!category) return res.status(503).json({ error: 'AI classification unavailable or failed' });
+
+  // Persist the AI-assigned category.
+  await query(
+    `UPDATE messages SET category = $1
+     FROM email_accounts a
+     WHERE messages.id = $2 AND messages.account_id = a.id AND a.user_id = $3`,
+    [category === 'primary' ? null : category, messageId, req.session.userId]
+  );
+
+  res.json({ ok: true, category });
 });
 
 export default router;

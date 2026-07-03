@@ -222,7 +222,19 @@
       "title": "Einstellung konnte nicht gespeichert werden",
       "body": "Bild-Whitelist konnte nicht aktualisiert werden."
     },
-    "emailFrameTitle": "E-Mail-Inhalt"
+    "emailFrameTitle": "E-Mail-Inhalt",
+    "unsubscribe": {
+      "info": "Sie können sich von dieser Mailingliste abmelden.",
+      "button": "Abmelden",
+      "done": "Erfolgreich abgemeldet.",
+      "error": "Abmeldung fehlgeschlagen."
+    },
+    "aiClassify": {
+      "info": "Diese E-Mail hat keine Kategorie. Mit KI klassifizieren?",
+      "button": "Mit KI klassifizieren",
+      "done": "Klassifiziert als {{category}}",
+      "error": "KI-Klassifizierung fehlgeschlagen."
+    }
   },
   "messageList": {
     "search": "Suchen…",
@@ -408,6 +420,7 @@
       "recent": "Zuletzt verwendet",
       "favorites": "Favoriten"
     },
+    "categorize": "Kategorisieren als…",
     "createRule": "Regel aus Nachricht erstellen",
     "addToBlockList": "Zur Blockliste hinzufügen",
     "markAsSpam": "Als Spam markieren",

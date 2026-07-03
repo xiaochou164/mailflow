@@ -400,6 +400,15 @@ export const useStore = create((set, get) => ({
     schedulePrefSave({ categorizationEnabled: val });
   },
 
+  // Unread counts per category for the tab bar badges { primary: N, newsletter: N, ... }
+  categoryCounts: {},
+  setCategoryCounts: (counts) => set({ categoryCounts: counts }),
+  adjustCategoryCount: (category, delta) => set(state => {
+    const key = category || 'primary';
+    const current = state.categoryCounts[key] || 0;
+    return { categoryCounts: { ...state.categoryCounts, [key]: Math.max(0, current + delta) } };
+  }),
+
   // Layout
   layout: localStorage.getItem('mailflow_layout') || 'classic',
   setLayout: (layout) => {

@@ -10,6 +10,8 @@ import MessageHeaderModal from './MessageHeaderModal.jsx';
 const SPAM_NAME_RE = /(spam|junk|bulk|indesiderata|spamverdacht|courrier\s*ind|posta\s*indesiderata)/i;
 
 // ─── Context Menu ─────────────────────────────────────────────────────────────
+const CATEGORIES = ['primary', 'newsletter', 'promotion', 'automated', 'social'];
+
 export default function ContextMenu({ x, y, message, onClose, onAction, defaultMoveView = false }) {
   const { t } = useTranslation();
   const recentFolders = useStore(s => s.recentFolders);
@@ -18,6 +20,8 @@ export default function ContextMenu({ x, y, message, onClose, onAction, defaultM
   // folder_mappings.spam + special_use heuristics instead of a fragile name match.
   const account = useStore(s => s.accounts.find(a => a.id === message.account_id));
   const accountFolders = useStore(s => s.folders[message.account_id] || []);
+  const categorizationEnabled = useStore(s => s.categorizationEnabled);
+  const categorizationActive = categorizationEnabled || !!account?.categorization_enabled;
   const menuRef = useRef(null);
   const [showHeaderModal, setShowHeaderModal] = useState(false);
   const [moveView, setMoveView] = useState(defaultMoveView);
@@ -27,6 +31,7 @@ export default function ContextMenu({ x, y, message, onClose, onAction, defaultM
   const [customSnoozeView, setCustomSnoozeView] = useState(false);
   const [customDate, setCustomDate] = useState('');
   const [customTime, setCustomTime] = useState('09:00');
+  const [categorizeView, setCategorizeView] = useState(false);
   const unreadCount = Number.parseInt(message.unread_count, 10);
   const hasUnread = Number.isFinite(unreadCount) ? unreadCount > 0 : !message.is_read;
 
@@ -162,6 +167,13 @@ export default function ContextMenu({ x, y, message, onClose, onAction, defaultM
           keepOpen: true,
           hasSubmenu: true,
         }] : []),
+        ...(categorizationActive ? [{
+          label: t('contextMenu.categorize'),
+          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+          action: () => setCategorizeView(true),
+          keepOpen: true,
+          hasSubmenu: true,
+        }] : []),
         {
           label: t('contextMenu.createRule'),
           icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
@@ -270,7 +282,49 @@ export default function ContextMenu({ x, y, message, onClose, onAction, defaultM
           </div>
         </div>
 
-        {snoozeView ? (
+        {categorizeView ? (
+          <>
+            <div
+              onClick={() => setCategorizeView(false)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 14px', cursor: 'pointer',
+                borderBottom: '1px solid var(--border-subtle)',
+                color: 'var(--text-secondary)', fontSize: 12,
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+              {t('contextMenu.categorize')}
+            </div>
+            {CATEGORIES.map(cat => {
+              const isCurrent = (message.category || 'primary') === cat;
+              return (
+                <div
+                  key={cat}
+                  onClick={() => { if (!isCurrent) { onAction('setCategory', cat); onClose(); } }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '7px 14px', cursor: isCurrent ? 'default' : 'pointer',
+                    fontSize: 13, color: isCurrent ? 'var(--text-tertiary)' : 'var(--text-primary)',
+                  }}
+                  onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <span style={{ flex: 1 }}>{t(`messageList.categories.${cat}`)}</span>
+                  {isCurrent && (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        ) : snoozeView ? (
           customSnoozeView ? (
             /* Custom date/time picker */
             <>

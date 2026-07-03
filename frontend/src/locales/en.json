@@ -222,7 +222,19 @@
       "title": "Could not save preference",
       "body": "Failed to update image whitelist."
     },
-    "emailFrameTitle": "Email content"
+    "emailFrameTitle": "Email content",
+    "unsubscribe": {
+      "info": "You can unsubscribe from this mailing list.",
+      "button": "Unsubscribe",
+      "done": "Unsubscribed successfully.",
+      "error": "Unsubscribe failed."
+    },
+    "aiClassify": {
+      "info": "This email has no category. Classify it with AI?",
+      "button": "Classify with AI",
+      "done": "Classified as {{category}}",
+      "error": "AI classification failed."
+    }
   },
   "messageList": {
     "search": "Search…",
@@ -390,6 +402,7 @@
       "nextWeek": "Next week",
       "custom": "Custom..."
     },
+    "categorize": "Categorize as…",
     "createRule": "Create rule from message",
     "addToBlockList": "Add to block list",
     "markAsSpam": "Mark as Spam",

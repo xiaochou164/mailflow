@@ -6,7 +6,7 @@ import { query } from '../services/db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { imapManager } from '../index.js';
 import { sanitizeEmail, stripEmailHead, hasRemoteImages, blockRemoteImages, rewriteEbayImageserUrls, rewriteAnchorHrefs } from '../services/emailSanitizer.js';
-import { snippetFromBody } from '../services/messageParser.js';
+import { snippetFromBody, decodeMimeWords } from '../services/messageParser.js';
 import { resolveTrashFolder, resolveAllTrashPaths, resolveAllDraftsPaths, resolveArchiveFolder, resolveSpamFolder, resolveAllSpamPaths, getDeleteStrategy, adjustFolderCounts } from '../utils/mailUtils.js';
 import { listMessages } from '../services/messageService.js';
 
@@ -113,7 +113,8 @@ router.get('/messages/:id', async (req, res) => {
              m.from_name, m.from_email, m.to_addresses, m.cc_addresses,
              m.reply_to, m.in_reply_to,
              m.date, m.snippet, m.is_read, m.is_starred,
-             m.has_attachments, m.account_id,
+             m.has_attachments, m.account_id, m.category,
+             m.list_unsubscribe, m.list_unsubscribe_post,
              a.name AS account_name, a.email_address AS account_email,
              a.color AS account_color
       FROM messages m
@@ -169,7 +170,8 @@ router.get('/thread/:threadId', async (req, res) => {
                m.from_name, m.from_email, m.to_addresses, m.cc_addresses,
                m.reply_to, m.in_reply_to,
                m.date, m.snippet, m.is_read, m.is_starred,
-               m.has_attachments, m.account_id,
+               m.has_attachments, m.account_id, m.category,
+               m.list_unsubscribe, m.list_unsubscribe_post,
                a.name AS account_name, a.email_address AS account_email, a.color AS account_color
         FROM messages m
         JOIN email_accounts a ON m.account_id = a.id
@@ -1523,6 +1525,140 @@ router.post('/messages/:id/spam', async (req, res) => {
   const result = await moveForSpamLabel(id, req.session.userId, spamFolder, 'spam');
   if (!result.ok) return res.status(result.status).json({ error: result.error });
   res.json(result.body);
+});
+
+// GET /api/mail/category-counts
+// Returns unread message counts per category for the INBOX. Used by the
+// category tab bar to show unread badges. Scoped to the user; optionally
+// filtered to a single account via ?accountId=.
+router.get('/category-counts', async (req, res) => {
+  const { accountId } = req.query;
+  if (accountId && !UUID_RE.test(accountId)) {
+    return res.status(400).json({ error: 'Invalid account id' });
+  }
+
+  const accountsResult = await query(
+    'SELECT id FROM email_accounts WHERE user_id = $1 AND enabled = true',
+    [req.session.userId]
+  );
+  const userAccountIds = accountsResult.rows.map(r => r.id);
+  if (!userAccountIds.length) return res.json({ counts: {} });
+
+  const scopedIds = accountId && userAccountIds.includes(accountId)
+    ? [accountId]
+    : userAccountIds;
+
+  const result = await query(`
+    SELECT COALESCE(m.category, 'primary') AS category,
+           COUNT(*) FILTER (WHERE m.is_read = false)::int AS unread_count
+    FROM messages m
+    WHERE m.account_id = ANY($1)
+      AND m.folder = 'INBOX'
+      AND m.is_deleted = false
+    GROUP BY COALESCE(m.category, 'primary')
+  `, [scopedIds]);
+
+  const counts = {};
+  for (const row of result.rows) {
+    counts[row.category] = row.unread_count;
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json({ counts });
+});
+
+// PATCH /api/mail/messages/:id/category
+// Manually override the computed category for a single message.
+router.patch('/messages/:id/category', async (req, res) => {
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid message id' });
+
+  const { category } = req.body;
+  const VALID_CATEGORIES = new Set(['primary', 'newsletter', 'promotion', 'automated', 'social']);
+  if (!VALID_CATEGORIES.has(category)) {
+    return res.status(400).json({ error: 'Invalid category' });
+  }
+
+  const result = await query(
+    `UPDATE messages SET category = $1
+     FROM email_accounts a
+     WHERE messages.id = $2
+       AND messages.account_id = a.id
+       AND a.user_id = $3
+     RETURNING messages.id`,
+    [category === 'primary' ? null : category, id, req.session.userId]
+  );
+  if (!result.rows.length) return res.status(404).json({ error: 'Message not found' });
+  res.json({ ok: true, category });
+});
+
+// POST /api/mail/messages/:id/unsubscribe
+// Processes a one-click unsubscribe (RFC 8058) or returns parsed
+// unsubscribe options for the frontend to handle (URL open, mailto compose).
+router.post('/messages/:id/unsubscribe', async (req, res) => {
+  const { id } = req.params;
+  if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid message id' });
+
+  const result = await query(`
+    SELECT m.list_unsubscribe, m.list_unsubscribe_post
+    FROM messages m
+    JOIN email_accounts a ON m.account_id = a.id
+    WHERE m.id = $1 AND a.user_id = $2 AND m.is_deleted = false
+  `, [id, req.session.userId]);
+
+  if (!result.rows.length) return res.status(404).json({ error: 'Message not found' });
+  const { list_unsubscribe: rawUnsub, list_unsubscribe_post: rawUnsubPost } = result.rows[0];
+  if (!rawUnsub) return res.status(400).json({ error: 'No unsubscribe header' });
+  const list_unsubscribe = decodeMimeWords(rawUnsub);
+  const list_unsubscribe_post = rawUnsubPost ? decodeMimeWords(rawUnsubPost) : rawUnsubPost;
+
+  // Parse angle-bracket-wrapped URLs/mailtos from the header value.
+  // e.g. "<https://example.com/unsub>, <mailto:list@example.com?subject=unsubscribe>"
+  const refs = [...list_unsubscribe.matchAll(/<([^>]+)>/g)].map(m => m[1].trim());
+  const httpsUrl = refs.find(r => /^https:\/\//i.test(r));
+  const mailtoUrl = refs.find(r => /^mailto:/i.test(r));
+
+  const isOneClick = /List-Unsubscribe=One-Click/i.test(list_unsubscribe_post || '');
+
+  // RFC 8058 one-click: POST to the https URL on behalf of the user.
+  if (isOneClick && httpsUrl) {
+    // Validate the URL is not a private IP before proxying.
+    let parsed;
+    try { parsed = new URL(httpsUrl); } catch {
+      return res.status(400).json({ error: 'Invalid unsubscribe URL' });
+    }
+    const host = parsed.hostname.toLowerCase();
+    const isPrivate =
+      host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0.0.0.0' ||
+      /^10\.\d+\.\d+\.\d+$/.test(host) ||
+      /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(host) ||
+      /^192\.168\.\d+\.\d+$/.test(host) ||
+      /^169\.254\./.test(host);
+    if (isPrivate) return res.status(400).json({ error: 'Unsubscribe URL not allowed' });
+
+    try {
+      const unsub = await fetch(httpsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mailflow/1.0' },
+        body: 'List-Unsubscribe=One-Click',
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!unsub.ok) {
+        console.warn(`One-click unsubscribe returned ${unsub.status} for ${httpsUrl}`);
+      }
+      return res.json({ ok: true, type: 'one-click' });
+    } catch (err) {
+      console.warn('One-click unsubscribe failed:', err.message);
+      // Fall through to return URL/mailto options instead
+    }
+  }
+
+  // Return parsed options for the frontend to handle.
+  res.json({
+    ok: true,
+    type: httpsUrl ? 'url' : 'mailto',
+    url: httpsUrl || null,
+    mailto: mailtoUrl || null,
+  });
 });
 
 // POST /api/mail/messages/:id/ham

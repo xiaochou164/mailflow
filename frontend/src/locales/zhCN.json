@@ -222,7 +222,19 @@
       "title": "无法保存偏好设置",
       "body": "更新图片白名单失败。"
     },
-    "emailFrameTitle": "邮件内容"
+    "emailFrameTitle": "邮件内容",
+    "unsubscribe": {
+      "info": "您可以取消订阅此邮件列表。",
+      "button": "取消订阅",
+      "done": "取消订阅成功。",
+      "error": "取消订阅失败。"
+    },
+    "aiClassify": {
+      "info": "此邮件没有分类。使用 AI 进行分类？",
+      "button": "AI 分类",
+      "done": "已分类为 {{category}}",
+      "error": "AI 分类失败。"
+    }
   },
   "messageList": {
     "search": "搜索…",
@@ -390,6 +402,7 @@
       "nextWeek": "下周",
       "custom": "自定义……"
     },
+    "categorize": "分类为…",
     "createRule": "根据此邮件创建规则",
     "addToBlockList": "添加到黑名单",
     "markAsSpam": "标记为垃圾邮件",

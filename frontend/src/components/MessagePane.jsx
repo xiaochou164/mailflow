@@ -89,6 +89,7 @@ export default function MessagePane() {
     updateMessage, removeMessage, decrementUnread, incrementUnread, openCompose, accounts, addNotification,
     imageWhitelist, addToImageWhitelist, blockRemoteImages, threadMessages,
     replyDefault, shortcuts, recentFolders, favoriteFolders, todoistConnected,
+    categorizationEnabled, setCategoryCounts, adjustCategoryCount,
   } = useStore();
 
   const isMobile = useMobile();
@@ -109,6 +110,7 @@ export default function MessagePane() {
     if (!msg.is_read) {
       updateMessage(msg.id, { is_read: true });
       decrementUnread(msg.account_id);
+      adjustCategoryCount(msg.category, -1);
       setPending(msg.id, msg.account_id);
       api.bulkRead([msg.id], true)
         .then(() => {
@@ -120,10 +122,11 @@ export default function MessagePane() {
           console.error('markRead failed:', e.message);
           updateMessage(msg.id, { is_read: false });
           incrementUnread(msg.account_id);
+          adjustCategoryCount(msg.category, 1);
           pendingMarkReadMap.delete(msg.id);
         });
     }
-  }, [setSelectedMessage, updateMessage, decrementUnread, incrementUnread]);
+  }, [setSelectedMessage, updateMessage, decrementUnread, incrementUnread, adjustCategoryCount]);
 
   const paneRef = useRef(null);
   const mountedRef = useRef(true);
@@ -241,6 +244,8 @@ export default function MessagePane() {
   const [showTodoistModal, setShowTodoistModal] = useState(false);
   const [aiStatus, setAiStatus] = useState(null);
   const [aiSummary, setAiSummary] = useState(null);
+  const [aiClassifying, setAiClassifying] = useState(false);
+  const [unsubscribeStatus, setUnsubscribeStatus] = useState(null); // null | 'loading' | 'done' | 'error'
   const moveBtnRef = useRef(null);
   const moreMenuRef = useRef(null);
   const aiSummarizeAbortRef = useRef(null);
@@ -673,7 +678,7 @@ export default function MessagePane() {
           el.style.transform = 'translateX(0)';
         }
       } else {
-        const { messages: msgs, searchResults: sr, searchQuery: sq, selectedMessageId: selId, setSelectedMessage: setSel, updateMessage: updMsg, decrementUnread: decUnread, incrementUnread: incUnread } = useStore.getState();
+        const { messages: msgs, searchResults: sr, searchQuery: sq, selectedMessageId: selId, setSelectedMessage: setSel, updateMessage: updMsg, decrementUnread: decUnread, incrementUnread: incUnread, adjustCategoryCount: adjCat } = useStore.getState();
         const list = sq.trim() ? sr : msgs;
         const idx = list.findIndex(m => m.id === selId);
         let target = null;
@@ -687,6 +692,7 @@ export default function MessagePane() {
           if (!target.is_read) {
             updMsg(target.id, { is_read: true });
             decUnread(target.account_id);
+            adjCat(target.category, -1);
             setPending(target.id, target.account_id);
             api.bulkRead([target.id], true)
               .then(() => {
@@ -698,6 +704,7 @@ export default function MessagePane() {
                 console.error('markRead failed:', e.message);
                 updMsg(target.id, { is_read: false });
                 incUnread(target.account_id);
+                adjCat(target.category, 1);
                 pendingMarkReadMap.delete(target.id);
               });
           }
@@ -1028,15 +1035,17 @@ ${bodyContent}
     if (!message || !message.is_read) return;
     updateMessage(message.id, { is_read: false });
     incrementUnread(message.account_id);
+    adjustCategoryCount(message.category, 1);
     completedMarkReadMap.delete(message.id);
     pendingMarkReadMap.delete(message.id);
     api.bulkRead([message.id], false).catch(e => {
       console.error('markUnread failed:', e.message);
       updateMessage(message.id, { is_read: true });
       decrementUnread(message.account_id);
+      adjustCategoryCount(message.category, -1);
     });
     if (isMobile) setSelectedMessage(null);
-  }, [message, updateMessage, incrementUnread, decrementUnread, isMobile, setSelectedMessage]);
+  }, [message, updateMessage, incrementUnread, decrementUnread, adjustCategoryCount, isMobile, setSelectedMessage]);
 
   const handleEmailClick = useCallback((ev) => {
     const anchor = ev.target.closest('a[href]');
@@ -1087,6 +1096,8 @@ ${bodyContent}
     setShowMovePicker(false);
     setShowHeaderModal(false);
     setShowMoreMenu(false);
+    setUnsubscribeStatus(null);
+    setAiClassifying(false);
   }, [selectedMessageId]);
 
   useEffect(() => {
@@ -1257,6 +1268,51 @@ ${bodyContent}
       addNotification({ title: t('message.whitelistFail.title'), body: t('message.whitelistFail.body') });
     } finally {
       setSavingAllow(false);
+    }
+  };
+
+  const handleUnsubscribe = async () => {
+    if (!message) return;
+    setUnsubscribeStatus('loading');
+    try {
+      const result = await api.unsubscribeMessage(message.id);
+      if (result.type === 'one-click') {
+        setUnsubscribeStatus('done');
+        addNotification({ title: t('message.unsubscribe.done') });
+      } else if (result.type === 'url' && result.url) {
+        setUnsubscribeStatus('done');
+        window.open(result.url, '_blank', 'noopener,noreferrer');
+      } else if (result.type === 'mailto' && result.mailto) {
+        setUnsubscribeStatus('done');
+        window.open(result.mailto);
+      } else {
+        setUnsubscribeStatus('error');
+      }
+    } catch {
+      setUnsubscribeStatus('error');
+      addNotification({ type: 'error', title: t('message.unsubscribe.error') });
+    }
+  };
+
+  const handleAiClassify = async () => {
+    if (!message || aiClassifying) return;
+    setAiClassifying(true);
+    try {
+      const result = await api.categories.aiClassify(message.id);
+      if (result.category) {
+        updateMessage(message.id, { category: result.category === 'primary' ? null : result.category });
+        // Refresh category counts since this message may have moved tabs.
+        const acct = accounts.find(a => a.id === message.account_id);
+        if (acct) {
+          const params = message.account_id ? { accountId: message.account_id } : {};
+          api.getCategoryCounts(params).then(d => setCategoryCounts(d.counts || {})).catch(() => {});
+        }
+        addNotification({ title: t('message.aiClassify.done', { category: t(`messageList.categories.${result.category}`) }) });
+      }
+    } catch {
+      addNotification({ type: 'error', title: t('message.aiClassify.error') });
+    } finally {
+      setAiClassifying(false);
     }
   };
 
@@ -2041,6 +2097,66 @@ ${bodyContent}
       {/* HTML email — iframe sized to full content height; outer container scrolls */}
       {!loadingBody && !bodyError && body?.html && (
         <div style={{ padding: isMobile ? '0 0 16px' : '0 28px 24px' }}>
+          {/* Unsubscribe banner — shown for newsletter messages that have a List-Unsubscribe header */}
+          {message.list_unsubscribe && unsubscribeStatus !== 'done' && (
+            <div style={{
+              marginBottom: 10, padding: '9px 14px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--text-tertiary)',
+              borderRadius: 8,
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              fontSize: 12, color: 'var(--text-secondary)',
+            }}>
+              <span style={{ flex: 1 }}>{t('message.unsubscribe.info')}</span>
+              <button
+                onClick={handleUnsubscribe}
+                disabled={unsubscribeStatus === 'loading'}
+                style={{
+                  background: 'none', border: '1px solid var(--border)',
+                  borderRadius: 5, padding: '3px 9px',
+                  cursor: unsubscribeStatus === 'loading' ? 'default' : 'pointer',
+                  color: unsubscribeStatus === 'error' ? 'var(--red, #e53e3e)' : 'var(--text-primary)',
+                  fontSize: 11, fontWeight: 500,
+                  opacity: unsubscribeStatus === 'loading' ? 0.5 : 1,
+                }}
+              >
+                {unsubscribeStatus === 'loading' ? t('common.loading') :
+                 unsubscribeStatus === 'error' ? t('message.unsubscribe.error') :
+                 t('message.unsubscribe.button')}
+              </button>
+            </div>
+          )}
+
+          {/* AI classify banner — shown for messages with no category signal when AI is available */}
+          {!message.category && (categorizationEnabled || accounts.find(a => a.id === message.account_id)?.categorization_enabled) && aiStatus?.enabled && (
+            <div style={{
+              marginBottom: 10, padding: '9px 14px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--text-tertiary)',
+              borderRadius: 8,
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              fontSize: 12, color: 'var(--text-secondary)',
+            }}>
+              <span style={{ flex: 1 }}>{t('message.aiClassify.info')}</span>
+              <button
+                onClick={handleAiClassify}
+                disabled={aiClassifying}
+                style={{
+                  background: 'none', border: '1px solid var(--border)',
+                  borderRadius: 5, padding: '3px 9px',
+                  cursor: aiClassifying ? 'default' : 'pointer',
+                  color: 'var(--text-primary)',
+                  fontSize: 11, fontWeight: 500,
+                  opacity: aiClassifying ? 0.5 : 1,
+                }}
+              >
+                {aiClassifying ? t('common.loading') : t('message.aiClassify.button')}
+              </button>
+            </div>
+          )}
+
           {body.hasBlockedRemoteImages && (
             <div style={{
               marginBottom: 10, padding: '9px 14px',
@@ -2171,6 +2287,48 @@ ${bodyContent}
         <div style={{
           padding: isMobile ? '0 0px 16px' : '0 28px 24px',
         }}>
+          {message.list_unsubscribe && unsubscribeStatus !== 'done' && (
+            <div style={{
+              marginBottom: 10, padding: '9px 14px',
+              background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--text-tertiary)', borderRadius: 8,
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              fontSize: 12, color: 'var(--text-secondary)',
+            }}>
+              <span style={{ flex: 1 }}>{t('message.unsubscribe.info')}</span>
+              <button onClick={handleUnsubscribe} disabled={unsubscribeStatus === 'loading'}
+                style={{
+                  background: 'none', border: '1px solid var(--border)', borderRadius: 5,
+                  padding: '3px 9px', cursor: unsubscribeStatus === 'loading' ? 'default' : 'pointer',
+                  color: unsubscribeStatus === 'error' ? 'var(--red, #e53e3e)' : 'var(--text-primary)',
+                  fontSize: 11, fontWeight: 500, opacity: unsubscribeStatus === 'loading' ? 0.5 : 1,
+                }}>
+                {unsubscribeStatus === 'loading' ? t('common.loading') :
+                 unsubscribeStatus === 'error' ? t('message.unsubscribe.error') :
+                 t('message.unsubscribe.button')}
+              </button>
+            </div>
+          )}
+          {!message.category && (categorizationEnabled || accounts.find(a => a.id === message.account_id)?.categorization_enabled) && aiStatus?.enabled && (
+            <div style={{
+              marginBottom: 10, padding: '9px 14px',
+              background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--text-tertiary)', borderRadius: 8,
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+              fontSize: 12, color: 'var(--text-secondary)',
+            }}>
+              <span style={{ flex: 1 }}>{t('message.aiClassify.info')}</span>
+              <button onClick={handleAiClassify} disabled={aiClassifying}
+                style={{
+                  background: 'none', border: '1px solid var(--border)', borderRadius: 5,
+                  padding: '3px 9px', cursor: aiClassifying ? 'default' : 'pointer',
+                  color: 'var(--text-primary)', fontSize: 11, fontWeight: 500,
+                  opacity: aiClassifying ? 0.5 : 1,
+                }}>
+                {aiClassifying ? t('common.loading') : t('message.aiClassify.button')}
+              </button>
+            </div>
+          )}
           <div style={{
             margin: 0, padding: '14px 16px 12px',
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',

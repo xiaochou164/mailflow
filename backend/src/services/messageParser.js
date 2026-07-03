@@ -166,6 +166,27 @@ function decodeBodyPart(buf, encoding, charset) {
 
 // Parse a raw header Buffer (from imapflow's `headers: true`) into a plain object.
 // Header names are lowercased. Multiple values for the same header are joined with '\n'.
+// Decode RFC 2047 MIME encoded-words (=?charset?Q/B?text?=) in a header string.
+// Adjacent encoded words separated only by whitespace are joined per RFC 2047 §6.2.
+export function decodeMimeWords(str) {
+  if (!str || !str.includes('=?')) return str;
+  let s = str;
+  let prev;
+  do {
+    prev = s;
+    s = s.replace(/(=\?[^?]+\?[BQbq]\?[^?]*\?=)\s+(=\?[^?]+\?[BQbq]\?[^?]*\?=)/g, '$1$2');
+  } while (s !== prev);
+  return s.replace(/=\?([^?]+)\?([BQbq])\?([^?]*)\?=/g, (match, charset, enc, text) => {
+    try {
+      if (enc.toUpperCase() === 'Q') {
+        const bytes = text.replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+        return Buffer.from(bytes, 'binary').toString('utf8');
+      }
+      return Buffer.from(text, 'base64').toString('utf8');
+    } catch { return match; }
+  });
+}
+
 export function parseRawHeaders(buf) {
   if (!buf) return {};
   const text = Buffer.isBuffer(buf) ? buf.toString('utf8') : String(buf);
@@ -206,6 +227,20 @@ export function detectCategoryFromHeaders(h) {
       h['x-phabricator-sent-this-message'] ||
       h['x-bugzilla-component'] ||
       h['x-sentry-reply-to']) return 'automated';
+
+  // Calendar invites (meeting requests, ICS attachments) → automated.
+  // Content-Type can be 'text/calendar' for simple invites or
+  // 'multipart/...' containing a calendar part; both cases set the top-level
+  // Content-Type to something including 'calendar'.
+  const ct = (h['content-type'] || '').toLowerCase();
+  if (ct.includes('text/calendar') || ct.includes('application/ics')) return 'automated';
+
+  // Noreply sender addresses → automated. Matches the local part of the
+  // From address immediately before the '@' so we don't false-positive on
+  // display names like "No Reply Needed <person@company.com>".
+  if (/(?:^|[\s<,])(?:noreply|no[-.]reply|donotreply|do[-.]not[-.]reply)@/i.test(h['from'] || '')) {
+    return 'automated';
+  }
 
   // Newsletter — RFC mailing list headers (same signals as is_bulk)
   if (h['list-id'] || h['list-unsubscribe'] || h['list-post']) return 'newsletter';

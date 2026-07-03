@@ -220,6 +220,18 @@ export const api = {
     status: () => request('GET', '/ai/status'),
   },
 
+  // Category counts for inbox tab badges
+  getCategoryCounts: (params) => {
+    const qs = new URLSearchParams(params || {}).toString();
+    return request('GET', `/mail/category-counts${qs ? '?' + qs : ''}`);
+  },
+
+  // Manual category override for a single message
+  setMessageCategory: (id, category) => request('PATCH', `/mail/messages/${id}/category`, { category }),
+
+  // Trigger unsubscribe for a newsletter message
+  unsubscribeMessage: (id) => request('POST', `/mail/messages/${id}/unsubscribe`),
+
   // Email categorization
   categories: {
     getSources: () => request('GET', '/categories/sources'),
@@ -228,6 +240,7 @@ export const api = {
     deleteSource: (id) => request('DELETE', `/categories/sources/${id}`),
     refreshSource: (id) => request('POST', `/categories/sources/${id}/refresh`),
     recategorize: (accountId) => request('POST', `/categories/recategorize/${accountId}`),
+    aiClassify: (messageId) => request('POST', `/categories/ai-classify/${messageId}`),
   },
 
   // Todoist integration

@@ -222,7 +222,19 @@
       "title": "Impossible d'enregistrer la préférence",
       "body": "Échec de la mise à jour de la liste blanche des images."
     },
-    "emailFrameTitle": "Contenu de l'e-mail"
+    "emailFrameTitle": "Contenu de l'e-mail",
+    "unsubscribe": {
+      "info": "Vous pouvez vous désabonner de cette liste de diffusion.",
+      "button": "Se désabonner",
+      "done": "Désabonnement réussi.",
+      "error": "Échec du désabonnement."
+    },
+    "aiClassify": {
+      "info": "Cet e-mail n'a pas de catégorie. Le classer avec l'IA ?",
+      "button": "Classer avec l'IA",
+      "done": "Classé comme {{category}}",
+      "error": "La classification par IA a échoué."
+    }
   },
   "messageList": {
     "search": "Rechercher…",
@@ -390,6 +402,7 @@
       "nextWeek": "La semaine prochaine",
       "custom": "Personnalisé..."
     },
+    "categorize": "Catégoriser comme…",
     "createRule": "Créer une règle depuis ce message",
     "addToBlockList": "Ajouter à la liste de blocage",
     "markAsSpam": "Marquer comme Spam",

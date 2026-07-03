@@ -105,7 +105,7 @@ export default function MessageList() {
     hoverQuickActions,
     swipeActions,
     folders, favoriteFolders, addFavoriteFolder, removeFavoriteFolder, setSelectedAccount,
-    categorizationEnabled,
+    categorizationEnabled, categoryCounts, setCategoryCounts, adjustCategoryCount,
   } = useStore();
 
   const isMobile = useMobile();
@@ -190,6 +190,23 @@ export default function MessageList() {
   useEffect(() => {
     updateCatScrollEdges();
   }, [activeCategory, selectedAccountId, selectedFolder, categorizationEnabled, updateCatScrollEdges]);
+
+  // Fetch unread counts per category for the tab bar badges.
+  // Re-fetches whenever the account/folder changes or new mail arrives.
+  const categorizationActive = categorizationEnabled || (!isUnified && selectedAccount?.categorization_enabled);
+  useEffect(() => {
+    if (!categorizationActive || selectedFolder !== 'INBOX') {
+      setCategoryCounts({});
+      return;
+    }
+    let cancelled = false;
+    const params = selectedAccountId ? { accountId: selectedAccountId } : {};
+    api.getCategoryCounts(params)
+      .then(data => { if (!cancelled) setCategoryCounts(data.counts || {}); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [categorizationActive, selectedAccountId, selectedFolder, messagesRefreshToken, setCategoryCounts]);
+
   const searchSeq = useRef(0);
 
   // Ref that always holds the latest values needed by shortcut handlers.
@@ -593,9 +610,15 @@ export default function MessageList() {
       updateMessage(message.id, { is_read: read, unread_count: read ? 0 : 1 });
     }
     if (read) {
-      if (estimatedDelta > 0) decrementUnread(message.account_id, estimatedDelta);
+      if (estimatedDelta > 0) {
+        decrementUnread(message.account_id, estimatedDelta);
+        adjustCategoryCount(message.category, -estimatedDelta);
+      }
     } else {
-      if (estimatedDelta > 0) incrementUnread(message.account_id, estimatedDelta);
+      if (estimatedDelta > 0) {
+        incrementUnread(message.account_id, estimatedDelta);
+        adjustCategoryCount(message.category, estimatedDelta);
+      }
     }
 
     // Resolve the individual sub-messages needed for the bulk API call.
@@ -612,8 +635,8 @@ export default function MessageList() {
       } else {
         updateMessage(message.id, { is_read: !read, unread_count: !read ? 0 : 1 });
       }
-      if (read && estimatedDelta > 0) incrementUnread(message.account_id, estimatedDelta);
-      else if (!read && estimatedDelta > 0) decrementUnread(message.account_id, estimatedDelta);
+      if (read && estimatedDelta > 0) { incrementUnread(message.account_id, estimatedDelta); adjustCategoryCount(message.category, estimatedDelta); }
+      else if (!read && estimatedDelta > 0) { decrementUnread(message.account_id, estimatedDelta); adjustCategoryCount(message.category, -estimatedDelta); }
       return;
     }
 
@@ -640,6 +663,7 @@ export default function MessageList() {
         if (diff > 0) incrementUnread(message.account_id, diff);
         else decrementUnread(message.account_id, -diff);
       }
+      adjustCategoryCount(message.category, read ? -diff : diff);
     }
 
     if (read) {
@@ -669,15 +693,16 @@ export default function MessageList() {
         updateMessage(message.id, { is_read: !read, unread_count: read ? 1 : 0 });
       }
       if (read) {
-        if (actualDelta > 0) incrementUnread(message.account_id, actualDelta);
+        if (actualDelta > 0) { incrementUnread(message.account_id, actualDelta); adjustCategoryCount(message.category, actualDelta); }
         actionMessages.forEach(msg => pendingMarkReadMap.delete(msg.id));
       } else if (actualDelta > 0) {
         decrementUnread(message.account_id, actualDelta);
+        adjustCategoryCount(message.category, -actualDelta);
       }
     }
   }, [
     resolveMessagesForThreadAction, isThreadListRow, updateMessage, setCachedThreadRead,
-    decrementUnread, incrementUnread,
+    decrementUnread, incrementUnread, adjustCategoryCount,
   ]);
 
   const handleMarkRead = (e, message) => {
@@ -1358,17 +1383,23 @@ export default function MessageList() {
 
   const handleBulkMarkRead = useCallback(async (ids, msgs) => {
     const markAsRead = msgs.some(m => !m.is_read);
-    // Compute per-account unread deltas before mutating state
+    // Compute per-account and per-category unread deltas before mutating state
     const deltaByAccount = {};
+    const deltaByCategory = {};
     msgs.forEach(msg => {
       if (!deltaByAccount[msg.account_id]) deltaByAccount[msg.account_id] = 0;
-      if (markAsRead && !msg.is_read) deltaByAccount[msg.account_id]++;
-      if (!markAsRead && msg.is_read) deltaByAccount[msg.account_id]++;
+      const catKey = msg.category || 'primary';
+      if (!deltaByCategory[catKey]) deltaByCategory[catKey] = 0;
+      if (markAsRead && !msg.is_read) { deltaByAccount[msg.account_id]++; deltaByCategory[catKey]++; }
+      if (!markAsRead && msg.is_read) { deltaByAccount[msg.account_id]++; deltaByCategory[catKey]++; }
     });
     // Optimistic update
     msgs.forEach(msg => updateMessage(msg.id, { is_read: markAsRead, unread_count: markAsRead ? 0 : 1 }));
     Object.entries(deltaByAccount).forEach(([accountId, delta]) => {
       if (delta > 0) markAsRead ? decrementUnread(accountId, delta) : incrementUnread(accountId, delta);
+    });
+    Object.entries(deltaByCategory).forEach(([cat, delta]) => {
+      if (delta > 0) adjustCategoryCount(cat, markAsRead ? -delta : delta);
     });
     setSelectedIds(new Set());
     setSelectionModeActive(false);
@@ -1380,8 +1411,11 @@ export default function MessageList() {
       Object.entries(deltaByAccount).forEach(([accountId, delta]) => {
         if (delta > 0) markAsRead ? incrementUnread(accountId, delta) : decrementUnread(accountId, delta);
       });
+      Object.entries(deltaByCategory).forEach(([cat, delta]) => {
+        if (delta > 0) adjustCategoryCount(cat, markAsRead ? delta : -delta);
+      });
     }
-  }, [updateMessage, decrementUnread, incrementUnread]);
+  }, [updateMessage, decrementUnread, incrementUnread, adjustCategoryCount]);
 
   // Keep refs to bulk handlers so the shortcut effect (registered once) is never stale
   const bulkDeleteRef    = useRef(handleBulkDelete);
@@ -1398,9 +1432,10 @@ export default function MessageList() {
 
     const markRead = (msg) => {
       if (msg.is_read) return;
-      const { updateMessage, decrementUnread, incrementUnread } = getState();
+      const { updateMessage, decrementUnread, incrementUnread, adjustCategoryCount } = getState();
       updateMessage(msg.id, { is_read: true });
       decrementUnread(msg.account_id);
+      adjustCategoryCount(msg.category, -1);
       setPending(msg.id, msg.account_id);
       api.bulkRead([msg.id], true)
         .then(() => {
@@ -1412,6 +1447,7 @@ export default function MessageList() {
           console.error('markRead failed:', e.message);
           updateMessage(msg.id, { is_read: false });
           incrementUnread(msg.account_id);
+          adjustCategoryCount(msg.category, 1);
           pendingMarkReadMap.delete(msg.id);
         });
     };
@@ -1488,7 +1524,7 @@ export default function MessageList() {
     };
 
     const onToggleRead = () => {
-      const { messages, selectedMessageId, updateMessage, decrementUnread, incrementUnread } = getState();
+      const { messages, selectedMessageId, updateMessage, decrementUnread, incrementUnread, adjustCategoryCount } = getState();
       if (!selectedMessageId) return;
       const msg = messages.find(m => m.id === selectedMessageId);
       if (!msg) return;
@@ -1496,6 +1532,7 @@ export default function MessageList() {
       updateMessage(selectedMessageId, { is_read: newRead });
       if (newRead) {
         decrementUnread(msg.account_id);
+        adjustCategoryCount(msg.category, -1);
         setPending(selectedMessageId, msg.account_id);
         api.bulkRead([selectedMessageId], true)
           .then(() => {
@@ -1509,6 +1546,7 @@ export default function MessageList() {
           });
       } else {
         incrementUnread(msg.account_id);
+        adjustCategoryCount(msg.category, 1);
         pendingMarkReadMap.delete(selectedMessageId);
         completedMarkReadMap.delete(selectedMessageId);
         api.bulkRead([selectedMessageId], false).catch(console.error);
@@ -1867,6 +1905,25 @@ export default function MessageList() {
         if (selectedIds.has(message.id)) clearSelection();
         break;
       }
+      case 'setCategory': {
+        const newCategory = data || 'primary';
+        const dbCategory = newCategory === 'primary' ? null : newCategory;
+        try {
+          await api.setMessageCategory(message.id, newCategory);
+          const inFilteredView = categorizationActive && activeCategory && activeCategory !== (newCategory || 'primary');
+          if (inFilteredView) {
+            removeMessage(message.id);
+          } else {
+            updateMessage(message.id, { category: dbCategory });
+          }
+          // Refresh category counts badge
+          const countParams = selectedAccountId ? { accountId: selectedAccountId } : {};
+          api.getCategoryCounts(countParams).then(d => setCategoryCounts(d.counts || {})).catch(() => {});
+        } catch (err) {
+          console.error('setCategory failed:', err?.message);
+        }
+        break;
+      }
       default:
         break;
     }
@@ -1924,6 +1981,7 @@ export default function MessageList() {
       const prevUnread = message.unread_count;
       updateMessage(message.id, { is_read: true, unread_count: 0 });
       decrementUnread(message.account_id);
+      adjustCategoryCount(message.category, -1);
       setPending(message.id, message.account_id);
       api.bulkRead([message.id], true)
         .catch(() => api.bulkRead([message.id], true))
@@ -1936,6 +1994,7 @@ export default function MessageList() {
           console.error('markRead failed:', e.message);
           updateMessage(message.id, { is_read: false, unread_count: prevUnread });
           incrementUnread(message.account_id);
+          adjustCategoryCount(message.category, 1);
           pendingMarkReadMap.delete(message.id);
         });
     }
@@ -2591,24 +2650,40 @@ export default function MessageList() {
               background: 'var(--bg-secondary)',
             }}
           >
-            {['primary', 'newsletter', 'promotion', 'automated', 'social'].map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                style={{
-                  padding: '3px 11px', flexShrink: 0,
-                  borderRadius: 100,
-                  border: `1px solid ${activeCategory === cat ? 'var(--accent)' : 'var(--border)'}`,
-                  background: 'none',
-                  color: activeCategory === cat ? 'var(--accent)' : 'var(--text-secondary)',
-                  cursor: 'pointer', fontSize: 11, fontWeight: activeCategory === cat ? 500 : 400,
-                  whiteSpace: 'nowrap',
-                  transition: 'color 0.15s, border-color 0.15s',
-                }}
-              >
-                {t(`messageList.categories.${cat}`)}
-              </button>
-            ))}
+            {['primary', 'newsletter', 'promotion', 'automated', 'social'].map(cat => {
+              const unread = categoryCounts[cat] || 0;
+              const isActive = activeCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  style={{
+                    padding: '3px 11px', flexShrink: 0,
+                    borderRadius: 100,
+                    border: `1px solid ${isActive ? 'var(--accent)' : 'var(--border)'}`,
+                    background: 'none',
+                    color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                    cursor: 'pointer', fontSize: 11, fontWeight: isActive ? 500 : 400,
+                    whiteSpace: 'nowrap',
+                    transition: 'color 0.15s, border-color 0.15s',
+                    display: 'flex', alignItems: 'center', gap: 5,
+                  }}
+                >
+                  {t(`messageList.categories.${cat}`)}
+                  {unread > 0 && (
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, lineHeight: 1,
+                      padding: '1px 5px', borderRadius: 100,
+                      background: isActive ? 'var(--accent)' : 'var(--text-tertiary)',
+                      color: 'var(--bg-primary)',
+                      minWidth: 16, textAlign: 'center',
+                    }}>
+                      {unread > 99 ? '99+' : unread}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           {!isMobile && catScrollEdges.right && (
             <button

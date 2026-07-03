@@ -222,7 +222,19 @@
       "title": "Impossibile salvare la preferenza",
       "body": "Aggiornamento della whitelist delle immagini fallito."
     },
-    "emailFrameTitle": "Contenuto email"
+    "emailFrameTitle": "Contenuto email",
+    "unsubscribe": {
+      "info": "Puoi annullare l'iscrizione a questa mailing list.",
+      "button": "Annulla iscrizione",
+      "done": "Iscrizione annullata con successo.",
+      "error": "Annullamento iscrizione fallito."
+    },
+    "aiClassify": {
+      "info": "Questa email non ha una categoria. Classificare con IA?",
+      "button": "Classifica con IA",
+      "done": "Classificato come {{category}}",
+      "error": "Classificazione IA fallita."
+    }
   },
   "messageList": {
     "search": "Cerca…",
@@ -390,6 +402,7 @@
       "nextWeek": "La settimana prossima",
       "custom": "Personalizzato..."
     },
+    "categorize": "Categorizza come…",
     "createRule": "Crea regola da questo messaggio",
     "addToBlockList": "Aggiungi alla lista blocchi",
     "markAsSpam": "Segnala come Spam",

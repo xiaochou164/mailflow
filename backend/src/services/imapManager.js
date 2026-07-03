@@ -1,6 +1,6 @@
 import { ImapFlow } from 'imapflow';
 import { query } from './db.js';
-import { parseMessage, snippetFromBody, detectBulkFromParsedHeaders, parseRawHeaders } from './messageParser.js';
+import { parseMessage, snippetFromBody, detectBulkFromParsedHeaders, parseRawHeaders, decodeMimeWords } from './messageParser.js';
 import { classifyMessage, loadSocialDomains, getGlobalCategorizationEnabled } from './categorizer.js';
 import { refreshMicrosoftToken } from '../routes/oauth.js';
 import { sanitizeEmail } from './emailSanitizer.js';
@@ -1187,8 +1187,9 @@ export class ImapManager {
                 reply_to, in_reply_to,
                 date, snippet, is_read, is_starred, has_attachments, flags,
                 body_html, body_text, attachments,
-                thread_references, thread_id, is_bulk, category
-              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                thread_references, thread_id, is_bulk, category,
+                list_unsubscribe, list_unsubscribe_post
+              ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
               ON CONFLICT (account_id, uid, folder) DO UPDATE
               SET from_name = $6, from_email = $7,
                   to_addresses = $8, cc_addresses = $9,
@@ -1215,7 +1216,9 @@ export class ImapManager {
                   thread_references = COALESCE(messages.thread_references, EXCLUDED.thread_references),
                   thread_id = COALESCE(messages.thread_id, EXCLUDED.thread_id),
                   is_bulk = COALESCE(messages.is_bulk, EXCLUDED.is_bulk),
-                  category = COALESCE(messages.category, EXCLUDED.category)
+                  category = COALESCE(messages.category, EXCLUDED.category),
+                  list_unsubscribe = COALESCE(messages.list_unsubscribe, EXCLUDED.list_unsubscribe),
+                  list_unsubscribe_post = COALESCE(messages.list_unsubscribe_post, EXCLUDED.list_unsubscribe_post)
               RETURNING id, (xmax = 0) as is_new
             `, [
               account.id, parsed.uid, folder,
@@ -1228,6 +1231,8 @@ export class ImapManager {
               parsed.hasAttachments, JSON.stringify(parsed.flags),
               sanitizeStr(safeHtml), sanitizeStr(text), JSON.stringify(atts || []),
               refs, threadId, parsed.isBulk ?? null, msgCategory,
+              sanitizeStr(decodeMimeWords(parsed.parsedHeaders?.['list-unsubscribe'] ?? null)),
+              sanitizeStr(decodeMimeWords(parsed.parsedHeaders?.['list-unsubscribe-post'] ?? null)),
             ]);
             if (result.rows[0]?.is_new && !parsed.isRead) {
               newMessages.push({ ...parsed, id: result.rows[0].id, accountId: account.id, folder });
@@ -1642,8 +1647,9 @@ export class ImapManager {
                     reply_to, in_reply_to,
                     date, snippet, is_read, is_starred, has_attachments, flags,
                     body_html, body_text, attachments,
-                    thread_references, thread_id, is_bulk, category
-                  ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+                    thread_references, thread_id, is_bulk, category,
+                    list_unsubscribe, list_unsubscribe_post
+                  ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
                   ON CONFLICT (account_id, uid, folder) DO UPDATE
                   SET from_name = $6, from_email = $7,
                       to_addresses = $8, cc_addresses = $9,
@@ -1670,7 +1676,9 @@ export class ImapManager {
                       thread_references = COALESCE(messages.thread_references, EXCLUDED.thread_references),
                       thread_id = COALESCE(messages.thread_id, EXCLUDED.thread_id),
                       is_bulk = COALESCE(messages.is_bulk, EXCLUDED.is_bulk),
-                      category = COALESCE(messages.category, EXCLUDED.category)
+                      category = COALESCE(messages.category, EXCLUDED.category),
+                      list_unsubscribe = COALESCE(messages.list_unsubscribe, EXCLUDED.list_unsubscribe),
+                      list_unsubscribe_post = COALESCE(messages.list_unsubscribe_post, EXCLUDED.list_unsubscribe_post)
                 `, [
                   account.id, parsed.uid, folder,
                   bfMsgId, sanitizeStr(parsed.subject),
@@ -1682,6 +1690,8 @@ export class ImapManager {
                   parsed.hasAttachments, JSON.stringify(parsed.flags),
                   sanitizeStr(safeHtml), sanitizeStr(bodyText), JSON.stringify(atts || []),
                   bfRefs, bfThreadId, parsed.isBulk ?? null, bfCategory,
+                  sanitizeStr(decodeMimeWords(parsed.parsedHeaders?.['list-unsubscribe'] ?? null)),
+                  sanitizeStr(decodeMimeWords(parsed.parsedHeaders?.['list-unsubscribe-post'] ?? null)),
                 ]);
                 if (bfThreadId && bfThreadId !== bfMsgId) {
                   await query(
