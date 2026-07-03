@@ -153,25 +153,10 @@ export async function applyInboxRules(messages, account, imapManager) {
   // parsedHeaders is already present on each msg from messageParser.js — no DB
   // fetch needed; header conditions can use msg.parsedHeaders directly.
 
-  // Pre-resolve destination folders before the message loop to avoid N+1 DB queries.
-  // applyAction will use these cached values; if pre-resolution fails the action
-  // falls back to resolving per-call (nullable ?? await pattern).
-  const hasDelete = rules.some(r => (r.actions || []).some(a => a?.type === 'delete'));
-  const hasArchive = rules.some(r => (r.actions || []).some(a => a?.type === 'archive'));
-  const preResolved = {};
-  try {
-    if (hasDelete) {
-      [preResolved.trashFolder, preResolved.allTrashPaths] = await Promise.all([
-        resolveTrashFolder(account.id, account.folder_mappings),
-        resolveAllTrashPaths(account.id, account.folder_mappings),
-      ]);
-    }
-    if (hasArchive) {
-      preResolved.archiveFolder = await resolveArchiveFolder(account.id, account.folder_mappings);
-    }
-  } catch (err) {
-    console.error('inboxRules: failed to pre-resolve folders:', err.message);
-  }
+  // Lazy resolver cache shared across the message loop. Populated on first actual use
+  // inside applyAction so resolvers are never called for actions that are deduped or
+  // skipped, but results are reused across messages to avoid N+1 DB queries.
+  const resolverCache = {};
 
   const remaining = [...messages];
   const removedIds = new Set();
@@ -203,7 +188,7 @@ export async function applyInboxRules(messages, account, imapManager) {
         if (isDest && removedIds.has(msg.id)) continue;
         if (isDest) destSeen = true;
         try {
-          const acted = await applyAction(action, msg, account, imapManager, preResolved);
+          const acted = await applyAction(action, msg, account, imapManager, resolverCache);
           if (isDest && acted) removedIds.add(msg.id);
           // mark_read: add to mutedIds so caller suppresses sound/push.
           // star: intentionally NOT muted — a star-only rule should still alert.
@@ -301,7 +286,7 @@ export async function applyBlockList(messages, account, imapManager) {
   return remaining;
 }
 
-async function applyAction(action, msg, account, imapManager, preResolved = {}) {
+async function applyAction(action, msg, account, imapManager, resolverCache = {}) {
   switch (action.type) {
     case 'mark_read': {
       await query(
@@ -385,7 +370,11 @@ async function applyAction(action, msg, account, imapManager, preResolved = {}) 
     }
 
     case 'archive': {
-      const archiveFolder = preResolved.archiveFolder ?? await resolveArchiveFolder(account.id, account.folder_mappings);
+      if (!resolverCache._archiveResolved) {
+        resolverCache._archiveResolved = true;
+        resolverCache.archiveFolder = await resolveArchiveFolder(account.id, account.folder_mappings);
+      }
+      const archiveFolder = resolverCache.archiveFolder;
       if (!archiveFolder) return false;
       const srcFolder = msg.folder;
       const srcUid = msg.uid;
@@ -413,8 +402,15 @@ async function applyAction(action, msg, account, imapManager, preResolved = {}) 
     }
 
     case 'delete': {
-      const trashFolder = preResolved.trashFolder ?? await resolveTrashFolder(account.id, account.folder_mappings);
-      const allTrashPaths = preResolved.allTrashPaths ?? await resolveAllTrashPaths(account.id, account.folder_mappings);
+      if (!resolverCache._trashResolved) {
+        resolverCache._trashResolved = true;
+        [resolverCache.trashFolder, resolverCache.allTrashPaths] = await Promise.all([
+          resolveTrashFolder(account.id, account.folder_mappings),
+          resolveAllTrashPaths(account.id, account.folder_mappings),
+        ]);
+      }
+      const trashFolder = resolverCache.trashFolder;
+      const allTrashPaths = resolverCache.allTrashPaths;
       const strategy = getDeleteStrategy(msg.folder, trashFolder, allTrashPaths);
       if (strategy.action === 'no_trash') return false;
       if (strategy.action === 'move') {

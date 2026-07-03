@@ -223,10 +223,11 @@ describe('sanitizeEmail — CSS upgrades', () => {
     expect(out).toContain('url(https://');
   });
 
-  it('upgrades http:// url() in <style> blocks', () => {
+  it('strips external url() in <style> blocks', () => {
     const out = sanitizeEmail('<style>body{background:url(http://example.com/bg.jpg)}</style>');
     expect(out).not.toContain('url(http://');
-    expect(out).toContain('url(https://');
+    expect(out).not.toContain('url(https://');
+    expect(out).toContain('url()');
   });
 });
 
