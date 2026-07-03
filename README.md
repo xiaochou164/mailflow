@@ -28,8 +28,10 @@ If you contribute code, please read the [Contributor License Agreement](CLA.md).
 ## Features
 
 - **Unified inbox** — all accounts merged in one view, sorted by date
+- **Email categorization** — automatic inbox tabs (Primary, Newsletters, Social, Notifications, Other) sort incoming mail by type using header detection and sender heuristics; AI reclassify button for misclassifications
+- **Unsubscribe** — one-click unsubscribe button appears in the message pane for detected newsletters; sends the request or opens the unsubscribe URL automatically
 - **Conversation threads** — messages grouped into reply chains with inline sent replies
-- **Rich text compose** — WYSIWYG editor with font family, size, color, highlight, tables, emoji, links, and attachments
+- **Rich text compose** — WYSIWYG editor with font family, size, color, highlight, tables, emoji, links, attachments, image resize handles, and Excel table paste
 - **Attachments** — send and receive file attachments across all accounts
 - **Multiple layouts** — classic, compact, wide reader, vertical split, and more
 - **Multiple themes** — dark, light, and several color schemes
@@ -42,12 +44,19 @@ If you contribute code, please read the [Contributor License Agreement](CLA.md).
 - **Smart contact autocomplete** — learns from sent mail to rank suggestions
 - **Reply / Forward / Compose** — correct per-account SMTP routing; font family groups, email priority
 - **Folder navigation** — expand any account to browse folders
-- **Star, archive, delete, mark read** — synced back to IMAP
+- **Star, archive, delete, mark read/unread** — synced back to IMAP
+- **Inbox rules** — automate actions (move, archive, delete, mark read, star) based on sender, subject, recipient, headers, body, or attachments
+- **Block list** — automatically move mail from blocked senders to trash before inbox rules run
+- **Spam reporting** — mark messages as spam or not spam from the context menu, toolbar, or bulk actions; feedback will feed into automated filtering in a future release
+- **Snooze** — snooze messages until a chosen time; they reappear at the top of the inbox
+- **AI assistant** — connect any OpenAI-compatible provider (local models or cloud); summarise threads, draft replies, ask questions about a message
+- **Password recovery** — recover your account via a recovery email address configured in profile settings
 - **User management** — admin panel, invite-only registration, invite emails
 - **Two-factor authentication** — TOTP (any authenticator app), email OTP fallback, persistent device trust; admin-configurable enforcement policy
 - **SSO / OIDC** — single sign-on via any OpenID Connect provider
 - **Microsoft 365 / OAuth2** — work accounts via Azure App Registration; personal Outlook.com via device code flow
-- **Todoist integration** — link a Todoist account and create tasks directly from emails
+- **Todoist integration** — create tasks directly from emails; tasks include a deep link back to the original message
+- **CardDAV** — expose your MailFlow contacts as a CardDAV address book for sync with phone and desktop contact apps
 
 ---
 
@@ -538,6 +547,12 @@ MailFlow is free and open source. If it's useful to you, consider supporting dev
 
 ## Upgrading
 
+### v2.0.0
+
+No manual migration steps required. All schema changes apply automatically on first startup.
+
+`ENCRYPTION_KEY` is now required at startup. The server will refuse to start if the variable is missing or not exactly 64 hex characters. Generate one with `openssl rand -hex 32` before upgrading if you have not already set this.
+
 ### v1.9.0
 
 Two database migrations (`0019_user_integrations`, `0020_mfa_device_trust`) run automatically on startup. No manual steps required.
@@ -559,9 +574,12 @@ If any accounts were configured with **Skip TLS verification** (e.g. for a self-
 - The first registered user becomes the admin automatically
 - Close open registration in Settings → Users once you've set up your accounts
 - Use the invite system to onboard additional users
-- Enable two-factor authentication in Settings → Security — supports TOTP (authenticator app), email OTP fallback, and persistent device trust
+- Enable two-factor authentication in Settings → Security — supports TOTP (authenticator app), email OTP fallback, and persistent device trust. TOTP codes are one-time and cannot be replayed within their validity window
 - Session cookies are `HttpOnly`, `SameSite=Lax`, with a 7-day TTL. The `Secure` flag is set automatically when the connection is HTTPS (direct or via a proxy that forwards `X-Forwarded-Proto: https`)
 - Passwords are bcrypt-hashed (cost factor 12)
 - Login and registration endpoints are rate-limited (10 attempts per 15 minutes per IP)
+- Password reset tokens are consumed atomically — concurrent reset requests cannot both succeed
 - Database and Redis are not exposed outside the Docker network
 - IMAP/SMTP credentials are stored at rest in the database (standard for webmail clients — protect access to your server and database volume accordingly)
+- All responses include `X-Frame-Options: DENY` and `Referrer-Policy: same-origin` security headers
+- Email HTML is sanitized before rendering, including stripping external `url()` references from CSS style blocks to prevent tracking
