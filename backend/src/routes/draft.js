@@ -119,6 +119,10 @@ router.post('/draft', async (req, res) => {
     if (existingUid && existingFolder) {
       try {
         await imapManager.permanentDeleteMessage(account, existingUid, existingFolder);
+        await query(
+          'DELETE FROM messages WHERE account_id = $1 AND uid = $2 AND folder = $3',
+          [account.id, existingUid, existingFolder]
+        );
       } catch (delErr) {
         console.error(`Draft: failed to delete old uid=${existingUid}: ${delErr.message}`);
       }

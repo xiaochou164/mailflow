@@ -198,10 +198,18 @@ export default function ComposeModal() {
   const [attachments, setAttachments] = useState([]);
   const [fwdAttachments, setFwdAttachments] = useState(() => composeData?.forwardedAttachments || []);
 
-  // Baseline values captured at open time — used to detect unsaved changes
+  // Baseline values captured at open time — updated after each successful keep-open save
+  // so isDirty() reflects changes since the last save, not since the modal opened.
   const initialBodyRef = useRef(composeData?.body || '');
   const initialSubjectRef = useRef(composeData?.subject || '');
   const initialToRef = useRef(normalizeTo(composeData?.to || []));
+  const initialCcRef = useRef(normalizeTo(composeData?.cc || []));
+  const initialBccRef = useRef(normalizeTo(composeData?.bcc || []));
+  // Start at fwdAttachments.length so pre-loaded forwarded attachments aren't dirty.
+  const savedAttachmentCountRef = useRef((composeData?.forwardedAttachments || []).length);
+  // True when the compose was opened by clicking an existing draft from the list.
+  // Used by handleClose to decide whether to prompt about an unmodified draft.
+  const draftWasPreExisting = useRef(composeData?.draftUid != null);
   const [showCc, setShowCc] = useState(() => !!(composeData?.cc?.length));
   const [showBcc, setShowBcc] = useState(() => !!(composeData?.bcc?.length));
 
@@ -811,16 +819,20 @@ export default function ComposeModal() {
       subject !== initialSubjectRef.current ||
       normalizeTo(toChips) !== initialToRef.current ||
       toInput.trim() !== '' ||
-      attachments.length > 0
+      normalizeTo(ccChips) !== initialCcRef.current ||
+      ccInput.trim() !== '' ||
+      normalizeTo(bccChips) !== initialBccRef.current ||
+      bccInput.trim() !== '' ||
+      attachments.length + fwdAttachments.length !== savedAttachmentCountRef.current
     );
   };
 
-  const doSaveDraft = async ({ closeAfter = true } = {}) => {
+  const doSaveDraft = async ({ closeAfter = false } = {}) => {
     const { accountId, aliasId } = resolveFrom(fromValue);
     if (!accountId) return;
     setSavingDraft(true);
     try {
-      const bodyToSend = plaintextEmail ? body : (htmlMode ? htmlSource : (editor?.getHTML() ?? ''));
+      const bodyToSend = plaintextEmail ? body : (htmlMode ? htmlSource : (editor?.isEmpty ? '' : (editor?.getHTML() ?? '')));
       const result = await api.saveDraft({
         accountId,
         ...(aliasId ? { aliasId } : {}),
@@ -847,6 +859,28 @@ export default function ComposeModal() {
       if (closeAfter) {
         closeCompose();
       } else {
+        // Commit any pending recipient inputs — they were included in the API call,
+        // so promote them to chips and clear the inputs to keep UI in sync.
+        const pendingTo = toInput.trim();
+        const pendingCc = ccInput.trim();
+        const pendingBcc = bccInput.trim();
+        if (pendingTo) { setToChips(prev => [...prev, pendingTo]); setToInput(''); }
+        if (pendingCc) { setCcChips(prev => [...prev, pendingCc]); setCcInput(''); }
+        if (pendingBcc) { setBccChips(prev => [...prev, pendingBcc]); setBccInput(''); }
+
+        // Sync baselines so isDirty() returns false until the user makes new changes.
+        // Use the same body expression as isDirty() — not bodyToSend — so that an
+        // empty TipTap editor (getHTML() → '<p></p>', isEmpty → true → '') produces
+        // a consistent '' on both sides rather than a permanent dirty mismatch.
+        // Include pending inputs in the To/CC/BCC baselines since they're now saved.
+        initialBodyRef.current = plaintextEmail ? body
+          : (htmlMode ? htmlSource
+          : (editor?.isEmpty ? '' : (editor?.getHTML() ?? '')));
+        initialSubjectRef.current = subject;
+        initialToRef.current = normalizeTo([...toChips, ...(pendingTo ? [pendingTo] : [])]);
+        initialCcRef.current = normalizeTo([...ccChips, ...(pendingCc ? [pendingCc] : [])]);
+        initialBccRef.current = normalizeTo([...bccChips, ...(pendingBcc ? [pendingBcc] : [])]);
+        savedAttachmentCountRef.current = attachments.length + fwdAttachments.length;
         addNotification({ title: t('compose.draftSaved'), body: subject || t('common.noSubject') });
       }
     } catch (err) {
@@ -869,7 +903,8 @@ export default function ComposeModal() {
   const handleClose = () => {
     if (isDirty()) {
       setShowCloseDialog(true);
-    } else if (draftUid != null) {
+    } else if (draftUid != null && draftWasPreExisting.current) {
+      // Opened from the drafts list with no modifications — ask to discard or keep.
       setShowCloseDialog(true);
     } else {
       closeCompose();
@@ -978,7 +1013,7 @@ export default function ComposeModal() {
         }}>
           <button
             onClick={() => {
-              if (isDirty() || draftUid != null) {
+              if (isDirty() || (draftUid != null && draftWasPreExisting.current)) {
                 setShowDiscardSheet(true);
               } else {
                 closeCompose();
@@ -1972,7 +2007,7 @@ export default function ComposeModal() {
         </select>
 
         <button
-          onClick={handleSaveDraft}
+          onClick={() => handleSaveDraft()}
           disabled={savingDraft}
           style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: savingDraft ? 'default' : 'pointer', fontSize: 12, padding: '4px 8px' }}
         >
