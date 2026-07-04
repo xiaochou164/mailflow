@@ -48,7 +48,11 @@ export function decodeNamedEntity(_, name) {
 // body prefetch, backfill) so entity handling is identical everywhere.
 export function snippetFromBody(text, html) {
   if (text) {
-    return text
+    const cleaned = text
+      // Strip [image: alt text] placeholders produced by Google's HTML-to-text converter
+      // and some ESPs. These appear at the top of text/plain alternatives for image-heavy
+      // marketing emails and produce useless "[image: Banner]" previews.
+      .replace(/\[image:[^\]]*\]/gi, '')
       // Strip Markdown-style [label](url) links — ESPs like Klaviyo generate text/plain
       // by converting HTML anchors to Markdown, so the entire body can be link syntax.
       .replace(/\[([^\]\r\n]*)\]\([^)\r\n]*\)/g, '$1')
@@ -56,7 +60,9 @@ export function snippetFromBody(text, html) {
       .replace(/&#([0-9]+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
       .replace(/&([a-z][a-z0-9]*);/gi, decodeNamedEntity)
       .replace(INVISIBLE_CHARS_RE, '')
-      .replace(/\s+/g, ' ').trim().substring(0, 200);
+      .replace(/\s+/g, ' ').trim();
+    if (cleaned) return cleaned.substring(0, 200);
+    // Text body was entirely image placeholders — fall through to HTML.
   }
   if (html) {
     return buildSnippetFromHtml(html);
