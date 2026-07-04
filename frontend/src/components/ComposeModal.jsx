@@ -186,6 +186,7 @@ export default function ComposeModal() {
   const [showForgottenAttachWarn, setShowForgottenAttachWarn] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [showAttachWarnForDraft, setShowAttachWarnForDraft] = useState(false);
+  const [attachWarnDraftCloseAfter, setAttachWarnDraftCloseAfter] = useState(false);
   const [showPrioritySheet, setShowPrioritySheet] = useState(false);
   const [showCcBccMenu, setShowCcBccMenu] = useState(false);
   const [ccBccMenuPos, setCcBccMenuPos] = useState(null);
@@ -855,13 +856,14 @@ export default function ComposeModal() {
     }
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = (closeAfter = false) => {
     if ((attachments.length > 0 || fwdAttachments.length > 0) && !showAttachWarnForDraft) {
+      setAttachWarnDraftCloseAfter(closeAfter);
       setShowAttachWarnForDraft(true);
       return;
     }
     setShowAttachWarnForDraft(false);
-    doSaveDraft({ closeAfter: true });
+    doSaveDraft({ closeAfter });
   };
 
   const handleClose = () => {
@@ -1333,7 +1335,7 @@ export default function ComposeModal() {
             </div>
             {isDirty() && (
               <button
-                onClick={() => { setShowDiscardSheet(false); handleSaveDraft(); }}
+                onClick={() => { setShowDiscardSheet(false); handleSaveDraft(true); }}
                 disabled={savingDraft}
                 style={{ width: '100%', padding: '16px 20px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 16, fontWeight: 500, cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)', WebkitTapHighlightColor: 'transparent' }}
               >
@@ -1374,7 +1376,7 @@ export default function ComposeModal() {
               {t('compose.draftHasAttachments')}
             </div>
             <button
-              onClick={() => { setShowAttachWarnForDraft(false); doSaveDraft({ closeAfter: true }); }}
+              onClick={() => { setShowAttachWarnForDraft(false); doSaveDraft({ closeAfter: attachWarnDraftCloseAfter }); }}
               disabled={savingDraft}
               style={{ width: '100%', padding: '16px 20px', textAlign: 'left', background: 'none', border: 'none', color: 'var(--accent)', fontSize: 16, fontWeight: 500, cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)', WebkitTapHighlightColor: 'transparent' }}
             >
@@ -2084,7 +2086,7 @@ export default function ComposeModal() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {isDirty() && (
               <button
-                onClick={() => { setShowCloseDialog(false); handleSaveDraft(); }}
+                onClick={() => { setShowCloseDialog(false); handleSaveDraft(true); }}
                 disabled={savingDraft}
                 style={{ padding: '8px 16px', background: 'var(--accent)', border: 'none', borderRadius: 7, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'center' }}
               >
@@ -2130,7 +2132,7 @@ export default function ComposeModal() {
               {t('compose.closeDraft.keepEditing')}
             </button>
             <button
-              onClick={() => { setShowAttachWarnForDraft(false); doSaveDraft({ closeAfter: true }); }}
+              onClick={() => { setShowAttachWarnForDraft(false); doSaveDraft({ closeAfter: attachWarnDraftCloseAfter }); }}
               disabled={savingDraft}
               style={{ padding: '7px 14px', background: 'var(--accent)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
             >

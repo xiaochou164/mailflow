@@ -147,6 +147,10 @@ router.delete('/draft/:uid', async (req, res) => {
   try {
     const account = ownerCheck.rows[0];
     await imapManager.permanentDeleteMessage(account, uid, folder);
+    await query(
+      'DELETE FROM messages WHERE account_id = $1 AND uid = $2 AND folder = $3',
+      [account.id, uid, folder]
+    );
     res.json({ ok: true });
   } catch (err) {
     console.error('Delete draft failed:', err.message);
