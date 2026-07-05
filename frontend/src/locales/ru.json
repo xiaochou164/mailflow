@@ -673,7 +673,12 @@
       "languageDescription": "Выберите язык отображения интерфейса",
       "fontSize": "Размер шрифта",
       "fontSizeDescription": "Масштабирует текст интерфейса. Значение по умолчанию — 100 %.",
-      "fontSizeReset": "Сбросить до 100 %"
+      "fontSizeReset": "Сбросить до 100 %",
+      "customCss": "Пользовательский CSS",
+      "customCssDescription": "Добавляет CSS после активной темы. Используйте CSS-переменные (например, --accent, --bg-primary) для переопределения значений темы или добавления собственных правил. Применяется ко всем пользователям.",
+      "customCssPlaceholder": ":root {\n  --accent: #e74c3c;\n}",
+      "customCssSave": "Сохранить",
+      "customCssSaved": "Сохранено"
     },
     "messageList": {
       "title": "Список сообщений",

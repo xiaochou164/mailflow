@@ -673,7 +673,12 @@
       "languageDescription": "Scegli la lingua di visualizzazione dell'interfaccia",
       "fontSize": "Dimensione del testo",
       "fontSizeDescription": "Ridimensiona il testo dell'interfaccia. Il valore predefinito è 100%.",
-      "fontSizeReset": "Ripristina al 100%"
+      "fontSizeReset": "Ripristina al 100%",
+      "customCss": "CSS personalizzato",
+      "customCssDescription": "Inserisce CSS aggiuntivo dopo il tema attivo. Usa proprietà CSS personalizzate (es. --accent, --bg-primary) per sovrascrivere i valori del tema o aggiungere regole proprie. Applicato a tutti gli utenti.",
+      "customCssPlaceholder": ":root {\n  --accent: #e74c3c;\n}",
+      "customCssSave": "Salva",
+      "customCssSaved": "Salvato"
     },
     "messageList": {
       "title": "Elenco messaggi",

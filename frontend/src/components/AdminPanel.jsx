@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useStore } from '../store/index.js';
 import { useMobile } from '../hooks/useMobile.js';
 import { api } from '../utils/api.js';
-import { THEMES, applyTheme } from '../themes.js';
+import { THEMES, applyTheme, applyCustomCss } from '../themes.js';
 import { FONT_SETS, loadFontSet } from '../fonts.js';
 import { LAYOUTS, applyLayout } from '../layouts.js';
 import { NOTIFICATION_SOUNDS, playNotificationSound, playCustomSound, warmUpAudioContext } from '../utils/notificationSounds.js';
@@ -975,10 +975,36 @@ function AccountsTab() {
 function ThemesTab() {
   const { t } = useTranslation();
   const { theme, setTheme } = useStore();
+  const [customCss, setCustomCss] = useState('');
+  const [cssSaving, setCssSaving] = useState(false);
+  const [cssSaved, setCssSaved] = useState(false);
+  const [cssError, setCssError] = useState('');
+
+  useEffect(() => {
+    api.admin.getSettings()
+      .then(d => setCustomCss(d.settings.custom_css || ''))
+      .catch(() => {});
+  }, []);
 
   const handleSelect = (key) => {
     setTheme(key);
     applyTheme(key);
+  };
+
+  const handleSaveCustomCss = async () => {
+    setCssSaving(true);
+    setCssSaved(false);
+    setCssError('');
+    try {
+      await api.admin.updateSettings({ custom_css: customCss });
+      applyCustomCss(customCss);
+      setCssSaved(true);
+      setTimeout(() => setCssSaved(false), 2000);
+    } catch (err) {
+      setCssError(err.message || 'Failed to save');
+    } finally {
+      setCssSaving(false);
+    }
   };
 
   return (
@@ -1039,6 +1065,47 @@ function ThemesTab() {
             </div>
           </button>
         ))}
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: 28, paddingTop: 28 }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+          {t('admin.appearance.customCss')}
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 12 }}>
+          {t('admin.appearance.customCssDescription')}
+        </div>
+        <textarea
+          value={customCss}
+          onChange={e => setCustomCss(e.target.value)}
+          placeholder={t('admin.appearance.customCssPlaceholder')}
+          spellCheck={false}
+          rows={10}
+          style={{
+            ...inputStyle,
+            fontFamily: 'JetBrains Mono, Menlo, monospace',
+            fontSize: 12,
+            lineHeight: 1.6,
+            resize: 'vertical',
+            minHeight: 120,
+          }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+          <button
+            onClick={handleSaveCustomCss}
+            disabled={cssSaving}
+            style={{
+              background: 'var(--accent)', color: '#fff', border: 'none',
+              borderRadius: 7, padding: '8px 18px', fontSize: 13,
+              fontWeight: 500, cursor: cssSaving ? 'default' : 'pointer',
+              opacity: cssSaving ? 0.7 : 1,
+            }}
+          >
+            {cssSaved ? t('admin.appearance.customCssSaved') : t('admin.appearance.customCssSave')}
+          </button>
+          {cssError && (
+            <span style={{ fontSize: 12, color: 'var(--red)' }}>{cssError}</span>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -673,7 +673,12 @@
       "languageDescription": "选择界面显示语言",
       "fontSize": "字体大小",
       "fontSizeDescription": "缩放界面文字。100% 为默认大小。",
-      "fontSizeReset": "重置为 100%"
+      "fontSizeReset": "重置为 100%",
+      "customCss": "自定义 CSS",
+      "customCssDescription": "在当前主题之后注入额外的 CSS。使用 CSS 自定义属性（如 --accent、--bg-primary）覆盖主题值或添加自定义规则。对所有用户生效。",
+      "customCssPlaceholder": ":root {\n  --accent: #e74c3c;\n}",
+      "customCssSave": "保存",
+      "customCssSaved": "已保存"
     },
     "messageList": {
       "title": "邮件列表",

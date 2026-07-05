@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../utils/api.js';
-import { applyTheme } from '../themes.js';
+import { applyTheme, applyCustomCss } from '../themes.js';
 import { applyFontSet, applyFontSize } from '../fonts.js';
 import { applyLayout } from '../layouts.js';
 import i18n from '../i18n.js';
@@ -652,6 +652,9 @@ export const useStore = create((set, get) => ({
       }
       if (typeof prefs.categorizationEnabled === 'boolean') {
         set({ categorizationEnabled: prefs.categorizationEnabled });
+      }
+      if (prefs.customCss) {
+        applyCustomCss(prefs.customCss);
       }
     } catch { /* intentional */ }
   },

@@ -673,7 +673,12 @@
       "languageDescription": "Elige el idioma de visualización de la interfaz",
       "fontSize": "Tamaño de fuente",
       "fontSizeDescription": "Escala el texto de la interfaz. El 100 % es el valor predeterminado.",
-      "fontSizeReset": "Restablecer al 100 %"
+      "fontSizeReset": "Restablecer al 100 %",
+      "customCss": "CSS personalizado",
+      "customCssDescription": "Inyecta CSS adicional después del tema activo. Usa propiedades CSS personalizadas (p. ej. --accent, --bg-primary) para anular los valores del tema o añadir tus propias reglas. Se aplica a todos los usuarios.",
+      "customCssPlaceholder": ":root {\n  --accent: #e74c3c;\n}",
+      "customCssSave": "Guardar",
+      "customCssSaved": "Guardado"
     },
     "messageList": {
       "title": "Lista de mensajes",

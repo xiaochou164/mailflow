@@ -673,7 +673,12 @@
       "languageDescription": "Choose the display language for the interface",
       "fontSize": "Font Size",
       "fontSizeDescription": "Scale the interface text. 100% is the default.",
-      "fontSizeReset": "Reset to 100%"
+      "fontSizeReset": "Reset to 100%",
+      "customCss": "Custom CSS",
+      "customCssDescription": "Inject additional CSS after the active theme. Use CSS custom properties (e.g. --accent, --bg-primary) to override theme values, or add your own rules. Applied to all users.",
+      "customCssPlaceholder": ":root {\n  --accent: #e74c3c;\n}",
+      "customCssSave": "Save",
+      "customCssSaved": "Saved"
     },
     "messageList": {
       "title": "Message List",

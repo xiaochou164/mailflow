@@ -578,6 +578,24 @@ export function senderColor(email) {
   return SENDER_PALETTE[key ? hashIndex(key) : 0];
 }
 
+// ── Custom CSS injection ───────────────────────────────────────────────────────
+
+const CUSTOM_CSS_ID = 'mailflow-custom-css';
+
+export function applyCustomCss(css) {
+  let el = document.getElementById(CUSTOM_CSS_ID);
+  if (!css) {
+    if (el) el.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement('style');
+    el.id = CUSTOM_CSS_ID;
+    document.head.appendChild(el);
+  }
+  el.textContent = css;
+}
+
 // ── Theme application ─────────────────────────────────────────────────────────
 
 export function applyTheme(themeName) {

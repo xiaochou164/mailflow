@@ -98,7 +98,7 @@ router.get('/auth-events', async (req, res) => {
 router.patch('/settings', async (req, res) => {
   const { registration_open, internal_auth_disabled, auth_max_attempts, auth_window_minutes,
     allow_private_hosts, allow_insecure_tls, allow_nonstandard_ports,
-    mfa_enforcement, mfa_device_trust } = req.body;
+    mfa_enforcement, mfa_device_trust, custom_css } = req.body;
   if (typeof registration_open === 'boolean') {
     await query(
       `INSERT INTO system_settings (key, value, updated_at)
@@ -197,6 +197,17 @@ router.patch('/settings', async (req, res) => {
       [mfa_device_trust]
     );
     console.log(`[admin] ${req.session.username} set mfa_device_trust=${mfa_device_trust}`);
+  }
+  if (custom_css !== undefined) {
+    if (typeof custom_css !== 'string') return res.status(400).json({ error: 'custom_css must be a string' });
+    if (custom_css.length > 50000) return res.status(400).json({ error: 'custom_css must not exceed 50,000 characters' });
+    const sanitized = custom_css.replace(/\0/g, '');
+    await query(
+      `INSERT INTO system_settings (key, value, updated_at) VALUES ('custom_css', $1, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+      [sanitized]
+    );
+    console.log(`[admin] ${req.session.username} updated custom_css (${sanitized.length} chars)`);
   }
   invalidateConnectionPolicyCache();
   res.json({ ok: true });
