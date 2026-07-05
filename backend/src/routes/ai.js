@@ -41,7 +41,12 @@ router.patch('/admin/ai', requireAdmin, async (req, res) => {
     }
     const policy = await getConnectionPolicy();
     const hostErr = await validateHost(urlHost, { allowPrivate: policy.allowPrivateHosts });
-    if (hostErr) return res.status(400).json({ error: `Base URL: ${hostErr}` });
+    if (hostErr) {
+      const hint = hostErr.includes('private or reserved')
+        ? ' To use a local network address, enable "Allow private hosts" in Settings → Security.'
+        : '';
+      return res.status(400).json({ error: `Base URL: ${hostErr}.${hint}` });
+    }
   }
 
   const cfg = {
