@@ -2396,6 +2396,26 @@ export default function MessageList() {
                 </select>
               </>
             )}
+            {/* Select / cancel selection */}
+            <button
+              onClick={() => selectionMode ? clearSelection() : setSelectionModeActive(true)}
+              title={selectionMode ? t('common.cancel') : t('messageList.selectMessages')}
+              style={{
+                background: selectionMode ? 'var(--accent-dim)' : 'none',
+                border: `1px solid ${selectionMode ? 'var(--accent)' : 'transparent'}`,
+                borderRadius: 6, padding: '4px 6px',
+                color: selectionMode ? 'var(--accent)' : 'var(--text-tertiary)',
+                cursor: 'pointer', display: 'flex', alignItems: 'center',
+                transition: 'color 0.15s, border-color 0.15s, background 0.15s',
+              }}
+              onMouseEnter={e => { if (!selectionMode) { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.borderColor = 'var(--border)'; }}}
+              onMouseLeave={e => { if (!selectionMode) { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.borderColor = 'transparent'; }}}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <polyline points="9 11 12 14 22 4"/>
+              </svg>
+            </button>
           </div>
         </div>
 
