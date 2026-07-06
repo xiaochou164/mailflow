@@ -455,6 +455,24 @@ export default function MessagePane() {
       const doc = iframe.contentDocument;
       if (!doc) return;
 
+      // Some marketing emails have inline styles on their <body> tag (e.g. overflow:auto,
+      // height:100%) that the HTML parser merges into the iframe's outer <body>.  Our
+      // injected <style> with !important can't win against inline !important rules.
+      // Setting the properties via JS style.setProperty(...,'important') writes them as
+      // inline !important, which always beats any same-property inline value from the email.
+      const b = doc.body;
+      const h = doc.documentElement;
+      if (b) {
+        b.style.setProperty('height', 'auto', 'important');
+        b.style.setProperty('min-height', '0', 'important');
+        b.style.setProperty('overflow-y', 'hidden', 'important');
+      }
+      if (h) {
+        h.style.setProperty('height', 'auto', 'important');
+        h.style.setProperty('min-height', '0', 'important');
+        h.style.setProperty('overflow-y', 'hidden', 'important');
+      }
+
       // Some marketing emails (e.g. Avis) use class-based !important rules that
       // lock layout to a fixed pixel width and cannot be overridden by our injected
       // CSS. Measure the rendered content width and, if it exceeds the iframe,
@@ -467,8 +485,6 @@ export default function MessagePane() {
         // rule) to let scrollWidth reflect the true content width, then restore.
         // Note: overflow-x:visible is coerced to auto when overflow-y is non-visible —
         // that's fine; auto still returns the real scrollable content width.
-        const b = doc.body;
-        const h = doc.documentElement;
         if (b) b.style.setProperty('overflow-x', 'visible', 'important');
         if (h) h.style.setProperty('overflow-x', 'visible', 'important');
         const contentW = Math.max(
@@ -492,6 +508,40 @@ export default function MessagePane() {
         }
       }
 
+      // Expand any nested scroll containers so their full content is visible
+      // without internal scrolling. Marketing emails sometimes apply overflow:auto
+      // plus a fixed height to inner divs/tds, which makes iOS scroll that element
+      // instead of the outer pane container — leaving the sender card pinned like a
+      // sticky header.
+      //
+      // Process in REVERSE document order (deepest elements first) so that when we
+      // expand an inner scroll container, the outer container's scrollHeight already
+      // reflects the expanded child when we evaluate it — preventing missed outer
+      // containers in a single pass.
+      //
+      // expandedEls tracks which elements we've already expanded so that subsequent
+      // calls from image load handlers can re-check and grow them as lazy images add
+      // height (an element that was 1 000 px after the first pass may be 3 000 px
+      // once all images are loaded).
+      const expandedEls = new Set();
+      const dv = doc.defaultView;
+      const expandScrollContainers = () => {
+        if (!dv) return;
+        Array.from(doc.querySelectorAll('*')).reverse().forEach(el => {
+          const cs = dv.getComputedStyle(el);
+          const oy = cs.overflowY;
+          const isScrollContainer = (oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 2;
+          const grewAfterExpansion = expandedEls.has(el) && el.scrollHeight > el.clientHeight + 2;
+          if (isScrollContainer || grewAfterExpansion) {
+            expandedEls.add(el);
+            el.style.setProperty('overflow-y', 'hidden', 'important');
+            el.style.setProperty('max-height', 'none', 'important');
+            el.style.setProperty('height', el.scrollHeight + 'px', 'important');
+          }
+        });
+      };
+      expandScrollContainers();
+
       lastH = 0; // recalculate from scratch with the new scale
       setHeight();
       rafId = requestAnimationFrame(setHeight);
@@ -514,10 +564,11 @@ export default function MessagePane() {
         }
       });
 
-      // Re-measure after each lazy-loaded image settles
+      // Re-measure after each lazy-loaded image settles; also re-expand any
+      // scroll containers whose content has grown due to the newly loaded image.
       doc.querySelectorAll('img').forEach(img => {
         if (!img.complete) {
-          img.addEventListener('load',  () => requestAnimationFrame(setHeight), { once: true });
+          img.addEventListener('load', () => { expandScrollContainers(); requestAnimationFrame(setHeight); }, { once: true });
           img.addEventListener('error', () => requestAnimationFrame(setHeight), { once: true });
         }
       });
@@ -576,6 +627,7 @@ export default function MessagePane() {
       scaler.style.width           = '';
       outer.style.height    = '';
       outer.style.overflowX = '';
+      outer.style.overflowY = '';
 
       const containerW = outer.clientWidth;
       const contentW   = inner.scrollWidth; // unaffected by ancestor transforms
@@ -590,8 +642,13 @@ export default function MessagePane() {
         scaler.style.transform       = `scale(${scale})`;
         scaler.style.transformOrigin = 'top left';
         outer.style.height           = Math.round(inner.scrollHeight * scale) + 'px';
-        // Transform does not change layout width; hide the overflow in scaled mode.
+        // Transform does not change layout dimensions; hide both axes so the
+        // scaled outer wrapper is never treated as a scroll container.  Setting
+        // only overflowX would coerce overflowY from visible to auto (CSS
+        // overflow invariant), creating an accidental vertical scroll container
+        // that iOS scrolls before the outer pane's scrollContainerRef.
         outer.style.overflowX        = 'hidden';
+        outer.style.overflowY        = 'hidden';
       }
     };
 
