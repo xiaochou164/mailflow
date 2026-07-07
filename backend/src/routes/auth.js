@@ -15,29 +15,9 @@ import { logAuthEvent } from '../services/authEvents.js';
 import { sendSystemEmail } from '../services/mailer.js';
 import { invalidateGlobalCategorizationCache } from '../services/categorizer.js';
 import { redisClient } from '../services/redis.js';
+import { consume as rlConsume, reset as rlReset } from '../services/rateLimiter.js';
 
 const router = Router();
-
-// Simple in-memory rate limiter — no extra dependency required.
-// Buckets are keyed by IP; entries expire after the window elapses.
-const rateBuckets = new Map();
-// Separate per-user rate limit for the 2FA challenge step, keyed by pendingUserId.
-// Prevents TOTP brute-force from IPs that rotate to bypass the IP-based authLimiter.
-const totpChallengeBuckets = new Map();
-// Per-user rate limit for email OTP sends (3 sends per 5 min per pending user).
-const emailOtpSendBuckets = new Map();
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, bucket] of rateBuckets) {
-    if (now > bucket.resetAt) rateBuckets.delete(key);
-  }
-  for (const [key, bucket] of totpChallengeBuckets) {
-    if (now > bucket.resetAt) totpChallengeBuckets.delete(key);
-  }
-  for (const [key, bucket] of emailOtpSendBuckets) {
-    if (now > bucket.resetAt) emailOtpSendBuckets.delete(key);
-  }
-}, 5 * 60 * 1000);
 
 function maskEmail(email) {
   if (!email) return '';
@@ -86,22 +66,15 @@ async function createTrustedDevice(userId, req, res) {
 }
 
 function rateLimit(config) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const { maxRequests, windowMs } = config;
-    const key = req.ip;
-    const now = Date.now();
-    const bucket = rateBuckets.get(key);
-    if (!bucket || now > bucket.resetAt) {
-      rateBuckets.set(key, { count: 1, resetAt: now + windowMs });
-      res.locals.resetRateLimit = () => rateBuckets.delete(key);
-      return next();
-    }
-    if (bucket.count >= maxRequests) {
-      res.setHeader('Retry-After', Math.ceil((bucket.resetAt - now) / 1000));
+    const key = `auth:${req.ip}`;
+    const { limited, resetMs } = await rlConsume(key, maxRequests, windowMs);
+    if (limited) {
+      res.setHeader('Retry-After', Math.ceil(resetMs / 1000));
       return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
     }
-    bucket.count++;
-    res.locals.resetRateLimit = () => rateBuckets.delete(key);
+    res.locals.resetRateLimit = () => rlReset(key);
     next();
   };
 }
@@ -349,15 +322,10 @@ router.post('/2fa/challenge', authLimiter, async (req, res) => {
   // Per-user rate limit (5 attempts per 15 min) applied on top of the IP-based authLimiter.
   // Prevents brute-force via IP rotation during the pending TOTP window.
   const uid = req.session.pendingUserId;
-  const challBucket = totpChallengeBuckets.get(uid);
-  if (challBucket && now <= challBucket.resetAt) {
-    if (challBucket.count >= 5) {
-      res.setHeader('Retry-After', Math.ceil((challBucket.resetAt - now) / 1000));
-      return res.status(429).json({ error: 'Too many attempts. Please log in again.' });
-    }
-    challBucket.count++;
-  } else {
-    totpChallengeBuckets.set(uid, { count: 1, resetAt: now + 15 * 60 * 1000 });
+  const totpLimit = await rlConsume(`totp:${uid}`, 5, 15 * 60 * 1000);
+  if (totpLimit.limited) {
+    res.setHeader('Retry-After', Math.ceil(totpLimit.resetMs / 1000));
+    return res.status(429).json({ error: 'Too many attempts. Please log in again.' });
   }
 
   const result = await query('SELECT * FROM users WHERE id = $1', [req.session.pendingUserId]);
@@ -395,7 +363,7 @@ router.post('/2fa/challenge', authLimiter, async (req, res) => {
   imapManager.connectAllForUser(user.id);
   logAuthEvent('totp_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
   res.locals.resetRateLimit?.();
-  totpChallengeBuckets.delete(uid);
+  rlReset(`totp:${uid}`);
   res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: user.totp_enabled } });
 });
 
@@ -441,15 +409,9 @@ router.post('/2fa/send-email-otp', authLimiter, async (req, res) => {
   }
 
   const uid = req.session.pendingUserId;
-  const now = Date.now();
-  const sendBucket = emailOtpSendBuckets.get(uid);
-  if (sendBucket && now <= sendBucket.resetAt) {
-    if (sendBucket.count >= 3) {
-      return res.status(429).json({ error: 'Too many code requests. Please wait before requesting another.' });
-    }
-    sendBucket.count++;
-  } else {
-    emailOtpSendBuckets.set(uid, { count: 1, resetAt: now + 5 * 60 * 1000 });
+  const otpSend = await rlConsume(`otp-send:${uid}`, 3, 5 * 60 * 1000);
+  if (otpSend.limited) {
+    return res.status(429).json({ error: 'Too many code requests. Please wait before requesting another.' });
   }
 
   const userResult = await query('SELECT recovery_email FROM users WHERE id = $1', [uid]);
@@ -481,15 +443,10 @@ router.post('/2fa/verify-email-otp', authLimiter, async (req, res) => {
 
   const uid = req.session.pendingUserId;
   // Reuse TOTP challenge bucket for verify attempts (5 per 15 min per user)
-  const challBucket = totpChallengeBuckets.get(uid);
-  if (challBucket && now <= challBucket.resetAt) {
-    if (challBucket.count >= 5) {
-      res.setHeader('Retry-After', Math.ceil((challBucket.resetAt - now) / 1000));
-      return res.status(429).json({ error: 'Too many attempts. Please log in again.' });
-    }
-    challBucket.count++;
-  } else {
-    totpChallengeBuckets.set(uid, { count: 1, resetAt: now + 15 * 60 * 1000 });
+  const totpLimit = await rlConsume(`totp:${uid}`, 5, 15 * 60 * 1000);
+  if (totpLimit.limited) {
+    res.setHeader('Retry-After', Math.ceil(totpLimit.resetMs / 1000));
+    return res.status(429).json({ error: 'Too many attempts. Please log in again.' });
   }
 
   const codeHash = crypto.createHash('sha256').update(String(code).trim()).digest('hex');
@@ -522,7 +479,7 @@ router.post('/2fa/verify-email-otp', authLimiter, async (req, res) => {
   imapManager.connectAllForUser(user.id);
   logAuthEvent('totp_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
   res.locals.resetRateLimit?.();
-  totpChallengeBuckets.delete(uid);
+  rlReset(`totp:${uid}`);
   res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: user.totp_enabled } });
 });
 
@@ -564,15 +521,10 @@ router.post('/2fa/enrollment/enable', authLimiter, async (req, res) => {
   }
 
   const uid = req.session.pendingUserId;
-  const challBucket = totpChallengeBuckets.get(uid);
-  if (challBucket && now <= challBucket.resetAt) {
-    if (challBucket.count >= 5) {
-      res.setHeader('Retry-After', Math.ceil((challBucket.resetAt - now) / 1000));
-      return res.status(429).json({ error: 'Too many attempts. Please log in again.' });
-    }
-    challBucket.count++;
-  } else {
-    totpChallengeBuckets.set(uid, { count: 1, resetAt: now + 15 * 60 * 1000 });
+  const totpLimit = await rlConsume(`totp:${uid}`, 5, 15 * 60 * 1000);
+  if (totpLimit.limited) {
+    res.setHeader('Retry-After', Math.ceil(totpLimit.resetMs / 1000));
+    return res.status(429).json({ error: 'Too many attempts. Please log in again.' });
   }
 
   const secret = req.session.pendingTOTPSecret;
@@ -597,7 +549,7 @@ router.post('/2fa/enrollment/enable', authLimiter, async (req, res) => {
   imapManager.connectAllForUser(user.id);
   logAuthEvent('totp_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
   res.locals.resetRateLimit?.();
-  totpChallengeBuckets.delete(uid);
+  rlReset(`totp:${uid}`);
   res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: true } });
 });
 

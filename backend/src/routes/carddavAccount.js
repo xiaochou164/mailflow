@@ -43,12 +43,28 @@ router.post('/connect', async (req, res) => {
   if (!serverUrl || !username || !password) {
     return res.status(400).json({ error: 'Server URL, username, and password are required' });
   }
-  let host;
-  try { host = new URL(serverUrl).hostname; }
+  let parsed;
+  try { parsed = new URL(serverUrl); }
   catch { return res.status(400).json({ error: 'Invalid server URL' }); }
 
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return res.status(400).json({ error: 'Server URL must be http(s).' });
+  }
+
   const policy = await getConnectionPolicy();
-  const hostErr = await validateHost(host, { allowPrivate: policy.allowPrivateHosts });
+  // Require HTTPS so Basic-auth credentials aren't sent in the clear. Plaintext HTTP is
+  // permitted ONLY for a genuinely private/local address, and only when the admin has
+  // enabled private hosts — never to a public host (which would leak credentials).
+  if (parsed.protocol === 'http:') {
+    if (!policy.allowPrivateHosts) {
+      return res.status(400).json({ error: 'Server URL must use HTTPS.' });
+    }
+    const publicErr = await validateHost(parsed.hostname, { allowPrivate: false });
+    if (!publicErr) { // resolves to a public address
+      return res.status(400).json({ error: 'HTTPS is required for a public host; plaintext HTTP is only allowed for a private/local address.' });
+    }
+  }
+  const hostErr = await validateHost(parsed.hostname, { allowPrivate: policy.allowPrivateHosts });
   if (hostErr) return res.status(400).json({ error: hostErr });
 
   // Verify credentials + reachability before storing anything.

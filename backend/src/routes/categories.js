@@ -3,6 +3,7 @@ import { query } from '../services/db.js';
 import { requireAuth } from '../middleware/auth.js';
 import { invalidateSocialDomainCache, backfillCategories, aiClassifyMessage, BUILTIN_SETS } from '../services/categorizer.js';
 import { validateHost } from '../services/hostValidation.js';
+import { safeFetch } from '../services/safeFetch.js';
 
 const router = Router();
 
@@ -25,7 +26,9 @@ async function fetchDomainList(url) {
     const timer = setTimeout(() => controller.abort(), 8000);
     let res;
     try {
-      res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mailflow/1.0' } });
+      // safeFetch re-validates on every hop, so the refresh path (which doesn't
+      // re-run validateSubscriptionUrl) and any redirect can't reach internal IPs.
+      res = await safeFetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mailflow/1.0' } });
     } finally {
       clearTimeout(timer);
     }

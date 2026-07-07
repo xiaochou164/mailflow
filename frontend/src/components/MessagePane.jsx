@@ -629,6 +629,26 @@ export default function MessagePane() {
     if (!USE_DIV_RENDER || !prepared) return;
 
     let rafId = null;
+    const expandedEls = new Set();
+
+    // Neutralize nested sender-created scroll containers (overflow:auto/scroll +
+    // fixed height) so iOS scrolls the message pane instead of an inner block —
+    // the same fix the iframe renderer applies. Runs on the unscaled content and
+    // re-grows previously-expanded elements as lazy images add height.
+    const expandScrollContainers = (root) => {
+      if (!root) return;
+      Array.from(root.querySelectorAll('*')).reverse().forEach(el => {
+        const oy = window.getComputedStyle(el).overflowY;
+        const isScroll = (oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 2;
+        const grew = expandedEls.has(el) && el.scrollHeight > el.clientHeight + 2;
+        if (isScroll || grew) {
+          expandedEls.add(el);
+          el.style.setProperty('overflow-y', 'hidden', 'important');
+          el.style.setProperty('max-height', 'none', 'important');
+          el.style.setProperty('height', el.scrollHeight + 'px', 'important');
+        }
+      });
+    };
 
     const applyScale = () => {
       const inner  = innerRef.current;
@@ -645,6 +665,10 @@ export default function MessagePane() {
       outer.style.height    = '';
       outer.style.overflowX = '';
       outer.style.overflowY = '';
+
+      // Expand nested scroll containers before measuring so the outer height and
+      // scale account for their full (un-scrolled) content.
+      expandScrollContainers(inner);
 
       const containerW = outer.clientWidth;
       const contentW   = inner.scrollWidth; // unaffected by ancestor transforms

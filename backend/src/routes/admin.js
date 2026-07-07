@@ -7,6 +7,8 @@ import { decrypt, encrypt } from '../services/encryption.js';
 import { validateHost, resolveForConnection } from '../services/hostValidation.js';
 import { getConnectionPolicy, invalidateConnectionPolicyCache } from '../services/connectionPolicy.js';
 import { reloadAuthSettings } from '../services/authLimiter.js';
+import { imapManager } from '../index.js';
+import { stopCardavUser } from '../services/carddavSync.js';
 
 const router = Router();
 router.use(requireAdmin);
@@ -67,6 +69,10 @@ router.delete('/users/:id', async (req, res) => {
   }
   const target = await query('SELECT username FROM users WHERE id = $1', [id]);
   if (!target.rows.length) return res.status(404).json({ error: 'User not found' });
+  // Stop live per-user workers BEFORE the delete — disconnectUser looks up the
+  // user's accounts, which the cascade delete would remove.
+  await imapManager.disconnectUser(id).catch(err => console.warn('disconnectUser on delete:', err.message));
+  stopCardavUser(id);
   await query('DELETE FROM users WHERE id = $1', [id]);
   console.log(`[admin] ${req.session.username} deleted user ${target.rows[0].username} (${id})`);
   res.json({ ok: true });
@@ -522,6 +528,21 @@ router.post('/oidc', async (req, res) => {
   }
 });
 
+// Guard against locking everyone out: if password login is disabled, refuse to
+// disable/delete the last enabled OIDC provider. Returns an error string or null.
+async function wouldLockOut(providerId) {
+  const s = await query("SELECT value FROM system_settings WHERE key = 'internal_auth_disabled'");
+  if (s.rows[0]?.value !== 'true') return null; // password login still available
+  const others = await query(
+    'SELECT COUNT(*) AS count FROM oidc_providers WHERE enabled = true AND id <> $1',
+    [providerId]
+  );
+  if (parseInt(others.rows[0].count) === 0) {
+    return 'Cannot disable or delete the last enabled SSO provider while password login is off. Re-enable password login first.';
+  }
+  return null;
+}
+
 router.patch('/oidc/:id', async (req, res) => {
   const { id } = req.params;
   const { name, slug, issuer_url, client_id, client_secret, scopes, provisioning_mode, allowed_domains, enabled, require_email_verified, allow_insecure, admin_group_claim, admin_group_value } = req.body;
@@ -529,6 +550,12 @@ router.patch('/oidc/:id', async (req, res) => {
   const existingResult = await query('SELECT allow_insecure FROM oidc_providers WHERE id = $1', [id]);
   if (!existingResult.rows.length) return res.status(404).json({ error: 'Provider not found' });
   const existing = existingResult.rows[0];
+
+  // Block disabling the last usable auth method.
+  if (enabled === false) {
+    const lockout = await wouldLockOut(id);
+    if (lockout) return res.status(400).json({ error: lockout });
+  }
 
   if (slug && !/^[a-z0-9-]+$/.test(slug)) {
     return res.status(400).json({ error: 'Slug must contain only lowercase letters, numbers and hyphens' });
@@ -597,6 +624,8 @@ router.patch('/oidc/:id', async (req, res) => {
 });
 
 router.delete('/oidc/:id', async (req, res) => {
+  const lockout = await wouldLockOut(req.params.id);
+  if (lockout) return res.status(400).json({ error: lockout });
   await query('DELETE FROM oidc_providers WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
 });

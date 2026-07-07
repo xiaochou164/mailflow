@@ -92,6 +92,10 @@ router.post('/admin/ai/test', requireAdmin, async (req, res) => {
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
   try {
+    // Trust boundary: intentionally plain fetch, NOT safeFetch. The AI base URL is
+    // admin-configured and legitimately points at an internal/self-hosted provider
+    // (e.g. a LAN or Tailscale Ollama), which the private-host guard would block.
+    // The host is validated when saved (PATCH /admin/ai); the admin owns this URL.
     const testRes = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: 'POST',
       headers,
@@ -164,6 +168,8 @@ router.post('/ai/chat', requireAuth, async (req, res) => {
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
   try {
+    // Trust boundary: intentionally plain fetch, NOT safeFetch — see the note on the
+    // config-test call above. The admin-configured AI base URL is legitimately internal.
     const aiRes = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: 'POST',
       headers,

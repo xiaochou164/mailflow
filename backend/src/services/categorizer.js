@@ -155,6 +155,9 @@ ${snippet ? `Preview: ${snippet.slice(0, 300)}` : ''}
 Category:`;
 
   try {
+    // Trust boundary: intentionally plain fetch, NOT safeFetch. The AI base URL is
+    // admin-configured and legitimately internal (e.g. a LAN/Tailscale Ollama), which
+    // the private-host guard would block. Validated when saved via the admin AI routes.
     const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: 'POST',
       headers,

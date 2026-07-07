@@ -618,6 +618,30 @@ export class ImapManager {
         console.error('Health check error:', err.message);
       }
     }, 90000); // 90 seconds — fast enough to catch startup failures, slow enough not to spam
+
+    // Snippet-backfill scheduler: periodically resume snippet indexing for connected
+    // accounts that still have a backlog, so a large account (>10k missing snippets)
+    // keeps draining without waiting for a reconnect/restart. startSnippetIndexer caps
+    // each run and self-guards against concurrent runs, so this is a safe nudge.
+    this._snippetSchedulerTimer = setInterval(async () => {
+      try {
+        for (const accountId of this.connections.keys()) {
+          if (this.snippetIndexerRunning.has(accountId)) continue;
+          const backlog = await query(
+            "SELECT 1 FROM messages WHERE account_id = $1 AND (snippet IS NULL OR snippet = '') LIMIT 1",
+            [accountId]
+          );
+          if (!backlog.rows.length) continue;
+          const acct = await query('SELECT * FROM email_accounts WHERE id = $1', [accountId]);
+          if (!acct.rows.length) continue;
+          this.startSnippetIndexer(acct.rows[0]).catch(err =>
+            console.warn(`Scheduled snippet indexer failed for account ${accountId}:`, err.message)
+          );
+        }
+      } catch (err) {
+        console.error('Snippet scheduler error:', err.message);
+      }
+    }, 10 * 60 * 1000); // every 10 minutes
   }
 
   // Attach the three IDLE event listeners shared by both the initial connect path

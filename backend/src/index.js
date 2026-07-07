@@ -1,4 +1,5 @@
 import express from 'express';
+import 'express-async-errors'; // route a rejected async handler to the error middleware (Express 4 doesn't)
 import session from 'express-session';
 import cors from 'cors';
 import { createServer } from 'http';
@@ -153,8 +154,8 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/api/version', (_req, res) => res.json({ version: APP_VERSION, sha: process.env.BUILD_SHA || 'dev' }));
 
 // Catch unhandled errors thrown (or rejected) inside async route handlers.
-// Express 4 does not automatically forward async rejections to error middleware,
-// so without this, a thrown DB error leaves the request hanging indefinitely.
+// The `express-async-errors` import above patches Express 4 to forward async
+// rejections here; without both pieces, a thrown DB error hangs the request.
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, _next) => {
   console.error('Unhandled route error:', err);

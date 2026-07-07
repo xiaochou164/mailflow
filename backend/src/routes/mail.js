@@ -10,6 +10,7 @@ import { snippetFromBody, decodeMimeWords } from '../services/messageParser.js';
 import { resolveTrashFolder, resolveAllTrashPaths, resolveAllDraftsPaths, resolveArchiveFolder, resolveSpamFolder, resolveAllSpamPaths, getDeleteStrategy, adjustFolderCounts } from '../utils/mailUtils.js';
 import { listMessages } from '../services/messageService.js';
 import { validateHost } from '../services/hostValidation.js';
+import { safeFetch } from '../services/safeFetch.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -846,10 +847,12 @@ router.post('/messages/bulk-delete', async (req, res) => {
     // trashMoveSucceeded: moved from a non-Trash folder into Trash.
     const expungeSucceeded = [];
     const trashMoveSucceeded = []; // { msg, trashPath, newUid }
+    const accountsById = {};
 
     for (const [accountId, msgs] of Object.entries(byAccount)) {
       const accountResult = await query('SELECT * FROM email_accounts WHERE id = $1', [accountId]);
       const account = accountResult.rows[0];
+      accountsById[accountId] = account;
       const trashPath = await resolveTrashFolder(accountId, msgs[0].folder_mappings);
       const allTrashPaths = await resolveAllTrashPaths(accountId, msgs[0].folder_mappings);
       const allDraftsPaths = await resolveAllDraftsPaths(accountId, msgs[0].folder_mappings);
@@ -935,6 +938,22 @@ router.post('/messages/bulk-delete', async (req, res) => {
           ON CONFLICT (account_id, uid, folder) DO NOTHING
         `, [allIds, withUid.map(u => u.msg.id), withUid.map(u => u.newUid), trashPath]);
       }
+      // Non-UIDPLUS trash moves were deleted with no reinsert; pull each affected
+      // (account, trash folder) now so they reappear promptly instead of via IDLE.
+      const needResync = new Map(); // accountId -> Set<trashPath>
+      for (const u of trashMoveSucceeded) {
+        if (u.newUid) continue;
+        if (!needResync.has(u.msg.account_id)) needResync.set(u.msg.account_id, new Set());
+        needResync.get(u.msg.account_id).add(u.trashPath);
+      }
+      for (const [acctId, paths] of needResync) {
+        const acct = accountsById[acctId];
+        if (!acct) continue;
+        for (const tp of paths) {
+          imapManager.syncFolderOnDemand(acct, tp)
+            .catch(err => console.warn('post-trash destination sync failed:', err.message));
+        }
+      }
     }
 
     // Adjust cached folder counts.
@@ -1017,6 +1036,7 @@ router.post('/messages/bulk-move', async (req, res) => {
 
     const movedIds = [];
     const uidUpdates = [];
+    const resyncAccounts = []; // accounts whose moved msgs lacked new UIDs (non-UIDPLUS)
     for (const [accountId, msgs] of Object.entries(byAccount)) {
       // Verify the destination folder exists for this account
       const folderCheck = await query(
@@ -1033,6 +1053,7 @@ router.post('/messages/bulk-move', async (req, res) => {
       for (const msg of msgs) {
         (byFolder[msg.folder] = byFolder[msg.folder] || []).push(msg);
       }
+      let accountMissingUid = false;
       for (const [srcFolder, folderMsgs] of Object.entries(byFolder)) {
         const uidToMsg = new Map(folderMsgs.map(m => [String(m.uid), m]));
         const { uidMap, succeeded, failed } = await imapManager.bulkMoveMessages(account, folderMsgs.map(m => m.uid), srcFolder, folder);
@@ -1041,9 +1062,11 @@ router.post('/messages/bulk-move', async (req, res) => {
           movedIds.push(msg.id);
           const newUid = uidMap.get(Number(uid)) || null;
           if (newUid) uidUpdates.push({ id: msg.id, newUid });
+          else accountMissingUid = true;
         }
         for (const uid of failed) console.error(`bulk-move IMAP uid ${uid}: IMAP move failed`);
       }
+      if (accountMissingUid) resyncAccounts.push(account);
     }
 
     if (movedIds.length > 0) {
@@ -1080,6 +1103,12 @@ router.post('/messages/bulk-move', async (req, res) => {
         JOIN uid_map u ON d.id = u.src_id
         ON CONFLICT (account_id, uid, folder) DO NOTHING
       `, [movedIds, withNewUid, withNewUid.map(id => uidUpdateMap.get(id)), folder]);
+      // Messages moved on a non-UIDPLUS server were deleted with no reinsert; pull the
+      // destination folder now so they reappear promptly instead of waiting for IDLE.
+      for (const acct of resyncAccounts) {
+        imapManager.syncFolderOnDemand(acct, folder)
+          .catch(err => console.warn('post-move destination sync failed:', err.message));
+      }
       // Adjust cached counts: decrement source folders, increment the destination.
       const movedSet = new Set(movedIds);
       const srcTotals = {};
@@ -1140,6 +1169,7 @@ router.post('/messages/bulk-archive', async (req, res) => {
 
     const archivedIds = [];
     const noArchiveFolder = [];
+    const accountsById = {};
 
     for (const [accountId, msgs] of Object.entries(byAccount)) {
       const archiveFolder = await resolveArchiveFolder(accountId, msgs[0].folder_mappings);
@@ -1150,6 +1180,7 @@ router.post('/messages/bulk-archive', async (req, res) => {
 
       const accountResult = await query('SELECT * FROM email_accounts WHERE id = $1', [accountId]);
       const account = accountResult.rows[0];
+      accountsById[accountId] = account;
       const byFolder = {};
       for (const msg of msgs) {
         (byFolder[msg.folder] = byFolder[msg.folder] || []).push(msg);
@@ -1159,7 +1190,7 @@ router.post('/messages/bulk-archive', async (req, res) => {
         const { uidMap, succeeded, failed } = await imapManager.bulkMoveMessages(account, folderMsgs.map(m => m.uid), srcFolder, archiveFolder);
         for (const uid of succeeded) {
           const msg = uidToMsg.get(String(uid));
-          archivedIds.push({ id: msg.id, folder: archiveFolder, newUid: uidMap.get(Number(uid)) || null });
+          archivedIds.push({ id: msg.id, accountId, folder: archiveFolder, newUid: uidMap.get(Number(uid)) || null });
         }
         for (const uid of failed) console.error(`bulk-archive IMAP uid ${uid}: IMAP move failed`);
       }
@@ -1197,6 +1228,23 @@ router.post('/messages/bulk-archive', async (req, res) => {
         JOIN uid_map u ON d.id = u.src_id
         ON CONFLICT (account_id, uid, folder) DO NOTHING
       `, [allIds, withUid.map(e => e.id), withUid.map(e => e.newUid), archiveFolder]);
+    }
+
+    // Non-UIDPLUS archive moves were deleted with no reinsert; pull each affected
+    // (account, archive folder) now so they reappear promptly instead of via IDLE.
+    const needResync = new Map(); // accountId -> Set<archiveFolder>
+    for (const e of archivedIds) {
+      if (e.newUid) continue;
+      if (!needResync.has(e.accountId)) needResync.set(e.accountId, new Set());
+      needResync.get(e.accountId).add(e.folder);
+    }
+    for (const [acctId, paths] of needResync) {
+      const acct = accountsById[acctId];
+      if (!acct) continue;
+      for (const fp of paths) {
+        imapManager.syncFolderOnDemand(acct, fp)
+          .catch(err => console.warn('post-archive destination sync failed:', err.message));
+      }
     }
 
     // Adjust cached folder counts: use signed deltas so source and dest share one pass.
@@ -1633,7 +1681,10 @@ router.post('/messages/:id/unsubscribe', async (req, res) => {
     if (hostErr) return res.status(400).json({ error: 'Unsubscribe URL not allowed' });
 
     try {
-      const unsub = await fetch(httpsUrl, {
+      // safeFetch validates the resolved IP of the initial host AND every redirect
+      // hop, so an attacker-supplied List-Unsubscribe URL can't redirect to an
+      // internal address. (The validateHost above stays as a fast pre-check.)
+      const unsub = await safeFetch(httpsUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mailflow/1.0' },
         body: 'List-Unsubscribe=One-Click',
