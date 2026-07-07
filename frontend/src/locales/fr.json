@@ -199,6 +199,11 @@
     "summarize": "Résumer",
     "summary": "Résumé",
     "summaryDismiss": "Fermer le résumé",
+    "aiActions": "Actions IA",
+    "manageAiActions": "Gérer les actions…",
+    "aiRegenerate": "Régénérer",
+    "aiExpand": "Développer",
+    "aiCollapse": "Réduire",
     "previousMessage": "Message précédent",
     "nextMessage": "Message suivant",
     "archived": {
@@ -503,6 +508,7 @@
       "fontsAndLanguage": "Langue & Police",
       "about": "À propos",
       "ai": "Assistant IA",
+      "aiActions": "Actions IA",
       "categories": "Catégories",
       "groupAccountMail": "Compte et courrier",
       "groupDisplay": "Affichage",
@@ -939,6 +945,15 @@
       "testing": "Test en cours…",
       "notConfigured": "Aucun fournisseur IA configuré.",
       "remove": "Supprimer la configuration"
+    },
+    "aiActions": {
+      "description": "Créez vos propres actions IA. Elles apparaissent dans le menu IA lors de la lecture d'un message, à côté de Résumer. Le prompt de chaque action est appliqué au contenu du message.",
+      "aiDisabled": "L'IA n'est pas activée par votre administrateur ; ces actions ne fonctionneront pas tant qu'elle ne l'est pas.",
+      "labelPh": "Nom de l’action (par ex. Traduire en anglais)",
+      "promptPh": "Prompt envoyé à l’IA, par ex. « Traduis cet e-mail en anglais. »",
+      "remove": "Supprimer",
+      "add": "Ajouter une action",
+      "count": "{{n}} sur {{max}} actions"
     },
     "categories": {
       "title": "Catégories d’e-mails",

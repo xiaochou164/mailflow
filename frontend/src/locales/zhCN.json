@@ -199,6 +199,11 @@
     "summarize": "摘要",
     "summary": "邮件摘要",
     "summaryDismiss": "关闭摘要",
+    "aiActions": "AI 操作",
+    "manageAiActions": "管理操作…",
+    "aiRegenerate": "重新生成",
+    "aiExpand": "展开",
+    "aiCollapse": "收起",
     "previousMessage": "上一封邮件",
     "nextMessage": "下一封邮件",
     "archived": {
@@ -503,6 +508,7 @@
       "fontsAndLanguage": "语言与字体",
       "about": "关于",
       "ai": "AI 助手",
+      "aiActions": "AI 操作",
       "categories": "分类",
       "groupAccountMail": "账户与邮件",
       "groupDisplay": "显示",
@@ -939,6 +945,15 @@
       "testing": "测试中…",
       "notConfigured": "尚未配置 AI 提供商。",
       "remove": "删除配置"
+    },
+    "aiActions": {
+      "description": "创建你自己的 AI 操作。它们会在阅读邮件时出现在 AI 菜单中，与“摘要”并列。每个操作的提示词会应用于邮件内容。",
+      "aiDisabled": "管理员尚未启用 AI，因此这些操作在启用之前不会运行。",
+      "labelPh": "操作名称（例如：翻译成英文）",
+      "promptPh": "发送给 AI 的提示词，例如：“将这封邮件翻译成英文。”",
+      "remove": "删除",
+      "add": "添加操作",
+      "count": "{{n}} / {{max}} 个操作"
     },
     "categories": {
       "title": "邮件类别",

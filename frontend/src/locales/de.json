@@ -199,6 +199,11 @@
     "summarize": "Zusammenfassen",
     "summary": "Zusammenfassung",
     "summaryDismiss": "Zusammenfassung schließen",
+    "aiActions": "KI-Aktionen",
+    "manageAiActions": "Aktionen verwalten…",
+    "aiRegenerate": "Neu generieren",
+    "aiExpand": "Erweitern",
+    "aiCollapse": "Einklappen",
     "previousMessage": "Vorherige Nachricht",
     "nextMessage": "Nächste Nachricht",
     "archived": {
@@ -502,6 +507,7 @@
       "fontsAndLanguage": "Sprache & Schrift",
       "about": "Über",
       "ai": "KI-Assistent",
+      "aiActions": "KI-Aktionen",
       "categories": "Kategorien",
       "rules": "Regeln",
       "groupAccountMail": "Konto und Mail",
@@ -876,6 +882,15 @@
       "testing": "Teste…",
       "notConfigured": "Noch kein KI-Anbieter konfiguriert.",
       "remove": "Konfiguration entfernen"
+    },
+    "aiActions": {
+      "description": "Erstellen Sie eigene KI-Aktionen. Sie erscheinen beim Lesen einer Nachricht im KI-Menü neben „Zusammenfassen“. Der Prompt jeder Aktion wird auf den Nachrichteninhalt angewendet.",
+      "aiDisabled": "KI ist von Ihrem Administrator nicht aktiviert, daher werden diese Aktionen erst dann ausgeführt.",
+      "labelPh": "Aktionsname (z. B. Ins Englische übersetzen)",
+      "promptPh": "Prompt an die KI, z. B. „Übersetze diese E-Mail ins Englische.“",
+      "remove": "Entfernen",
+      "add": "Aktion hinzufügen",
+      "count": "{{n}} von {{max}} Aktionen"
     },
     "categories": {
       "title": "E-Mail-Kategorien",

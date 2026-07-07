@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../store/index.js';
+import { newAiAction, AI_ACTION_LIMITS } from '../aiActions.js';
 import { useMobile } from '../hooks/useMobile.js';
 import { api } from '../utils/api.js';
 import { THEMES, applyTheme, applyCustomCss } from '../themes.js';
@@ -3224,6 +3225,97 @@ function AISection() {
   );
 }
 
+// ─── AI Actions (user-defined custom actions, #202) ───────────────────────────
+function AiActionsTab() {
+  const { t } = useTranslation();
+  const { aiActions, setAiActions } = useStore();
+  const [items, setItems] = useState(() => (aiActions || []).map(a => ({ ...a })));
+  const [aiEnabled, setAiEnabled] = useState(null);
+
+  // Populate once when prefs finish loading, without clobbering in-progress edits.
+  useEffect(() => {
+    if (aiActions && items.length === 0) setItems(aiActions.map(a => ({ ...a })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiActions]);
+  useEffect(() => {
+    api.ai.status().then(s => setAiEnabled(!!s?.enabled)).catch(() => setAiEnabled(false));
+  }, []);
+
+  // Persist only complete, trimmed, bounded actions (mirrors the backend validation).
+  const save = (list) => setAiActions(
+    list.filter(a => a.label.trim() && a.prompt.trim())
+      .map(a => ({ id: a.id, label: a.label.trim().slice(0, AI_ACTION_LIMITS.label), prompt: a.prompt.trim().slice(0, AI_ACTION_LIMITS.prompt) }))
+  );
+
+  const addAction = () => { if (items.length < AI_ACTION_LIMITS.max) setItems([...items, newAiAction('', '')]); };
+  const updateField = (id, field, value) => setItems(items.map(a => a.id === id ? { ...a, [field]: value } : a));
+  const removeAction = (id) => { const next = items.filter(a => a.id !== id); setItems(next); save(next); };
+
+  const inputStyle = {
+    width: '100%', padding: '8px 10px', background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+    borderRadius: 6, color: 'var(--text-primary)', fontSize: 13, outline: 'none', boxSizing: 'border-box',
+  };
+
+  return (
+    <div style={{ maxWidth: 640 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
+        {t('admin.aiActions.description')}
+      </p>
+
+      {aiEnabled === false && (
+        <div style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+          {t('admin.aiActions.aiDisabled')}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {items.map((a) => (
+          <div key={a.id} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <input
+                type="text"
+                value={a.label}
+                maxLength={AI_ACTION_LIMITS.label}
+                placeholder={t('admin.aiActions.labelPh')}
+                onChange={e => updateField(a.id, 'label', e.target.value)}
+                onBlur={() => save(items)}
+                style={{ ...inputStyle, fontWeight: 500 }}
+              />
+              <button
+                onClick={() => removeAction(a.id)}
+                title={t('admin.aiActions.remove')}
+                style={{ flexShrink: 0, padding: '7px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--red)', cursor: 'pointer', fontSize: 12 }}
+              >
+                {t('admin.aiActions.remove')}
+              </button>
+            </div>
+            <textarea
+              value={a.prompt}
+              maxLength={AI_ACTION_LIMITS.prompt}
+              placeholder={t('admin.aiActions.promptPh')}
+              onChange={e => updateField(a.id, 'prompt', e.target.value)}
+              onBlur={() => save(items)}
+              rows={3}
+              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        onClick={addAction}
+        disabled={items.length >= AI_ACTION_LIMITS.max}
+        style={{ marginTop: 14, padding: '8px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 500, cursor: items.length >= AI_ACTION_LIMITS.max ? 'default' : 'pointer', opacity: items.length >= AI_ACTION_LIMITS.max ? 0.5 : 1 }}
+      >
+        {t('admin.aiActions.add')}
+      </button>
+      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-tertiary)' }}>
+        {t('admin.aiActions.count', { n: items.length, max: AI_ACTION_LIMITS.max })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Categories Section ───────────────────────────────────────────────────────
 function CategoriesSection() {
   const { t } = useTranslation();
@@ -5311,7 +5403,7 @@ function RulesAndBlockListTab({ initialSubTab }) {
 const TAB_GROUPS = [
   { id: 'account-mail', labelKey: 'admin.tabs.groupAccountMail', tabIds: ['accounts', 'notifications', 'rules', 'categories'] },
   { id: 'display', labelKey: 'admin.tabs.groupDisplay', tabIds: ['appearance', 'shortcuts'] },
-  { id: 'security-integrations', labelKey: 'admin.tabs.groupSecurityIntegrations', tabIds: ['security', 'integrations', 'ai'] },
+  { id: 'security-integrations', labelKey: 'admin.tabs.groupSecurityIntegrations', tabIds: ['security', 'integrations', 'ai', 'ai-actions'] },
   { id: 'admin', labelKey: 'admin.tabs.groupAdmin', tabIds: ['users', 'sso'] },
 ];
 
@@ -5356,6 +5448,10 @@ const TABS = [
     id: 'ai', labelKey: 'admin.tabs.ai', beta: true,
     adminOnly: true,
     icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4M19 17v4M3 5h4M17 19h4"/></svg>,
+  },
+  {
+    id: 'ai-actions', labelKey: 'admin.tabs.aiActions', beta: true,
+    icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h.01M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></svg>,
   },
   // Admin
   {
@@ -6866,6 +6962,7 @@ export default function AdminPanel() {
       {adminTab === 'notifications' && <NotificationsTab />}
       {adminTab === 'shortcuts' && !isMobile && <ShortcutsTab />}
       {adminTab === 'ai' && <AISection />}
+      {adminTab === 'ai-actions' && <AiActionsTab />}
       {adminTab === 'about' && <AboutTab />}
     </>
   );

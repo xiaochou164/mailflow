@@ -3,6 +3,7 @@ import { api } from '../utils/api.js';
 import { applyTheme, applyCustomCss } from '../themes.js';
 import { applyFontSet, applyFontSize } from '../fonts.js';
 import { applyLayout, normalizeLayout } from '../layouts.js';
+import { DEFAULT_AI_ACTIONS } from '../aiActions.js';
 import i18n from '../i18n.js';
 
 // Accumulate rapid preference changes and flush at most once per second.
@@ -486,6 +487,14 @@ export const useStore = create((set, get) => ({
     return api.savePreferences({ shortcuts: overrides }).catch(() => {});
   },
 
+  // User-defined AI actions (#202), synced across devices. Each: { id, label, prompt }.
+  // null = not yet loaded; loadPreferences seeds defaults on first run.
+  aiActions: null,
+  setAiActions: (actions) => {
+    set({ aiActions: actions });
+    return api.savePreferences({ aiActions: actions }).catch(() => {});
+  },
+
   // Hidden folders — { [accountId]: [path, ...] }
   hiddenFolders: {},
   setHiddenFolders: (hf) => {
@@ -632,6 +641,14 @@ export const useStore = create((set, get) => ({
       else if (prefs.blockRemoteImages === true) set({ blockRemoteImages: true });
       if (prefs.imageWhitelist) set({ imageWhitelist: prefs.imageWhitelist });
       if (prefs.shortcuts) set({ shortcuts: prefs.shortcuts });
+      if (Array.isArray(prefs.aiActions)) {
+        set({ aiActions: prefs.aiActions });
+      } else {
+        // First run — seed editable example actions and persist them once so the
+        // seed doesn't reappear after the user deletes them.
+        set({ aiActions: DEFAULT_AI_ACTIONS });
+        api.savePreferences({ aiActions: DEFAULT_AI_ACTIONS }).catch(() => {});
+      }
       if (prefs.hiddenFolders) set({ hiddenFolders: prefs.hiddenFolders });
       if (prefs.expandedAccounts && typeof prefs.expandedAccounts === 'object' && !Array.isArray(prefs.expandedAccounts)) {
         localStorage.setItem('mailflow_expanded_accounts', JSON.stringify(prefs.expandedAccounts));

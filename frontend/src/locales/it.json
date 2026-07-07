@@ -199,6 +199,11 @@
     "summarize": "Riassumi",
     "summary": "Riepilogo",
     "summaryDismiss": "Chiudi riepilogo",
+    "aiActions": "Azioni IA",
+    "manageAiActions": "Gestisci azioni…",
+    "aiRegenerate": "Rigenera",
+    "aiExpand": "Espandi",
+    "aiCollapse": "Comprimi",
     "previousMessage": "Messaggio precedente",
     "nextMessage": "Messaggio successivo",
     "archived": {
@@ -503,6 +508,7 @@
       "fontsAndLanguage": "Lingua e font",
       "about": "Informazioni",
       "ai": "Assistente IA",
+      "aiActions": "Azioni IA",
       "categories": "Categorie",
       "groupAccountMail": "Account e posta",
       "groupDisplay": "Schermo",
@@ -939,6 +945,15 @@
       "testing": "Test in corso…",
       "notConfigured": "Nessun provider IA configurato.",
       "remove": "Rimuovi configurazione"
+    },
+    "aiActions": {
+      "description": "Crea le tue azioni IA. Appaiono nel menu IA durante la lettura di un messaggio, accanto a Riassumi. Il prompt di ogni azione viene applicato al contenuto del messaggio.",
+      "aiDisabled": "L'IA non è abilitata dal tuo amministratore, quindi queste azioni non verranno eseguite finché non lo sarà.",
+      "labelPh": "Nome azione (es. Traduci in inglese)",
+      "promptPh": "Prompt inviato all’IA, es. «Traduci questa email in inglese.»",
+      "remove": "Rimuovi",
+      "add": "Aggiungi azione",
+      "count": "{{n}} di {{max}} azioni"
     },
     "categories": {
       "title": "Categorie email",

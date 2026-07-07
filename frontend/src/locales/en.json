@@ -199,6 +199,11 @@
     "summarize": "Summarize",
     "summary": "Summary",
     "summaryDismiss": "Dismiss summary",
+    "aiActions": "AI actions",
+    "manageAiActions": "Manage actions…",
+    "aiRegenerate": "Regenerate",
+    "aiExpand": "Expand",
+    "aiCollapse": "Collapse",
     "previousMessage": "Previous message",
     "nextMessage": "Next message",
     "archived": {
@@ -503,6 +508,7 @@
       "fontsAndLanguage": "Language & Font",
       "about": "About",
       "ai": "AI Assistant",
+      "aiActions": "AI Actions",
       "categories": "Categories",
       "groupAccountMail": "Account & Mail",
       "groupDisplay": "Display",
@@ -939,6 +945,15 @@
       "testing": "Testing…",
       "notConfigured": "No AI provider configured yet.",
       "remove": "Remove configuration"
+    },
+    "aiActions": {
+      "description": "Create your own AI actions. They appear in the AI menu when reading a message, alongside Summarize. Each action's prompt is applied to the message content.",
+      "aiDisabled": "AI is not enabled by your administrator, so these actions won't run until it is.",
+      "labelPh": "Action name (e.g. Translate to English)",
+      "promptPh": "Prompt sent to the AI, e.g. \"Translate this email into English.\"",
+      "remove": "Remove",
+      "add": "Add action",
+      "count": "{{n}} of {{max}} actions"
     },
     "categories": {
       "title": "Email Categories",

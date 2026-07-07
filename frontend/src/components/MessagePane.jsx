@@ -8,6 +8,8 @@ import { getEffectiveShortcuts, parseModKey, modCompactLabel } from '../utils/de
 import { useMobile } from '../hooks/useMobile.js';
 import { clearDeleteGuard, clearPendingDelete, setCompletedDelete, setPendingDelete } from '../utils/pendingDeletes.js';
 import { pendingMarkReadMap, completedMarkReadMap, setPending } from '../utils/pendingReads.js';
+import { BUILTIN_SUMMARIZE } from '../aiActions.js';
+import { getResults, saveResult, removeResult } from '../aiResults.js';
 const USE_DIV_RENDER = import.meta.env.VITE_EMAIL_DIV_RENDER === 'true';
 
 // Module-level regex so the spam-name heuristic isn't recompiled on every
@@ -90,6 +92,7 @@ export default function MessagePane() {
     imageWhitelist, addToImageWhitelist, blockRemoteImages, threadMessages,
     replyDefault, shortcuts, recentFolders, favoriteFolders, todoistConnected,
     categorizationEnabled, setCategoryCounts, adjustCategoryCount,
+    aiActions, setShowAdmin, setAdminTab,
   } = useStore();
 
   const isMobile = useMobile();
@@ -179,8 +182,17 @@ export default function MessagePane() {
   }, [selectedMessageId]);
 
   useEffect(() => {
-    setAiSummary(null);
-    aiSummarizeAbortRef.current?.abort();
+    // Abort any actions still streaming for the previous message.
+    Object.values(aiAbortRefs.current).forEach(c => c?.abort());
+    aiAbortRefs.current = {};
+    setShowAiMenu(false);
+    // Restore persisted results (#204) so they reappear instead of vanishing.
+    const saved = getResults(selectedMessageId);
+    const restored = {};
+    for (const [key, r] of Object.entries(saved)) {
+      restored[key] = { status: 'done', text: r.text, label: r.label };
+    }
+    setAiResults(restored);
   }, [selectedMessageId]);
 
   const allMessages = searchQuery.trim() ? searchResults : messages;
@@ -257,12 +269,17 @@ export default function MessagePane() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showTodoistModal, setShowTodoistModal] = useState(false);
   const [aiStatus, setAiStatus] = useState(null);
-  const [aiSummary, setAiSummary] = useState(null);
+  // Per-action results for the current message: { [actionKey]: { status, text, label } }.
+  // status: 'loading' | 'done' | 'error'. Restored from localStorage on message change.
+  const [aiResults, setAiResults] = useState({});
+  const [showAiMenu, setShowAiMenu] = useState(false);
   const [aiClassifying, setAiClassifying] = useState(false);
   const [unsubscribeStatus, setUnsubscribeStatus] = useState(null); // null | 'loading' | 'done' | 'error'
   const moveBtnRef = useRef(null);
   const moreMenuRef = useRef(null);
-  const aiSummarizeAbortRef = useRef(null);
+  const aiMenuRef = useRef(null);
+  // One AbortController per in-flight action, keyed by action key.
+  const aiAbortRefs = useRef({});
   const scrollContainerRef = useRef(null);
   const iframeRef = useRef(null);
   const roRef = useRef(null);
@@ -988,15 +1005,43 @@ ${bodyContent}
     win.print();
   };
 
-  const handleSummarize = async () => {
+  // Label shown on a result box for a given action key. The built-in summarize
+  // key maps to the translated "Summary"; custom actions use their label. Falls
+  // back to a stored label (so a result survives its action being deleted).
+  const aiActionLabel = useCallback((key, fallback) => {
+    if (key === BUILTIN_SUMMARIZE.id) return t('message.summary');
+    const found = (aiActions || []).find(a => a.id === key);
+    return found?.label || fallback || key;
+  }, [aiActions, t]);
+
+  // Run an AI action against the current message and stream the result into a
+  // pinned box. Cached results are shown instantly unless force=true (Regenerate).
+  const runAiAction = async (action, { force = false } = {}) => {
+    if (!action?.id) return;
+    const key = action.id;
+    setShowAiMenu(false);
+
+    // Show a cached result without re-calling the model (#204, cost-saving).
+    if (!force) {
+      if (aiResults[key]?.status === 'done') return;
+      const cached = getResults(selectedMessageId)[key];
+      if (cached) {
+        setAiResults(r => ({ ...r, [key]: { status: 'done', text: cached.text, label: cached.label } }));
+        return;
+      }
+    }
+
     const textContent = body?.text
       || body?.html?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
       || '';
     if (!textContent) return;
-    aiSummarizeAbortRef.current?.abort();
+
+    const label = aiActionLabel(key, action.label);
+    aiAbortRefs.current[key]?.abort();
     const ctrl = new AbortController();
-    aiSummarizeAbortRef.current = ctrl;
-    setAiSummary({ status: 'loading', text: '' });
+    aiAbortRefs.current[key] = ctrl;
+    const msgId = selectedMessageId;
+    setAiResults(r => ({ ...r, [key]: { status: 'loading', text: '', label } }));
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -1006,13 +1051,13 @@ ${bodyContent}
         body: JSON.stringify({
           messages: [{
             role: 'user',
-            content: `Summarize this email concisely in 2-4 sentences. Focus on the key points and any action items.\n\n${textContent.slice(0, 6000)}`,
+            content: `${action.prompt}\n\n${textContent.slice(0, 6000)}`,
           }],
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
-        setAiSummary({ status: 'error', text: err.error || res.statusText });
+        setAiResults(r => ({ ...r, [key]: { status: 'error', text: err.error || res.statusText, label } }));
         return;
       }
       const reader = res.body.getReader();
@@ -1031,16 +1076,44 @@ ${bodyContent}
           if (chunk === '[DONE]') break;
           try {
             const delta = JSON.parse(chunk)?.choices?.[0]?.delta?.content;
-            if (delta) { fullText += delta; setAiSummary({ status: 'loading', text: fullText }); }
+            if (delta) { fullText += delta; setAiResults(r => ({ ...r, [key]: { status: 'loading', text: fullText, label } })); }
           } catch { /* skip */ }
         }
       }
-      setAiSummary({ status: 'done', text: fullText || '' });
+      setAiResults(r => ({ ...r, [key]: { status: 'done', text: fullText || '', label } }));
+      // Persist only completed results, keyed to the message it ran against.
+      if (fullText) saveResult(msgId, key, fullText, label);
     } catch (err) {
       if (err.name === 'AbortError') return;
-      setAiSummary({ status: 'error', text: err.message });
+      setAiResults(r => ({ ...r, [key]: { status: 'error', text: err.message, label } }));
     }
   };
+
+  // Dismiss a pinned result box and drop its cached copy.
+  const dismissAiResult = (key) => {
+    aiAbortRefs.current[key]?.abort();
+    removeResult(selectedMessageId, key);
+    setAiResults(r => { const next = { ...r }; delete next[key]; return next; });
+  };
+
+  // A single row in the AI actions dropdown. Shows an accent dot when a result
+  // for that action already exists on the current message.
+  const renderAiItem = (key, label, onClick, opts = {}) => (
+    <div
+      key={key}
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        padding: '8px 10px', cursor: 'pointer', fontSize: 13, borderRadius: 6,
+        color: opts.muted ? 'var(--text-secondary)' : 'var(--text-primary)',
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+    >
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      {aiResults[key]?.status === 'done' && <span style={{ fontSize: 9, color: 'var(--accent)', flexShrink: 0 }}>●</span>}
+    </div>
+  );
 
   // Keep pane action refs current every render
   paneActionsRef.current = {
@@ -1077,7 +1150,7 @@ ${bodyContent}
 
   useEffect(() => {
     api.ai.status().then(setAiStatus).catch(() => {});
-    return () => { aiSummarizeAbortRef.current?.abort(); };
+    return () => { Object.values(aiAbortRefs.current).forEach(c => c?.abort()); };
   }, []);
 
   const handleDownload = async (messageId, part, filename) => {
@@ -1213,6 +1286,15 @@ ${bodyContent}
     document.addEventListener('pointerdown', onPointer);
     return () => document.removeEventListener('pointerdown', onPointer);
   }, [showMoreMenu]);
+
+  useEffect(() => {
+    if (!showAiMenu) return;
+    const onPointer = (e) => {
+      if (aiMenuRef.current && !aiMenuRef.current.contains(e.target)) setShowAiMenu(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    return () => document.removeEventListener('pointerdown', onPointer);
+  }, [showAiMenu]);
 
   const recentForMove = message
     ? recentFolders
@@ -1842,7 +1924,7 @@ ${bodyContent}
                 </div>
                 {aiStatus?.enabled && aiStatus?.features?.summarize && body && (
                   <div
-                    onClick={() => { handleSummarize(); setShowMoreMenu(false); }}
+                    onClick={() => { setShowMoreMenu(false); runAiAction(BUILTIN_SUMMARIZE); }}
                     style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', cursor: 'pointer', fontSize: 13, color: 'var(--text-primary)' }}
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -1905,13 +1987,28 @@ ${bodyContent}
               </svg>
             </PaneBtn>
             {aiStatus?.enabled && aiStatus?.features?.summarize && body && (
-              <PaneBtn onClick={handleSummarize} title={t('message.summarize')}
-                style={aiSummary ? { color: 'var(--accent)' } : {}}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-                  <path d="M5 3v4M19 17v4M3 5h4M17 19h4"/>
-                </svg>
-              </PaneBtn>
+              <div style={{ position: 'relative' }} ref={aiMenuRef}>
+                <PaneBtn onClick={() => setShowAiMenu(v => !v)} title={t('message.aiActions')}
+                  style={Object.keys(aiResults).length ? { color: 'var(--accent)' } : {}}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                    <path d="M5 3v4M19 17v4M3 5h4M17 19h4"/>
+                  </svg>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </PaneBtn>
+                {showAiMenu && (
+                  <div style={{
+                    position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 50, minWidth: 220,
+                    background: 'var(--bg-elevated, var(--bg-secondary))', border: '1px solid var(--border)',
+                    borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,0.25)', padding: 4,
+                  }}>
+                    {renderAiItem(BUILTIN_SUMMARIZE.id, t('message.summarize'), () => runAiAction(BUILTIN_SUMMARIZE))}
+                    {(aiActions || []).map(a => renderAiItem(a.id, a.label, () => runAiAction(a)))}
+                    <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0' }} />
+                    {renderAiItem('__manage', t('message.manageAiActions'), () => { setShowAiMenu(false); setAdminTab('ai-actions'); setShowAdmin(true); }, { muted: true })}
+                  </div>
+                )}
+              </div>
             )}
           </>
         )}
@@ -2138,34 +2235,23 @@ ${bodyContent}
           </div>
         )}
 
-        {/* AI summary panel */}
-        {aiSummary && (
-          <div style={{
-            marginBottom: 16,
-            padding: '12px 16px',
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            borderLeft: '3px solid var(--accent)',
-            borderRadius: 8,
-            fontSize: 13, lineHeight: 1.55, color: 'var(--text-primary)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {t('message.summary')}
-              </span>
-              <button onClick={() => setAiSummary(null)} aria-label={t('message.summaryDismiss')} style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: 'var(--text-tertiary)', padding: '2px 4px', fontSize: 14, lineHeight: 1,
-              }}>×</button>
-            </div>
-            {aiSummary.status === 'loading' && !aiSummary.text && (
-              <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>{t('compose.toolbar.aiGenerating')}</span>
-            )}
-            {aiSummary.status === 'error' ? (
-              <span style={{ color: 'var(--red)' }}>{t('compose.toolbar.aiError', { message: aiSummary.text })}</span>
-            ) : (
-              <span>{aiSummary.text}</span>
-            )}
+        {/* AI action results — pinned boxes above the message (#204) */}
+        {Object.keys(aiResults).length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+            {Object.entries(aiResults).map(([key, result]) => {
+              const action = key === BUILTIN_SUMMARIZE.id
+                ? BUILTIN_SUMMARIZE
+                : (aiActions || []).find(a => a.id === key);
+              return (
+                <AiResultBox
+                  key={key}
+                  result={result}
+                  canRegen={!!action}
+                  onRegen={() => action && runAiAction(action, { force: true })}
+                  onDismiss={() => dismissAiResult(key)}
+                />
+              );
+            })}
           </div>
         )}
 
@@ -2655,5 +2741,67 @@ function PaneBtn({ children, onClick, title, danger, style: extraStyle }) {
     >
       {children}
     </button>
+  );
+}
+
+// A pinned AI result box shown above the message (#204). Collapsible to keep
+// multiple results from crowding the view; offers regenerate and dismiss.
+function AiResultBox({ result, canRegen, onRegen, onDismiss }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const loading = result.status === 'loading';
+  const error = result.status === 'error';
+  const iconBtn = {
+    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)',
+    padding: '2px 4px', display: 'flex', alignItems: 'center', lineHeight: 1,
+  };
+  return (
+    <div style={{
+      padding: '12px 16px', background: 'var(--bg-secondary)',
+      border: '1px solid var(--border)', borderLeft: '3px solid var(--accent)',
+      borderRadius: 8, fontSize: 13, lineHeight: 1.55, color: 'var(--text-primary)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+        <span style={{
+          fontSize: 11, fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase',
+          letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {result.label}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+          {loading && (
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic', marginRight: 4 }}>
+              {t('compose.toolbar.aiGenerating')}
+            </span>
+          )}
+          {canRegen && !loading && (
+            <button onClick={onRegen} title={t('message.aiRegenerate')} aria-label={t('message.aiRegenerate')} style={iconBtn}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+              </svg>
+            </button>
+          )}
+          {!error && !loading && (
+            <button onClick={() => setExpanded(v => !v)} title={expanded ? t('message.aiCollapse') : t('message.aiExpand')} aria-label={expanded ? t('message.aiCollapse') : t('message.aiExpand')} style={iconBtn}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+          )}
+          <button onClick={onDismiss} aria-label={t('message.summaryDismiss')} style={{ ...iconBtn, fontSize: 14 }}>×</button>
+        </div>
+      </div>
+      {loading && !result.text ? (
+        <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic' }}>{t('compose.toolbar.aiGenerating')}</span>
+      ) : error ? (
+        <span style={{ color: 'var(--red)' }}>{t('compose.toolbar.aiError', { message: result.text })}</span>
+      ) : (
+        <div style={{ maxHeight: expanded ? 'none' : 220, overflowY: expanded ? 'visible' : 'auto', whiteSpace: 'pre-wrap' }}>
+          {result.text}
+        </div>
+      )}
+    </div>
   );
 }
