@@ -2773,7 +2773,7 @@ export default function MessageList() {
           onScroll={handleScroll}
           onKeyDown={handleListKeyDown}
           tabIndex={0}
-          style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden', outline: 'none' }}
+          style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden', outline: 'none', overscrollBehavior: 'contain' }}
         >
           {/* Pull-to-refresh indicator */}
           {isMobile && (

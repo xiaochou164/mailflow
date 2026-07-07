@@ -58,6 +58,12 @@ html, body, #root {
      on iOS Safari. Nested overflow:hidden on inner containers is not enough —
      iOS WebKit can still scroll the document itself. */
   overflow-x: hidden;
+  /* Disable the browser's native overscroll actions app-wide: Chrome Android
+     pull-to-refresh and horizontal back/forward swipe-navigation. Without this,
+     a mobile row swipe (e.g. swipe-to-archive) can be hijacked by the browser
+     and reload the page mid-gesture — which cancels the deferred archive request
+     and leaves the message unarchived. The app provides its own pull-to-refresh. */
+  overscroll-behavior: none;
 }
 
 body, #root {
