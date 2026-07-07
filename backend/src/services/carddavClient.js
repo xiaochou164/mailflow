@@ -8,6 +8,7 @@
 
 import { XMLParser } from 'fast-xml-parser';
 import { validateHost } from './hostValidation.js';
+import { safeFetch } from './safeFetch.js';
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -40,10 +41,12 @@ async function dav(method, url, { username, password, depth, body, allowPrivate 
   if (depth != null) headers.Depth = String(depth);
   let res;
   try {
-    res = await fetch(url, { method, headers, body, redirect: 'follow', signal: AbortSignal.timeout(30000) });
+    // safeFetch validates every redirect hop's IP (well-known discovery relies on
+    // the server's 301 redirect), honouring the admin private-host policy.
+    res = await safeFetch(url, { method, headers, body, redirect: 'follow', signal: AbortSignal.timeout(30000) }, { allowPrivate });
   } catch (err) {
-    if (err.name === 'TimeoutError') throw new Error('CardDAV server did not respond (timed out)');
-    throw new Error(`Could not reach the CardDAV server: ${err.message}`);
+    if (err.name === 'TimeoutError') throw new Error('CardDAV server did not respond (timed out)', { cause: err });
+    throw new Error(`Could not reach the CardDAV server: ${err.message}`, { cause: err });
   }
   if (res.status === 401) throw new Error('Authentication failed — check the username and app password');
   if (!res.ok && res.status !== 207) {
