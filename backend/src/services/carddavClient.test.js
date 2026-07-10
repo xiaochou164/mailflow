@@ -70,6 +70,21 @@ describe('parseAddressBooks', () => {
 });
 
 describe('parseCards', () => {
+  it('rejects a truncated address-book response', () => {
+    const xml = `<d:multistatus xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav">
+  <d:response><d:href>/dav/c/uid1.vcf</d:href>
+    <d:propstat><d:prop><card:address-data>BEGIN:VCARD
+UID:uid1
+FN:Jane Doe
+END:VCARD</card:address-data></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat>
+  </d:response>
+  <d:response><d:href>/dav/c/</d:href><d:status>HTTP/1.1 507 Insufficient Storage</d:status>
+    <d:error><d:number-of-matches-within-limits/></d:error></d:response>
+</d:multistatus>`;
+    expect(() => parseCards(xml, BASE))
+      .toThrow('CardDAV server returned a truncated address book response');
+  });
+
   it('extracts vCards + etags and skips entries without address-data', () => {
     const xml = `<d:multistatus xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav">
   <d:response>
