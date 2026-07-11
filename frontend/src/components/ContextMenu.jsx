@@ -85,16 +85,22 @@ export default function ContextMenu({ x, y, message, onClose, onAction, defaultM
     }
   };
 
-  // Close on outside click or Escape
+  // Close on outside click or Escape. Uses the CAPTURE phase plus a ref-contains check
+  // rather than a bubble-phase document click: list rows call stopPropagation() on their
+  // click, which prevents a bubble-phase document handler from ever firing, so clicking an
+  // empty area of the message list left the menu stuck open. Capture fires top-down before
+  // any stopPropagation, so a click anywhere outside the menu dismisses it.
   useEffect(() => {
-    const handleClick = () => onClose();
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) onClose();
+    };
     const handleKey = e => { if (e.key === 'Escape') onClose(); };
     setTimeout(() => {
-      document.addEventListener('click', handleClick);
+      document.addEventListener('click', handleClick, true);
       document.addEventListener('keydown', handleKey);
     }, 0);
     return () => {
-      document.removeEventListener('click', handleClick);
+      document.removeEventListener('click', handleClick, true);
       document.removeEventListener('keydown', handleKey);
     };
   }, [onClose]);
