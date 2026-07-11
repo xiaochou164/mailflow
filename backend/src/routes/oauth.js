@@ -318,16 +318,23 @@ async function doRefreshMicrosoftToken(account) {
   const storedRefreshToken = decrypt(account.oauth_refresh_token);
   if (!storedRefreshToken) throw new Error('OAuth refresh token is missing or corrupted — please reconnect your account');
 
+  // Device-code / public-client setups have no client secret. Including an absent secret
+  // would serialize as "client_secret=undefined", which Microsoft rejects (AADSTS7000215),
+  // so the account would connect fine and then break ~1h later when the first refresh runs.
+  // The device init/poll requests already omit it; only send it for confidential (auth-code)
+  // clients. AAD ignores an unnecessary secret for a public client if one is ever present.
+  const refreshParams = new URLSearchParams({
+    client_id: clientId,
+    refresh_token: storedRefreshToken,
+    grant_type: 'refresh_token',
+    scope: 'https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send offline_access',
+  });
+  if (clientSecret) refreshParams.set('client_secret', clientSecret);
+
   const tokenRes = await fetch(`${MICROSOFT_AUTH_URL}/${tenantId}/oauth2/v2.0/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: storedRefreshToken,
-      grant_type: 'refresh_token',
-      scope: 'https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send offline_access',
-    }),
+    body: refreshParams,
     signal: AbortSignal.timeout(10000),
   });
 
