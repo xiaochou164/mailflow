@@ -903,7 +903,7 @@
       "globalEnabled": "Kategorisierung global aktivieren",
       "globalEnabledDesc": "Aktiviert Kategorie-Tabs für alle Konten, einschließlich des gemeinsamen Posteingangs.",
       "sourcesTitle": "Quellen für die Social-Kategorie",
-      "sourcesDesc": "Absenderdomänen oder E-Mail-Adressen als Sozial klassifizieren. Vordefinierte Sets und URL-Abonnements sind ebenfalls verfügbar.",
+      "sourcesDesc": "Nur die Kategorie „Sozial“ wird über Domänen festgelegt. Absenderdomänen oder E-Mail-Adressen als Sozial klassifizieren — vordefinierte Sets und URL-Abonnements funktionieren ebenfalls. Die übrigen Kategorien werden automatisch anhand der E-Mail-Header erkannt und können nicht per Domäne zugeordnet werden.",
       "addManualPh": "z.B. twitter.com",
       "addBtn": "Hinzufügen",
       "urlSubPh": "https://example.com/social-domains.txt",

@@ -970,7 +970,7 @@
       "globalEnabled": "Abilita categorizzazione globalmente",
       "globalEnabledDesc": "Abilita le schede di categoria per tutti gli account, inclusa la casella unificata.",
       "sourcesTitle": "Fonti della categoria Social",
-      "sourcesDesc": "Aggiungi domini o indirizzi email da classificare come Social. Sono disponibili anche set integrati e iscrizioni URL.",
+      "sourcesDesc": "Solo la categoria Social si imposta tramite domini. Aggiungi domini o indirizzi email da classificare come Social — sono disponibili anche set integrati e iscrizioni URL. Le altre categorie vengono rilevate automaticamente dagli header delle email e non possono essere mappate per dominio.",
       "addManualPh": "ad es. twitter.com",
       "addBtn": "Aggiungi",
       "urlSubPh": "https://example.com/social-domains.txt",

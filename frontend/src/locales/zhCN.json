@@ -970,7 +970,7 @@
       "globalEnabled": "全局启用分类",
       "globalEnabledDesc": "为所有账户（包括统一收件箱）启用类别选项卡。",
       "sourcesTitle": "社交类别来源",
-      "sourcesDesc": "添加发件人域名或地址以归类为社交。还可使用内置合集和URL订阅。",
+      "sourcesDesc": "只有「社交」类别通过域名设置。添加发件人域名或地址以归类为社交，也可使用内置合集和 URL 订阅。其他类别会根据邮件头自动识别，无法按域名映射。",
       "addManualPh": "例如 twitter.com",
       "addBtn": "添加",
       "urlSubPh": "https://example.com/social-domains.txt",

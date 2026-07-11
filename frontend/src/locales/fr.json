@@ -970,7 +970,7 @@
       "globalEnabled": "Activer la catégorisation globalement",
       "globalEnabledDesc": "Active les onglets de catégories pour tous les comptes, y compris la boîte de réception unifiée.",
       "sourcesTitle": "Sources de la catégorie Social",
-      "sourcesDesc": "Ajoutez des domaines ou adresses e-mail à classer comme Social. Des ensembles intégrés et des abonnements URL sont aussi disponibles.",
+      "sourcesDesc": "Seule la catégorie Social se configure par domaines. Ajoutez des domaines ou adresses e-mail à classer comme Social — des ensembles intégrés et des abonnements URL sont aussi disponibles. Les autres catégories sont détectées automatiquement à partir des en-têtes des e-mails et ne peuvent pas être associées par domaine.",
       "addManualPh": "ex. twitter.com",
       "addBtn": "Ajouter",
       "urlSubPh": "https://example.com/social-domains.txt",

@@ -970,7 +970,7 @@
       "globalEnabled": "Activar categorización globalmente",
       "globalEnabledDesc": "Habilita las pestañas de categorías para todas las cuentas, incluida la bandeja unificada.",
       "sourcesTitle": "Fuentes de la categoría Social",
-      "sourcesDesc": "Agrega dominios o correos para clasificar como Social. También puedes usar conjuntos integrados y suscripciones URL.",
+      "sourcesDesc": "Solo la categoría Social se configura por dominios. Agrega dominios o correos para clasificar como Social — también puedes usar conjuntos integrados y suscripciones URL. Las demás categorías se detectan automáticamente a partir de los encabezados del correo y no pueden asignarse por dominio.",
       "addManualPh": "ej. twitter.com",
       "addBtn": "Agregar",
       "urlSubPh": "https://example.com/social-domains.txt",
