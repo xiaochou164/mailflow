@@ -538,20 +538,14 @@ export default function ContactsPage() {
 function ContactDetail({ contact: c, confirmDelete, saving, error, onEdit, onDeleteRequest, onDeleteConfirm, onDeleteCancel, t }) {
   return (
     <div style={{ width: '100%', maxWidth: 560, position: 'relative', animation: 'pane-fade-in var(--motion-normal) var(--ease-emphasized) both' }}>
-      {/* Out of flow — top-right of this container, unaffected by any content changes */}
-      <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', gap: 8 }}>
-        {c.read_only ? (
-          <span style={{ fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
-            {t('contacts.carddavBadge')}
-          </span>
-        ) : (
-          <>
-            <ActionBtn onClick={onEdit}>{t('common.edit')}</ActionBtn>
-            <ActionBtn onClick={onDeleteRequest} danger>{t('common.delete')}</ActionBtn>
-          </>
-        )}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, marginBottom: 28, paddingRight: 128 }}>
+      {/* Edit/Delete for editable contacts — out of flow, top-right (fixed width). */}
+      {!c.read_only && (
+        <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', gap: 8 }}>
+          <ActionBtn onClick={onEdit}>{t('common.edit')}</ActionBtn>
+          <ActionBtn onClick={onDeleteRequest} danger>{t('common.delete')}</ActionBtn>
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, marginBottom: 28, paddingRight: c.read_only ? 0 : 128 }}>
         <Avatar name={c.display_name} email={c.primary_email} size={60} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -559,6 +553,13 @@ function ContactDetail({ contact: c, confirmDelete, saving, error, onEdit, onDel
           </h2>
           {c.organization && (
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 2 }}>{c.organization}</div>
+          )}
+          {/* CardDAV badge sits in flow below the name so it can never overlap it, whatever
+              the badge's translated width. */}
+          {c.read_only && (
+            <span style={{ display: 'inline-block', marginTop: 6, fontSize: 11, padding: '4px 10px', borderRadius: 100, background: 'var(--bg-tertiary)', color: 'var(--text-tertiary)', border: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
+              {t('contacts.carddavBadge')}
+            </span>
           )}
           {c.is_auto && (
             <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>{t('contacts.autoHint')}</div>
@@ -590,12 +591,12 @@ function ContactDetail({ contact: c, confirmDelete, saving, error, onEdit, onDel
       {((c.emails?.length > 0) || (c.phones?.length > 0) || c.notes) && (
         <DetailSection>
           {(c.emails || []).map((e, i) => (
-            <DetailRow key={i} label={t(`contacts.emailTypes.${e.type || 'other'}`)}>
+            <DetailRow key={i} label={t(`contacts.emailTypes.${e.type || 'other'}`, { defaultValue: t('contacts.emailTypes.other') })}>
               <a href={`mailto:${e.value}`} style={{ color: 'var(--accent)', textDecoration: 'none' }}>{e.value}</a>
             </DetailRow>
           ))}
           {(c.phones || []).map((p, i) => (
-            <DetailRow key={i} label={t(`contacts.phoneTypes.${p.type || 'other'}`)}>
+            <DetailRow key={i} label={t(`contacts.phoneTypes.${p.type === 'cell' || p.type === 'iphone' ? 'mobile' : (p.type || 'other')}`, { defaultValue: t('contacts.phoneTypes.other') })}>
               <a href={`tel:${p.value}`} style={{ color: 'var(--text-primary)', textDecoration: 'none' }}>{p.value}</a>
             </DetailRow>
           ))}
