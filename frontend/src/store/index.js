@@ -72,19 +72,31 @@ export const useStore = create((set, get) => ({
   setSelectedAccount: (accountId, folder = 'INBOX') => {
     localStorage.setItem('mailflow_selected_account', accountId ?? '');
     localStorage.setItem('mailflow_selected_folder', folder);
-    return set(state => ({
-    selectedAccountId: accountId,
-    selectedFolder: folder,
-    selectedMessageId: null,
-    messages: [],
-    messagesOffset: 0,
-    hasMoreMessages: true,
-    messagesRefreshToken: state.messagesRefreshToken + 1,
-    expandedThreadId: null,
-    threadMessages: {},
-    showContacts: false,
-  }));
+    return set(state => {
+      // #221: auto-close a folder-scoped search when navigating to a different
+      // folder/account. A scoped search (a specific account with "Search all folders"
+      // off) targets the current folder, so its results are stale once you leave it;
+      // an all-folders search spans everything and is left intact. Clearing only
+      // searchQuery lets the search effect tear down the rest of the search state,
+      // exactly like the in-box clear (X) button does.
+      const navChanged = state.selectedAccountId !== accountId || state.selectedFolder !== folder;
+      const wasScopedSearch = !!state.selectedAccountId && !state.searchAllFolders && !!state.searchQuery.trim();
+      return {
+        selectedAccountId: accountId,
+        selectedFolder: folder,
+        selectedMessageId: null,
+        messages: [],
+        messagesOffset: 0,
+        hasMoreMessages: true,
+        messagesRefreshToken: state.messagesRefreshToken + 1,
+        expandedThreadId: null,
+        threadMessages: {},
+        showContacts: false,
+        ...(navChanged && wasScopedSearch ? { searchQuery: '' } : {}),
+      };
+    });
   },
+
 
   // Messages
   messages: [],
