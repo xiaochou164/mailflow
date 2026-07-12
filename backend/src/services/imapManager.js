@@ -395,6 +395,9 @@ function safeDate(d) {
 // skipFolderPatterns:  folder path substrings to skip during backfill (label-view dedup).
 // skipFolderNames:     exact folder paths to skip (non-selectable namespace containers).
 // batchSize/Delay/errorDelay/batchesPerConn: backfill rate-limit tuning.
+// connectStaggerMs:     base gap between successive account connects at startup, to keep the
+//                       initial burst under a provider's per-IP connection rate limit.
+//                       Omitted → 200ms default. See connectStaggerFor(). (#218)
 const PROVIDERS = {
   google: {
     // Large batches, short delay: Gmail only throttles BODY[] not envelope/flags/uid.
@@ -455,6 +458,7 @@ const PROVIDERS = {
     //   usesIdle:false          — new mail IDLE is unreliable on the observed account; fresh
     //                             poll sync is the source of truth for notifications.
     batchSize: 100, batchDelay: 1500, errorDelay: 15000, batchesPerConn: 15,
+    connectStaggerMs: 1200, // connection-sensitive — space initial connects wide (#218)
     fetchBody: false,
     usesIdle: false,
     pushesFlags: false,
@@ -473,6 +477,7 @@ const PROVIDERS = {
   },
   generic: {
     batchSize: 100, batchDelay: 1500, errorDelay: 15000, batchesPerConn: 15,
+    connectStaggerMs: 500, // unknown provider — moderate connect spacing (#218)
     fetchBody: false,
     pushesFlags: true,
     snippetIndex: true,
@@ -496,6 +501,18 @@ export function effectiveSyncIntervalMs(account, requestedMs) {
   const profile = providerProfile(account);
   if (profile.maxSyncIntervalMs) return Math.min(requestedMs, profile.maxSyncIntervalMs);
   return requestedMs;
+}
+
+// Delay before each successive account connect at startup, to keep the initial burst under a
+// provider's per-IP connection rate limit. The base is per-provider (wide for connection-
+// sensitive providers like PurelyMail, 200ms otherwise) and scales up with how many accounts
+// are being connected — so a large fleet paces slower — capped at 2x so startup stays bounded.
+// This is proactive pacing; the reactive connectCooldownMs backoff still handles a provider
+// that refuses despite the spacing. (#218)
+export function connectStaggerFor(profile, accountCount) {
+  const base = profile?.connectStaggerMs ?? 200;
+  const factor = Math.min(1 + Math.max(accountCount, 0) / 25, 2);
+  return Math.round(base * factor);
 }
 
 // Per-account connection pool for body fetches — avoids TLS handshake on every click
@@ -4229,17 +4246,21 @@ export class ImapManager {
       'SELECT * FROM email_accounts WHERE user_id = $1 AND enabled = true AND protocol = $2',
       [userId, 'imap']
     );
+    // Space out initial connects to stay under per-IP connection rate limits — wider for strict
+    // providers (PurelyMail) and scaled by account count, so a large fleet doesn't storm the
+    // server and trip an IP ban / account lock. (#218)
+    // Skip accounts already connected OR mid-connect (e.g. via the health check).
+    const eligible = result.rows.filter(a =>
+      !this.connections.has(a.id) && !this.connectingAccounts.has(a.id));
     let delay = 0;
-    for (const account of result.rows) {
-      // Skip if already connected OR already in the process of connecting (e.g. health check)
-      if (this.connections.has(account.id) || this.connectingAccounts.has(account.id)) continue;
+    for (const account of eligible) {
       setTimeout(
         () => this.connectAccount(account).catch(err =>
           console.error(`Auto-connect failed for ${logAccount(account)}:`, err.message)
         ),
         delay,
       );
-      delay += 200;
+      delay += connectStaggerFor(providerProfile(account), eligible.length);
     }
   }
 }

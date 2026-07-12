@@ -10,7 +10,7 @@ vi.mock('./pushNotifications.js', () => ({ sendPushToUser: vi.fn() }));
 vi.mock('../utils/redact.js', () => ({ redactEmail: vi.fn() }));
 vi.mock('./hostValidation.js', () => ({ resolveForConnection: vi.fn() }));
 
-import { providerProfile, makeClientCfg, createKeyedSemaphore, isConnectionRefusal, connectCooldownMs, effectiveSyncIntervalMs, planModseqSync } from './imapManager.js';
+import { providerProfile, makeClientCfg, createKeyedSemaphore, isConnectionRefusal, connectCooldownMs, effectiveSyncIntervalMs, planModseqSync, connectStaggerFor } from './imapManager.js';
 
 const account = (imap_host, oauth_provider = null) => ({ imap_host, oauth_provider });
 
@@ -345,6 +345,32 @@ describe('effectiveSyncIntervalMs', () => {
   it('passes the requested interval through for providers without a cap', () => {
     expect(effectiveSyncIntervalMs(account('imap.fastmail.com'), 60000)).toBe(60000);
     expect(effectiveSyncIntervalMs(account('imap.gmail.com'), 120000)).toBe(120000);
+  });
+});
+
+// ── connectStaggerFor — initial connect pacing (#218) ─────────────────────────
+
+describe('connectStaggerFor', () => {
+  it('spaces a connection-sensitive provider (PurelyMail) wider than a lenient one (Gmail)', () => {
+    const pm = providerProfile(account('imap.purelymail.com'));
+    const gmail = providerProfile(account('imap.gmail.com'));
+    expect(connectStaggerFor(pm, 1)).toBeGreaterThan(connectStaggerFor(gmail, 1));
+  });
+
+  it('widens the gap as account count grows, capped at 2x the base', () => {
+    const pm = providerProfile(account('imap.purelymail.com'));
+    expect(connectStaggerFor(pm, 100)).toBeGreaterThan(connectStaggerFor(pm, 1));
+    expect(connectStaggerFor(pm, 100)).toBe(2400); // 1200 base x capped factor 2
+  });
+
+  it('defaults to a 200ms base for providers without an explicit stagger (Gmail)', () => {
+    const gmail = providerProfile(account('imap.gmail.com'));
+    expect(connectStaggerFor(gmail, 1)).toBe(208); // 200 x (1 + 1/25)
+  });
+
+  it('never drops below the base for an empty account list', () => {
+    const pm = providerProfile(account('imap.purelymail.com'));
+    expect(connectStaggerFor(pm, 0)).toBe(1200);
   });
 });
 
