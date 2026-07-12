@@ -4252,15 +4252,25 @@ export class ImapManager {
     // Skip accounts already connected OR mid-connect (e.g. via the health check).
     const eligible = result.rows.filter(a =>
       !this.connections.has(a.id) && !this.connectingAccounts.has(a.id));
-    let delay = 0;
-    for (const account of eligible) {
-      setTimeout(
-        () => this.connectAccount(account).catch(err =>
-          console.error(`Auto-connect failed for ${logAccount(account)}:`, err.message)
-        ),
-        delay,
-      );
-      delay += connectStaggerFor(providerProfile(account), eligible.length);
+    if (eligible.length) {
+      const staggers = eligible.map(a => connectStaggerFor(providerProfile(a), eligible.length));
+      const min = Math.min(...staggers), max = Math.max(...staggers);
+      const totalMs = staggers.reduce((sum, v) => sum + v, 0);
+      const range = min === max ? `${min}ms` : `${min}-${max}ms`;
+      // Soak diagnostic (#218): shows the pacing at a glance so you don't have to infer it
+      // from the gaps between the per-account "Connecting …" lines.
+      console.log(`Auto-connecting ${eligible.length} account(s): connect stagger ${range}, ~${Math.round(totalMs / 1000)}s total spread`);
+      let delay = 0;
+      for (let i = 0; i < eligible.length; i++) {
+        const account = eligible[i];
+        setTimeout(
+          () => this.connectAccount(account).catch(err =>
+            console.error(`Auto-connect failed for ${logAccount(account)}:`, err.message)
+          ),
+          delay,
+        );
+        delay += staggers[i];
+      }
     }
   }
 }
