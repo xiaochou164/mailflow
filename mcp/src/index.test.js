@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   TOOL_PERMISSIONS,
+  allowedHosts,
   bearerToken,
   createServer,
   toolError,
@@ -18,6 +19,26 @@ test('bearerToken extracts a trimmed bearer token only', () => {
   assert.equal(bearerToken({ headers: { authorization: 'bearer   mf_sk_test   ' } }), 'mf_sk_test');
   assert.equal(bearerToken({ headers: { authorization: 'Basic nope' } }), null);
   assert.equal(bearerToken({ headers: {} }), null);
+});
+
+test('allowedHosts includes configured public origins and explicit hosts', () => {
+  const oldAppUrl = process.env.APP_URL;
+  const oldPublicOrigin = process.env.MCP_PUBLIC_ORIGIN;
+  const oldAllowedHosts = process.env.MCP_ALLOWED_HOSTS;
+  process.env.APP_URL = 'https://admin.mail.sundays.ink';
+  process.env.MCP_PUBLIC_ORIGIN = 'https://mail.example.test:8443';
+  process.env.MCP_ALLOWED_HOSTS = 'custom.example.test, extra.example.test:9443';
+
+  try {
+    assert.equal(allowedHosts().includes('admin.mail.sundays.ink'), true);
+    assert.equal(allowedHosts().includes('mail.example.test:8443'), true);
+    assert.equal(allowedHosts().includes('custom.example.test'), true);
+    assert.equal(allowedHosts().includes('localhost:3001'), true);
+  } finally {
+    process.env.APP_URL = oldAppUrl;
+    process.env.MCP_PUBLIC_ORIGIN = oldPublicOrigin;
+    process.env.MCP_ALLOWED_HOSTS = oldAllowedHosts;
+  }
 });
 
 test('createServer registers only tools allowed by granted permissions', async () => {

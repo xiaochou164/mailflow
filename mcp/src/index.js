@@ -7,6 +7,7 @@ import * as z from 'zod/v4';
 const PORT = Number(process.env.PORT) || 3001;
 const API_BASE_URL = (process.env.MAILFLOW_API_BASE_URL || 'http://backend:3000/api/v1').replace(/\/+$/, '');
 const PUBLIC_ORIGIN = (process.env.MCP_PUBLIC_ORIGIN || process.env.APP_URL || '').replace(/\/+$/, '');
+const DEFAULT_ALLOWED_HOSTS = ['localhost', 'localhost:3001', '127.0.0.1', '127.0.0.1:3001'];
 const CHATGPT_TOOL_NAMES = new Set([
   'list_accounts',
   'search_email',
@@ -25,6 +26,29 @@ function publicOrigin(req) {
 
 function resourceMetadataUrl(req) {
   return `${publicOrigin(req)}/.well-known/oauth-protected-resource`;
+}
+
+function hostValuesFromUrl(value) {
+  if (!value) return [];
+  try {
+    const url = new URL(value);
+    return [...new Set([url.hostname, url.host])];
+  } catch {
+    return [];
+  }
+}
+
+export function allowedHosts() {
+  const configured = String(process.env.MCP_ALLOWED_HOSTS || '')
+    .split(',')
+    .map(host => host.trim())
+    .filter(Boolean);
+  return [...new Set([
+    ...DEFAULT_ALLOWED_HOSTS,
+    ...hostValuesFromUrl(process.env.APP_URL),
+    ...hostValuesFromUrl(process.env.MCP_PUBLIC_ORIGIN),
+    ...configured,
+  ])];
 }
 
 export function bearerToken(req) {
@@ -616,7 +640,7 @@ export function createServer(token, permissions, options = {}) {
 }
 
 export function createApp() {
-  const app = createMcpExpressApp();
+  const app = createMcpExpressApp({ allowedHosts: allowedHosts() });
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 

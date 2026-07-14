@@ -111,6 +111,21 @@ environment:
 ```env
 APP_URL=https://mail_admin.sundays.ink
 MCP_PUBLIC_ORIGIN=https://mail_admin.sundays.ink
+MCP_ALLOWED_HOSTS=mail_admin.sundays.ink
+```
+
+如果你使用别名域名，例如：
+
+```text
+https://admin.mail.sundays.ink/mcp
+```
+
+则需要：
+
+```env
+APP_URL=https://admin.mail.sundays.ink
+MCP_PUBLIC_ORIGIN=https://admin.mail.sundays.ink
+MCP_ALLOWED_HOSTS=admin.mail.sundays.ink
 ```
 
 ## 6. Nginx 反向代理
@@ -171,6 +186,15 @@ location = /.well-known/oauth-authorization-server {
 ```
 
 因为 frontend nginx 已负责 `/mcp`、`/oauth/`、`/.well-known/oauth-*` 的内部转发，所以 Caddy 不需要额外路径规则。
+
+如果服务器外面还有一层宿主机 nginx，必须确保下面路径都反代到 MailFlow frontend 容器，而不是被宿主机 nginx 自己处理：
+
+```nginx
+location = /mcp { proxy_pass http://127.0.0.1:8089; }
+location /oauth/ { proxy_pass http://127.0.0.1:8089; }
+location = /.well-known/oauth-protected-resource { proxy_pass http://127.0.0.1:8089; }
+location = /.well-known/oauth-authorization-server { proxy_pass http://127.0.0.1:8089; }
+```
 
 ## 8. 数据库迁移
 
