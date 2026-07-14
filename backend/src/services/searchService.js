@@ -62,7 +62,7 @@ export function trashFolderExclusionCondition() {
       )`;
 }
 
-export async function searchMessages({ userId, q, accountId, folder = '', limit = 50, offset = 0 }) {
+export async function searchMessages({ userId, q, accountId, folder = '', limit = 50, offset = 0, accountIds = [], folders = [] }) {
   const trimmed = (q || '').trim();
   if (!trimmed) return { messages: [], query: q || '' };
   if (trimmed.length > 500) {
@@ -76,9 +76,16 @@ export async function searchMessages({ userId, q, accountId, folder = '', limit 
   const userAccountIds = accountsResult.rows.map(row => row.id);
   if (!userAccountIds.length) return { messages: [], query: trimmed };
 
-  const targetIds = accountId && userAccountIds.includes(accountId)
-    ? [accountId]
+  const scopedAccountIds = Array.isArray(accountIds) && accountIds.length
+    ? userAccountIds.filter(id => accountIds.includes(id))
     : userAccountIds;
+  if (!scopedAccountIds.length) return { messages: [], query: trimmed };
+
+  const targetIds = accountId && scopedAccountIds.includes(accountId)
+    ? [accountId]
+    : (accountId ? [] : scopedAccountIds);
+  if (!targetIds.length) return { messages: [], query: trimmed };
+
   const cap = Math.max(1, Math.min(parseInt(limit) || 50, 200));
   const { filters, terms } = parseSearchQuery(trimmed);
   const conditions = [];
@@ -140,7 +147,9 @@ export async function searchMessages({ userId, q, accountId, folder = '', limit 
   if (!conditions.length) return { messages: [], query: trimmed };
 
   const { folderScope, folderFuzzy } = resolveSearchFolderScope(filters, folder);
+  const scopedFolders = Array.isArray(folders) && folders.length ? folders : null;
   if (folderScope) {
+    if (scopedFolders && !scopedFolders.includes(folderScope)) return { messages: [], query: trimmed };
     if (folderFuzzy) {
       params.push(folderScope, `%/${folderScope}`);
       conditions.push(`(m.folder ILIKE $${parameter} OR m.folder ILIKE $${parameter + 1})`);
@@ -151,6 +160,10 @@ export async function searchMessages({ userId, q, accountId, folder = '', limit 
     }
   } else if (shouldExcludeTrashFromSearch(folderScope)) {
     conditions.push(trashFolderExclusionCondition());
+  }
+  if (scopedFolders) {
+    params.push(scopedFolders);
+    conditions.push(`m.folder = ANY($${parameter++}::text[])`);
   }
 
   const safeOffset = Math.max(0, parseInt(offset) || 0);

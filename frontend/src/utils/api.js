@@ -160,6 +160,10 @@ export const api = {
   applications: {
     list: () => request('GET', '/applications'),
     create: (data) => request('POST', '/applications', data),
+    audit: (id) => request('GET', `/applications/${id}/audit`),
+    alerts: (id) => request('GET', `/applications/${id}/alerts`),
+    acknowledgeAlert: (id, alertId) => request('POST', `/applications/${id}/alerts/${alertId}/ack`, {}),
+    rotateToken: (id, data) => request('POST', `/applications/${id}/rotate-token`, data),
     revoke: (id) => request('DELETE', `/applications/${id}`),
   },
   webhooks: {

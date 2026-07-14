@@ -1,0 +1,2 @@
+ALTER TABLE applications
+  ADD COLUMN IF NOT EXISTS redact_content BOOLEAN NOT NULL DEFAULT false;

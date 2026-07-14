@@ -26,7 +26,13 @@ describe('applicationMailService', () => {
     const accounts = await listAccountsForApplication('user-1');
     expect(accounts[0]).toMatchObject({ id: 'account-1', emailAddress: 'me@example.com' });
     expect(accounts[0].folders).toHaveLength(1);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('a.user_id = $1'), ['user-1']);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('a.user_id = $1'), ['user-1', null, null]);
+  });
+
+  it('passes account and folder scopes when listing accounts', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    await listAccountsForApplication('user-1', { accountIds: ['account-1'], folders: ['INBOX'] });
+    expect(query.mock.calls[0][1]).toEqual(['user-1', ['account-1'], ['INBOX']]);
   });
 
   it('loads every deduplicated message in a thread', async () => {
@@ -37,6 +43,23 @@ describe('applicationMailService', () => {
     const emails = await getThreadForApplication({ userId: 'user-1', threadId: 'thread-1', imapManager: {} });
     expect(emails.map(email => email.id)).toEqual(['message-1', 'message-2']);
     expect(getEmailForApplication).toHaveBeenCalledTimes(2);
+  });
+
+  it('applies scopes when loading a thread', async () => {
+    query.mockResolvedValueOnce({ rows: [{ id: 'message-1' }] });
+    getEmailForApplication.mockResolvedValueOnce({ id: 'message-1' });
+    await getThreadForApplication({
+      userId: 'user-1',
+      threadId: 'thread-1',
+      imapManager: {},
+      accountIds: ['account-1'],
+      folders: ['INBOX'],
+    });
+    expect(query.mock.calls[0][1]).toEqual(['user-1', 'thread-1', ['account-1'], ['INBOX']]);
+    expect(getEmailForApplication).toHaveBeenCalledWith(expect.objectContaining({
+      accountIds: ['account-1'],
+      folders: ['INBOX'],
+    }));
   });
 
   it('fetches an owned attachment from IMAP', async () => {
@@ -50,5 +73,6 @@ describe('applicationMailService', () => {
     });
     expect(attachment).toMatchObject({ filename: 'report.pdf', contentType: 'application/pdf', size: 3 });
     expect(imapManager.fetchAttachment).toHaveBeenCalledWith(expect.objectContaining({ account_id: 'account-1' }), 12, 'INBOX', '2');
+    expect(query.mock.calls[0][1]).toEqual(['message-1', 'user-1', null, null]);
   });
 });

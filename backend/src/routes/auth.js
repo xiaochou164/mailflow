@@ -25,6 +25,19 @@ const router = Router();
 // doesn't exist or is SSO-only, so response latency doesn't leak account existence.
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('mailflow-timing-equalizer', 12);
 
+function serializeUser(user, extra = {}) {
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.display_name ?? null,
+    avatar: user.avatar ?? null,
+    isAdmin: !!user.is_admin,
+    adminRoles: Array.isArray(user.admin_roles) ? user.admin_roles : [],
+    totpEnabled: !!user.totp_enabled,
+    ...extra,
+  };
+}
+
 function maskEmail(email) {
   if (!email) return '';
   const [local, domain] = email.split('@');
@@ -180,7 +193,7 @@ router.post('/register', authLimiter, async (req, res) => {
     }
 
     const result = await client.query(
-      'INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, $3) RETURNING id, username, is_admin',
+      'INSERT INTO users (username, password_hash, is_admin, admin_roles) VALUES ($1, $2, $3, ARRAY[]::text[]) RETURNING id, username, is_admin, admin_roles',
       [username.toLowerCase().trim(), hash, isFirstUser]
     );
     const newUser = result.rows[0];
@@ -214,7 +227,7 @@ router.post('/register', authLimiter, async (req, res) => {
     req.session.username = newUser.username;
     req.session.isAdmin = newUser.is_admin;
     imapManager.connectAllForUser(newUser.id);
-    res.json({ user: { id: newUser.id, username: newUser.username, displayName: null, avatar: null, isAdmin: newUser.is_admin, totpEnabled: false } });
+    res.json({ user: serializeUser(newUser) });
   } catch (err) {
     await client.query('ROLLBACK').catch(rbErr => console.error('Registration ROLLBACK error:', rbErr.message));
     if (err.code === '23505') return res.status(409).json({ error: 'Username already taken' });
@@ -280,7 +293,7 @@ router.post('/login', authLimiter, async (req, res) => {
         imapManager.connectAllForUser(user.id);
         logAuthEvent('login_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
         res.locals.resetRateLimit?.();
-        return res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: user.totp_enabled } });
+        return res.json({ user: serializeUser(user) });
       }
     }
 
@@ -328,7 +341,7 @@ router.post('/login', authLimiter, async (req, res) => {
 
     logAuthEvent('login_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
     res.locals.resetRateLimit?.();
-    res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: user.totp_enabled } });
+    res.json({ user: serializeUser(user) });
   } catch {
     res.status(500).json({ error: 'Login failed' });
   }
@@ -394,7 +407,7 @@ router.post('/2fa/challenge', authLimiter, async (req, res) => {
   logAuthEvent('totp_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
   res.locals.resetRateLimit?.();
   rlReset(`totp:${uid}`);
-  res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: user.totp_enabled } });
+  res.json({ user: serializeUser(user) });
 });
 
 // Helper: generate and store an email OTP, send it to the given address
@@ -510,7 +523,7 @@ router.post('/2fa/verify-email-otp', authLimiter, async (req, res) => {
   logAuthEvent('totp_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
   res.locals.resetRateLimit?.();
   rlReset(`totp:${uid}`);
-  res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: user.totp_enabled } });
+  res.json({ user: serializeUser(user) });
 });
 
 // GET /api/auth/2fa/enrollment/setup — generate TOTP QR for forced enrollment
@@ -580,7 +593,7 @@ router.post('/2fa/enrollment/enable', authLimiter, async (req, res) => {
   logAuthEvent('totp_success', { username: user.username, userId: user.id, ip: req.ip, success: true });
   res.locals.resetRateLimit?.();
   rlReset(`totp:${uid}`);
-  res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: true } });
+  res.json({ user: serializeUser(user, { totpEnabled: true }) });
 });
 
 router.post('/logout', async (req, res) => {
@@ -607,11 +620,11 @@ router.post('/logout', async (req, res) => {
 
 router.get('/me', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
-  const result = await query('SELECT id, username, display_name, avatar, is_admin, totp_enabled, password_hash FROM users WHERE id = $1', [req.session.userId]);
+  const result = await query('SELECT id, username, display_name, avatar, is_admin, admin_roles, totp_enabled, password_hash FROM users WHERE id = $1', [req.session.userId]);
   const user = result.rows[0];
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
   req.session.isAdmin = user.is_admin;
-  res.json({ user: { id: user.id, username: user.username, displayName: user.display_name, avatar: user.avatar, isAdmin: user.is_admin, totpEnabled: user.totp_enabled, hasPassword: !!user.password_hash } });
+  res.json({ user: serializeUser(user, { hasPassword: !!user.password_hash }) });
 });
 
 router.post('/unlock', authLimiter, async (req, res) => {

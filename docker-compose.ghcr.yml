@@ -1,13 +1,14 @@
 # MailFlow — pre-built image install
 #
 # Quick start:
-#   curl -o docker-compose.yml https://raw.githubusercontent.com/maathimself/mailflow/main/docker-compose.ghcr.yml
-#   curl -o .env               https://raw.githubusercontent.com/maathimself/mailflow/main/.env.example
+#   curl -o docker-compose.yml https://raw.githubusercontent.com/xiaochou164/mailflow/main/docker-compose.ghcr.yml
+#   curl -o .env               https://raw.githubusercontent.com/xiaochou164/mailflow/main/.env.example
 #   # edit .env, then:
 #   docker compose up -d
 #
 # To pin a specific version instead of latest, set MAILFLOW_VERSION in your .env:
 #   MAILFLOW_VERSION=1.0.0
+# To deploy images from a fork, set GHCR_OWNER in your .env.
 
 services:
 
@@ -15,7 +16,7 @@ services:
   # Exposes HTTPS on APP_PORT and HTTP on APP_HTTP_PORT.
   # HTTP is intended for use behind a reverse proxy that terminates TLS.
   frontend:
-    image: ghcr.io/maathimself/mailflow-frontend:${MAILFLOW_VERSION:-latest}
+    image: ghcr.io/${GHCR_OWNER:-xiaochou164}/mailflow-frontend:${MAILFLOW_VERSION:-latest}
     container_name: mailflow-frontend
     restart: unless-stopped
     ports:
@@ -25,6 +26,8 @@ services:
       - ./certs:/etc/nginx/ssl
     depends_on:
       backend:
+        condition: service_healthy
+      mcp:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO/dev/null http://127.0.0.1:80/ || exit 1"]
@@ -37,7 +40,7 @@ services:
 
   # ── Backend API ──────────────────────────────────────────────────────────────
   backend:
-    image: ghcr.io/maathimself/mailflow-backend:${MAILFLOW_VERSION:-latest}
+    image: ghcr.io/${GHCR_OWNER:-xiaochou164}/mailflow-backend:${MAILFLOW_VERSION:-latest}
     container_name: mailflow-backend
     restart: unless-stopped
     healthcheck:
@@ -58,6 +61,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       REDIS_URL: redis://redis:6379
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      APPLICATION_KEY_PEPPER: ${APPLICATION_KEY_PEPPER:-}
+      WEBHOOK_ALLOW_PRIVATE_HOSTS: ${WEBHOOK_ALLOW_PRIVATE_HOSTS:-false}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
@@ -66,6 +71,27 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - mailflow
+
+  # ── MCP Server (Streamable HTTP adapter over /api/v1) ───────────────────────
+  mcp:
+    image: ghcr.io/${GHCR_OWNER:-xiaochou164}/mailflow-mcp:${MAILFLOW_VERSION:-latest}
+    container_name: mailflow-mcp
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MAILFLOW_API_BASE_URL: http://backend:3000/api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     networks:
       - mailflow
 

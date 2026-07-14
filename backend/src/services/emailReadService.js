@@ -64,7 +64,9 @@ function serializeEmail(message, bodySource) {
   };
 }
 
-export async function getEmailForApplication({ userId, messageId, imapManager }) {
+export async function getEmailForApplication({ userId, messageId, imapManager, accountIds = [], folders = [] }) {
+  const scopedAccountIds = Array.isArray(accountIds) && accountIds.length ? accountIds : null;
+  const scopedFolders = Array.isArray(folders) && folders.length ? folders : null;
   const result = await query(`
     SELECT m.*, m.thread_key,
            a.name AS account_name, a.email_address AS account_email
@@ -73,7 +75,9 @@ export async function getEmailForApplication({ userId, messageId, imapManager })
     WHERE m.id = $1
       AND a.user_id = $2
       AND m.is_deleted = false
-  `, [messageId, userId]);
+      AND ($3::uuid[] IS NULL OR m.account_id = ANY($3::uuid[]))
+      AND ($4::text[] IS NULL OR m.folder = ANY($4::text[]))
+  `, [messageId, userId, scopedAccountIds, scopedFolders]);
   if (!result.rows.length) {
     throw Object.assign(new Error('Email not found'), { status: 404 });
   }

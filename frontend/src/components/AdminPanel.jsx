@@ -16,6 +16,15 @@ import WebhookManager from './WebhookManager.jsx';
 import { getEffectiveShortcuts, getGroupedActions, ACTION_DEFS, SPECIAL_KEY_LABELS, parseModKey, modLabel } from '../utils/defaultShortcuts.js';
 import { DEFAULT_GTD_FOLDERS, GTD_STATES, resolveAccountGtdFolders, diffGtdFolders, findGtdFolderCollisions } from '../utils/gtd.js';
 
+const ADMIN_ROLES = {
+  DEVELOPER_APPS: 'developer_apps',
+};
+
+function hasAdminRole(user, role) {
+  if (user?.isAdmin) return true;
+  return Array.isArray(user?.adminRoles) && user.adminRoles.includes(role);
+}
+
 // ─── Shared field component ───────────────────────────────────────────────────
 function Field({ label, required, children }) {
   return (
@@ -2006,8 +2015,10 @@ function CardDavCard() {
 
 function IntegrationsTab() {
   const { t } = useTranslation();
-  const { setAccounts, setTodoistConnected } = useStore();
-  const [subTab, setSubTab] = useState('emailProviders');
+  const { setAccounts, setTodoistConnected, user } = useStore();
+  const canManageCoreIntegrations = !!user?.isAdmin;
+  const canManageDeveloperApps = hasAdminRole(user, ADMIN_ROLES.DEVELOPER_APPS);
+  const [subTab, setSubTab] = useState(canManageCoreIntegrations ? 'emailProviders' : 'developer');
   const [configs, setConfigs] = useState({});
   const [loading, setLoading] = useState(true);
   const [msForm, setMsForm] = useState({ clientId: '', clientSecret: '', tenantId: '', redirectUri: '' });
@@ -2029,6 +2040,11 @@ function IntegrationsTab() {
   const [tdError, setTdError] = useState('');
 
   useEffect(() => {
+    if (!canManageCoreIntegrations) {
+      setLoading(false);
+      setTdLoading(false);
+      return undefined;
+    }
     api.getIntegrations()
       .then(data => {
         setConfigs(data);
@@ -2075,7 +2091,11 @@ function IntegrationsTab() {
       window.removeEventListener('message', handleMessage);
       if (devicePollRef.current) clearInterval(devicePollRef.current);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only; re-running on t/setAccounts change would clear an in-progress device-code poll
+  }, [canManageCoreIntegrations]); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only for full admins; re-running on t/setAccounts change would clear an in-progress device-code poll
+
+  useEffect(() => {
+    if (!canManageCoreIntegrations && canManageDeveloperApps) setSubTab('developer');
+  }, [canManageCoreIntegrations, canManageDeveloperApps]);
 
   const handleSaveMs = async () => {
     if (!msForm.clientId || !msForm.tenantId) {
@@ -2205,21 +2225,29 @@ function IntegrationsTab() {
 
       {/* Sub-tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border-subtle)', marginBottom: 20 }}>
-        <button style={subTabStyle('emailProviders')} onClick={() => setSubTab('emailProviders')}>
-          {t('admin.integrations.tabEmailProviders')}
-        </button>
-        <button style={subTabStyle('apps')} onClick={() => setSubTab('apps')}>
-          {t('admin.integrations.tabApps')}
-        </button>
-        <button style={subTabStyle('developer')} onClick={() => setSubTab('developer')}>
-          {t('admin.integrations.tabDeveloper')}
-        </button>
-        <button style={subTabStyle('webhooks')} onClick={() => setSubTab('webhooks')}>
-          Webhooks
-        </button>
+        {canManageCoreIntegrations && (
+          <>
+            <button style={subTabStyle('emailProviders')} onClick={() => setSubTab('emailProviders')}>
+              {t('admin.integrations.tabEmailProviders')}
+            </button>
+            <button style={subTabStyle('apps')} onClick={() => setSubTab('apps')}>
+              {t('admin.integrations.tabApps')}
+            </button>
+          </>
+        )}
+        {canManageDeveloperApps && (
+          <button style={subTabStyle('developer')} onClick={() => setSubTab('developer')}>
+            {t('admin.integrations.tabDeveloper')}
+          </button>
+        )}
+        {canManageCoreIntegrations && (
+          <button style={subTabStyle('webhooks')} onClick={() => setSubTab('webhooks')}>
+            Webhooks
+          </button>
+        )}
       </div>
 
-      {subTab === 'emailProviders' && (
+      {canManageCoreIntegrations && subTab === 'emailProviders' && (
         <div>
           {loading && <div style={{ color: 'var(--text-tertiary)', fontSize: 13 }}>{t('admin.integrations.loading')}</div>}
           {!loading && (
@@ -2508,7 +2536,7 @@ function IntegrationsTab() {
         </div>
       )}
 
-      {subTab === 'apps' && (
+      {canManageCoreIntegrations && subTab === 'apps' && (
         <div>
           {/* Todoist */}
           <div style={{
@@ -2642,8 +2670,8 @@ function IntegrationsTab() {
         </div>
       )}
 
-      {subTab === 'developer' && <DeveloperApplications />}
-      {subTab === 'webhooks' && <WebhookManager />}
+      {canManageDeveloperApps && subTab === 'developer' && <DeveloperApplications />}
+      {canManageCoreIntegrations && subTab === 'webhooks' && <WebhookManager />}
     </div>
   );
 }
@@ -4317,6 +4345,7 @@ function UsersAndInvitesPanel() {
   const { user: currentUser } = useStore();
   const [users, setUsers] = useState([]);
   const [userTotal, setUserTotal] = useState(0);
+  const [availableAdminRoles, setAvailableAdminRoles] = useState([]);
   const [usersLoadingMore, setUsersLoadingMore] = useState(false);
   const [invites, setInvites] = useState([]);
   const [inviteTotal, setInviteTotal] = useState(0);
@@ -4336,6 +4365,7 @@ function UsersAndInvitesPanel() {
       api.admin.getInvites({ limit: 100, offset: 0 }),
     ]).then(([usersData, settingsData, invitesData]) => {
       setUsers(usersData.users);
+      setAvailableAdminRoles(usersData.availableAdminRoles || []);
       setUserTotal(usersData.total);
       setRegOpen(settingsData.settings.registration_open === 'true');
       setInvites(invitesData.invites);
@@ -4373,6 +4403,15 @@ function UsersAndInvitesPanel() {
     const newVal = !u.isAdmin;
     await api.admin.updateUser(u.id, { isAdmin: newVal });
     setUsers(us => us.map(x => x.id === u.id ? { ...x, isAdmin: newVal } : x));
+  };
+
+  const handleToggleRole = async (u, role) => {
+    const roles = Array.isArray(u.adminRoles) ? u.adminRoles : [];
+    const nextRoles = roles.includes(role)
+      ? roles.filter(r => r !== role)
+      : [...roles, role];
+    await api.admin.updateUser(u.id, { adminRoles: nextRoles });
+    setUsers(us => us.map(x => x.id === u.id ? { ...x, adminRoles: nextRoles } : x));
   };
 
   const handleDeleteUser = (u) => {
@@ -4491,6 +4530,15 @@ function UsersAndInvitesPanel() {
                     {t('admin.users.adminBadge')}
                   </span>
                 )}
+                {!u.isAdmin && Array.isArray(u.adminRoles) && u.adminRoles.length > 0 && (
+                  <span style={{
+                    fontSize: 10, padding: '2px 6px', borderRadius: 20,
+                    background: 'rgba(34,197,94,0.12)', color: '#16a34a',
+                    border: '1px solid rgba(34,197,94,0.25)', fontWeight: 600,
+                  }}>
+                    {t('admin.users.roleBadge')}
+                  </span>
+                )}
                 {u.id === currentUser?.id && (
                   <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{t('admin.users.you')}</span>
                 )}
@@ -4498,6 +4546,20 @@ function UsersAndInvitesPanel() {
               <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 1 }}>
                 {t('admin.users.joined', { date: new Date(u.created_at).toLocaleDateString() })}
               </div>
+              {availableAdminRoles.includes(ADMIN_ROLES.DEVELOPER_APPS) && (
+                <label style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 6,
+                  fontSize: 11, color: 'var(--text-secondary)', cursor: u.id === currentUser?.id ? 'default' : 'pointer',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={Array.isArray(u.adminRoles) && u.adminRoles.includes(ADMIN_ROLES.DEVELOPER_APPS)}
+                    disabled={u.id === currentUser?.id}
+                    onChange={() => handleToggleRole(u, ADMIN_ROLES.DEVELOPER_APPS)}
+                  />
+                  {t('admin.users.roleDeveloperApps')}
+                </label>
+              )}
             </div>
 
             {u.id !== currentUser?.id && (
@@ -6060,6 +6122,7 @@ const TABS = [
   },
   {
     id: 'integrations', labelKey: 'admin.tabs.integrations',
+    role: ADMIN_ROLES.DEVELOPER_APPS,
     icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><circle cx="12" cy="12" r="3"/><path d="M6.343 6.343a8 8 0 000 11.314M17.657 6.343a8 8 0 010 11.314M3 12h1m16 0h1M12 3v1m0 16v1"/></svg>,
   },
   {
@@ -7496,7 +7559,13 @@ export default function AdminPanel() {
   const { t } = useTranslation();
   const { setShowAdmin, adminTab, setAdminTab, user } = useStore();
   const isMobile = useMobile();
-  const visibleTabs = TABS.filter(tab => (!tab.adminOnly || user?.isAdmin) && (!tab.mobileHidden || !isMobile));
+  const canAccessTab = (tab) => {
+    if (tab.mobileHidden && isMobile) return false;
+    if (tab.adminOnly) return !!user?.isAdmin;
+    if (tab.role) return hasAdminRole(user, tab.role);
+    return true;
+  };
+  const visibleTabs = TABS.filter(canAccessTab);
 
   const tabScrollRef = useRef(null);
   const [tabRightOverflow, setTabRightOverflow] = useState(false);
@@ -7515,6 +7584,12 @@ export default function AdminPanel() {
 
   const searchIndex = useMemo(() => makeSearchIndex(t), [t]);
 
+  useEffect(() => {
+    if (!visibleTabs.some(tab => tab.id === adminTab) && visibleTabs[0]) {
+      setAdminTab(visibleTabs[0].id);
+    }
+  }, [adminTab, setAdminTab, visibleTabs]);
+
   const navigateTo = (tab, subtab) => {
     setSearchQuery('');
     setAdminTab(tab);
@@ -7526,8 +7601,9 @@ export default function AdminPanel() {
   };
   const searchResults = searchQuery.trim()
     ? searchIndex.filter(item => {
-        if (item.adminOnly && !user?.isAdmin) return false;
         if (item.mobileHidden && isMobile) return false;
+        if (item.adminOnly && !user?.isAdmin) return false;
+        if (item.role && !hasAdminRole(user, item.role)) return false;
         const q = searchQuery.toLowerCase();
         return item.label.toLowerCase().includes(q) || item.keywords.some(k => k.includes(q));
       })

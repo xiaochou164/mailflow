@@ -1,18 +1,19 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { pathToFileURL } from 'node:url';
 import * as z from 'zod/v4';
 
 const PORT = Number(process.env.PORT) || 3001;
 const API_BASE_URL = (process.env.MAILFLOW_API_BASE_URL || 'http://backend:3000/api/v1').replace(/\/+$/, '');
 
-function bearerToken(req) {
+export function bearerToken(req) {
   const header = req.headers.authorization || '';
   const match = header.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() || null;
 }
 
-async function mailflowRequest(path, token, options = {}) {
+export async function mailflowRequest(path, token, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: options.method || 'GET',
     headers: {
@@ -32,7 +33,7 @@ async function mailflowRequest(path, token, options = {}) {
   return data;
 }
 
-async function mailflowBinary(path, token) {
+export async function mailflowBinary(path, token) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(60_000),
@@ -56,18 +57,25 @@ async function mailflowBinary(path, token) {
   };
 }
 
-function toolError(err) {
+export function toolError(err) {
   return {
     isError: true,
     content: [{ type: 'text', text: err.message || 'MailFlow request failed' }],
   };
 }
 
-const TOOL_PERMISSIONS = Object.freeze({
+export const TOOL_PERMISSIONS = Object.freeze({
   search_email: 'email.search',
+  search_knowledge: 'email.search',
+  contact_history: 'email.search',
+  similar_emails: 'email.search',
   read_email: 'email.read',
+  daily_email_digest: ['email.search', 'ai.summarize'],
   list_accounts: 'account.read',
   read_thread: 'email.thread',
+  summarize_thread: ['email.thread', 'ai.summarize'],
+  analyze_thread: ['email.thread', 'ai.summarize'],
+  export_thread_markdown: 'email.thread',
   get_attachment: 'email.attachments',
   create_draft: 'email.draft',
   draft_reply: 'email.draft',
@@ -81,18 +89,20 @@ const TOOL_PERMISSIONS = Object.freeze({
   delete_email: 'email.delete',
   list_webhooks: 'webhook.manage',
   create_webhook: 'webhook.manage',
+  update_webhook: 'webhook.manage',
   test_webhook: 'webhook.manage',
   list_webhook_deliveries: 'webhook.manage',
   delete_webhook: 'webhook.manage',
 });
 
-function createServer(token, permissions) {
+export function createServer(token, permissions) {
   const server = new McpServer({ name: 'mailflow-mcp', version: '0.1.0' });
   const granted = new Set(permissions);
   const registerTool = server.registerTool.bind(server);
   server.registerTool = (name, ...args) => {
     const required = TOOL_PERMISSIONS[name];
-    if (required && !granted.has(required)) return undefined;
+    const requiredList = Array.isArray(required) ? required : [required];
+    if (required && requiredList.some(permission => !granted.has(permission))) return undefined;
     return registerTool(name, ...args);
   };
 
@@ -136,6 +146,83 @@ function createServer(token, permissions) {
     }
   });
 
+  server.registerTool('search_knowledge', {
+    title: 'Search email knowledge base',
+    description: 'Search MailFlow as an email knowledge base using indexed subjects, senders, snippets, and cached body text.',
+    inputSchema: {
+      query: z.string().min(2).max(500).describe('Knowledge search query. Supports the same operators as search_email.'),
+      account_id: z.string().uuid().optional(),
+      folder: z.string().max(500).optional(),
+      limit: z.number().int().min(1).max(100).default(20),
+    },
+  }, async ({ query, account_id, folder, limit }) => {
+    try {
+      const params = new URLSearchParams({ q: query, limit: String(limit) });
+      if (account_id) params.set('accountId', account_id);
+      if (folder) params.set('folder', folder);
+      const data = await mailflowRequest(`/knowledge/search?${params}`, token);
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  server.registerTool('contact_history', {
+    title: 'Contact email history',
+    description: 'Retrieve recent MailFlow email history with a contact, including messages from, to, or cc’ing that contact.',
+    inputSchema: {
+      email: z.string().email().describe('Contact email address'),
+      limit: z.number().int().min(1).max(100).default(20),
+    },
+  }, async ({ email, limit }) => {
+    try {
+      const params = new URLSearchParams({ limit: String(limit) });
+      const data = await mailflowRequest(`/contacts/${encodeURIComponent(email)}/history?${params}`, token);
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  server.registerTool('similar_emails', {
+    title: 'Find similar emails',
+    description: 'Find emails related to a seed email by thread, sender, and subject/body search terms.',
+    inputSchema: {
+      email_id: z.string().uuid().describe('Seed MailFlow email UUID'),
+      limit: z.number().int().min(1).max(50).default(10),
+    },
+  }, async ({ email_id, limit }) => {
+    try {
+      const params = new URLSearchParams({ limit: String(limit) });
+      const data = await mailflowRequest(`/emails/${encodeURIComponent(email_id)}/similar?${params}`, token);
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  server.registerTool('daily_email_digest', {
+    title: 'Daily email digest',
+    description: 'Create an AI-generated daily digest for a date using scoped MailFlow search results. Requires email.search and ai.summarize permissions.',
+    inputSchema: {
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('Digest date in YYYY-MM-DD, UTC day. Defaults to today.'),
+      account_id: z.string().uuid().optional().describe('Optional account UUID, still constrained by application scope.'),
+      folder: z.string().min(1).max(500).optional().describe('Optional exact folder path, still constrained by application scope.'),
+      limit: z.number().int().min(1).max(200).default(100).describe('Maximum emails to include in the digest prompt.'),
+    },
+  }, async ({ date, account_id, folder, limit }) => {
+    try {
+      const body = { limit };
+      if (date) body.date = date;
+      if (account_id) body.accountId = account_id;
+      if (folder) body.folder = folder;
+      const data = await mailflowRequest('/emails/daily-digest', token, { method: 'POST', body });
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
   server.registerTool('list_accounts', {
     title: 'List email accounts',
     description: 'List connected MailFlow accounts and their folders.',
@@ -159,6 +246,51 @@ function createServer(token, permissions) {
     try {
       const data = await mailflowRequest(`/threads/${encodeURIComponent(thread_id)}`, token);
       return { content: [{ type: 'text', text: JSON.stringify(data.thread, null, 2) }] };
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  server.registerTool('summarize_thread', {
+    title: 'Summarize email thread',
+    description: 'Summarize a complete email thread with the configured MailFlow AI provider. Requires both email.thread and ai.summarize permissions.',
+    inputSchema: {
+      thread_id: z.string().min(1).max(500).describe('Thread ID returned by search_email or read_email'),
+    },
+  }, async ({ thread_id }) => {
+    try {
+      const data = await mailflowRequest(`/threads/${encodeURIComponent(thread_id)}/summary`, token, { method: 'POST', body: {} });
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  server.registerTool('analyze_thread', {
+    title: 'Analyze email thread',
+    description: 'Extract structured AI insights from a complete email thread: tasks, dates, risks, labels, importance, reply-needed state, and reply suggestions.',
+    inputSchema: {
+      thread_id: z.string().min(1).max(500).describe('Thread ID returned by search_email or read_email'),
+    },
+  }, async ({ thread_id }) => {
+    try {
+      const data = await mailflowRequest(`/threads/${encodeURIComponent(thread_id)}/insights`, token, { method: 'POST', body: {} });
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    } catch (err) {
+      return toolError(err);
+    }
+  });
+
+  server.registerTool('export_thread_markdown', {
+    title: 'Export thread Markdown',
+    description: 'Export a complete email thread as Obsidian-friendly Markdown with front matter and message metadata.',
+    inputSchema: {
+      thread_id: z.string().min(1).max(500).describe('Thread ID returned by search_email or read_email'),
+    },
+  }, async ({ thread_id }) => {
+    try {
+      const data = await mailflowRequest(`/threads/${encodeURIComponent(thread_id)}/markdown`, token);
+      return { content: [{ type: 'text', text: data.markdown || '' }] };
     } catch (err) {
       return toolError(err);
     }
@@ -378,6 +510,28 @@ function createServer(token, permissions) {
     } catch (err) { return toolError(err); }
   });
 
+  server.registerTool('update_webhook', {
+    title: 'Update webhook',
+    description: 'Update a webhook subscription name, URL, event set, or enabled state.',
+    inputSchema: {
+      webhook_id: z.string().uuid(),
+      name: z.string().min(1).max(100).optional(),
+      url: z.string().url().optional(),
+      events: z.array(z.enum(['email.received', 'email.updated', 'email.sent', 'email.deleted', 'attachment.received'])).min(1).optional(),
+      enabled: z.boolean().optional(),
+    },
+  }, async ({ webhook_id, name, url, events, enabled }) => {
+    try {
+      const body = {};
+      if (name !== undefined) body.name = name;
+      if (url !== undefined) body.url = url;
+      if (events !== undefined) body.events = events;
+      if (enabled !== undefined) body.enabled = enabled;
+      const data = await mailflowRequest(`/webhooks/${encodeURIComponent(webhook_id)}`, token, { method: 'PATCH', body });
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+    } catch (err) { return toolError(err); }
+  });
+
   server.registerTool('test_webhook', {
     title: 'Test webhook',
     description: 'Queue a signed test delivery for a webhook.',
@@ -414,65 +568,76 @@ function createServer(token, permissions) {
   return server;
 }
 
-const app = createMcpExpressApp();
+export function createApp() {
+  const app = createMcpExpressApp();
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.post('/mcp', async (req, res) => {
-  const token = bearerToken(req);
-  if (!token?.startsWith('mf_sk_')) {
-    res.setHeader('WWW-Authenticate', 'Bearer realm="MailFlow MCP"');
-    return res.status(401).json({
-      jsonrpc: '2.0',
-      error: { code: -32001, message: 'A MailFlow application token is required' },
-      id: null,
-    });
-  }
-
-  try {
-    const { application } = await mailflowRequest('/application', token);
-    req.applicationPermissions = application.permissions || [];
-  } catch (err) {
-    res.setHeader('WWW-Authenticate', 'Bearer realm="MailFlow MCP"');
-    return res.status(err.status === 401 ? 401 : 502).json({
-      jsonrpc: '2.0',
-      error: {
-        code: err.status === 401 ? -32001 : -32603,
-        message: err.status === 401 ? 'Invalid or revoked MailFlow application token' : 'MailFlow API is unavailable',
-      },
-      id: null,
-    });
-  }
-
-  const server = createServer(token, req.applicationPermissions);
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  res.on('close', () => {
-    transport.close().catch(() => {});
-    server.close().catch(() => {});
-  });
-
-  try {
-    await server.connect(transport);
-    await transport.handleRequest(req, res, req.body);
-  } catch (err) {
-    console.error('MCP request failed:', err.message);
-    if (!res.headersSent) {
-      res.status(500).json({
+  app.post('/mcp', async (req, res) => {
+    const token = bearerToken(req);
+    if (!token?.startsWith('mf_sk_')) {
+      res.setHeader('WWW-Authenticate', 'Bearer realm="MailFlow MCP"');
+      return res.status(401).json({
         jsonrpc: '2.0',
-        error: { code: -32603, message: 'Internal server error' },
+        error: { code: -32001, message: 'A MailFlow application token is required' },
         id: null,
       });
     }
-  }
-});
 
-app.get('/mcp', (_req, res) => res.status(405).set('Allow', 'POST').send('Method Not Allowed'));
-app.delete('/mcp', (_req, res) => res.status(405).set('Allow', 'POST').send('Method Not Allowed'));
+    try {
+      const { application } = await mailflowRequest('/application', token);
+      req.applicationPermissions = application.permissions || [];
+    } catch (err) {
+      res.setHeader('WWW-Authenticate', 'Bearer realm="MailFlow MCP"');
+      return res.status(err.status === 401 ? 401 : 502).json({
+        jsonrpc: '2.0',
+        error: {
+          code: err.status === 401 ? -32001 : -32603,
+          message: err.status === 401 ? 'Invalid or revoked MailFlow application token' : 'MailFlow API is unavailable',
+        },
+        id: null,
+      });
+    }
 
-app.listen(PORT, error => {
-  if (error) {
-    console.error('Failed to start MailFlow MCP:', error);
-    process.exit(1);
-  }
-  console.log(`MailFlow MCP listening on port ${PORT}`);
-});
+    const server = createServer(token, req.applicationPermissions);
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    res.on('close', () => {
+      transport.close().catch(() => {});
+      server.close().catch(() => {});
+    });
+
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (err) {
+      console.error('MCP request failed:', err.message);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error' },
+          id: null,
+        });
+      }
+    }
+  });
+
+  app.get('/mcp', (_req, res) => res.status(405).set('Allow', 'POST').send('Method Not Allowed'));
+  app.delete('/mcp', (_req, res) => res.status(405).set('Allow', 'POST').send('Method Not Allowed'));
+
+  return app;
+}
+
+export function start(port = PORT) {
+  const app = createApp();
+  return app.listen(port, error => {
+    if (error) {
+      console.error('Failed to start MailFlow MCP:', error);
+      process.exit(1);
+    }
+    console.log(`MailFlow MCP listening on port ${port}`);
+  });
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  start();
+}

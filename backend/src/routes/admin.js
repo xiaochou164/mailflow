@@ -2,7 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { query } from '../services/db.js';
-import { requireAdmin } from '../middleware/auth.js';
+import { ADMIN_ROLES, normalizeAdminRoles, requireAdmin } from '../middleware/auth.js';
 import { decrypt, encrypt } from '../services/encryption.js';
 import { validateHost, resolveForConnection } from '../services/hostValidation.js';
 import { getConnectionPolicy, invalidateConnectionPolicyCache } from '../services/connectionPolicy.js';
@@ -21,13 +21,19 @@ router.get('/users', async (req, res) => {
   const offset = Math.max(parseInt(req.query.offset) || 0,   0);
   const [result, countResult] = await Promise.all([
     query(
-      'SELECT id, username, is_admin, totp_enabled, created_at FROM users ORDER BY created_at ASC LIMIT $1 OFFSET $2',
+      'SELECT id, username, is_admin, admin_roles, totp_enabled, created_at FROM users ORDER BY created_at ASC LIMIT $1 OFFSET $2',
       [limit, offset],
     ),
     query('SELECT COUNT(*) AS total FROM users'),
   ]);
   res.json({
-    users: result.rows.map(u => ({ ...u, isAdmin: u.is_admin, totpEnabled: u.totp_enabled })),
+    users: result.rows.map(u => ({
+      ...u,
+      isAdmin: u.is_admin,
+      adminRoles: normalizeAdminRoles(u.admin_roles),
+      totpEnabled: u.totp_enabled,
+    })),
+    availableAdminRoles: Object.values(ADMIN_ROLES),
     total: parseInt(countResult.rows[0].total),
   });
 });
@@ -46,7 +52,9 @@ router.post('/users/:id/totp/disable', async (req, res) => {
 
 router.patch('/users/:id', async (req, res) => {
   const { id } = req.params;
-  const { isAdmin } = req.body;
+  const { isAdmin, adminRoles } = req.body;
+  const updates = [];
+  const params = [];
 
   // Prevent removing your own admin status
   if (id === req.session.userId && isAdmin === false) {
@@ -56,8 +64,24 @@ router.patch('/users/:id', async (req, res) => {
   const target = await query('SELECT username FROM users WHERE id = $1', [id]);
   if (!target.rows.length) return res.status(404).json({ error: 'User not found' });
 
-  await query('UPDATE users SET is_admin = $1 WHERE id = $2', [isAdmin, id]);
-  console.log(`[admin] ${req.session.username} set is_admin=${isAdmin} for user ${target.rows[0].username} (${id})`);
+  if (typeof isAdmin === 'boolean') {
+    params.push(isAdmin);
+    updates.push(`is_admin = $${params.length}`);
+  }
+  if (Array.isArray(adminRoles)) {
+    const normalizedRoles = normalizeAdminRoles(adminRoles);
+    const allowedRoles = new Set(Object.values(ADMIN_ROLES));
+    const invalidRole = normalizedRoles.find(role => !allowedRoles.has(role));
+    if (invalidRole) return res.status(400).json({ error: `Unknown admin role: ${invalidRole}` });
+    params.push(normalizedRoles);
+    updates.push(`admin_roles = $${params.length}`);
+  }
+
+  if (!updates.length) return res.status(400).json({ error: 'No user updates provided' });
+
+  params.push(id);
+  await query(`UPDATE users SET ${updates.join(', ')} WHERE id = $${params.length}`, params);
+  console.log(`[admin] ${req.session.username} updated admin access for user ${target.rows[0].username} (${id})`);
 
   // If user is currently logged in, their session isAdmin will be refreshed on next /me call
   res.json({ ok: true });

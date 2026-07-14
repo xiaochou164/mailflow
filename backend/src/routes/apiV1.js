@@ -1,11 +1,24 @@
 import { Router } from 'express';
 import {
+  applicationAudit,
   applicationRateLimit,
   requireApplication,
   requireApplicationPermission,
 } from '../middleware/applicationAuth.js';
 import { getEmailForApplication } from '../services/emailReadService.js';
 import { searchMessages } from '../services/searchService.js';
+import {
+  findSimilarEmailsForApplication,
+  getContactHistoryForApplication,
+  searchKnowledgeForApplication,
+} from '../services/applicationContextService.js';
+import {
+  analyzeThreadEmails,
+  buildDailyDigestSearchQuery,
+  exportThreadMarkdown,
+  summarizeDailyDigestEmails,
+  summarizeThreadEmails,
+} from '../services/applicationAiService.js';
 import draftRoutes from './draft.js';
 import mailRoutes from './mail.js';
 import sendRoutes from './send.js';
@@ -23,6 +36,7 @@ import {
   listWebhooks,
   updateWebhook,
 } from '../services/webhookService.js';
+import { redactPayload } from '../services/contentRedaction.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const router = Router();
@@ -43,6 +57,54 @@ function delegateTo(routerToUse, target) {
     delete req._parsedUrl;
     routerToUse.handle(req, res, next);
   };
+}
+
+function applicationScopes(req) {
+  return {
+    accountIds: req.application.accountIds || [],
+    folders: req.application.folders || [],
+  };
+}
+
+function maybeRedact(req, payload) {
+  return req.application?.redactContent ? redactPayload(payload) : payload;
+}
+
+function accountAllowed(req, accountId) {
+  const accountIds = req.application.accountIds || [];
+  return !accountIds.length || accountIds.includes(accountId);
+}
+
+function folderAllowed(req, folder) {
+  const folders = req.application.folders || [];
+  return !folders.length || folders.includes(folder);
+}
+
+async function ensureEmailInScope(req, res, next) {
+  if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
+  try {
+    await getEmailForApplication({
+      userId: req.application.userId,
+      messageId: req.params.id,
+      imapManager: req.app.get('imapManager'),
+      ...applicationScopes(req),
+    });
+    next();
+  } catch {
+    res.status(404).json({ error: 'Email not found' });
+  }
+}
+
+function ensureAccountInScope(req, res, next) {
+  const accountId = req.body.accountId || req.query.accountId;
+  if (accountId && !accountAllowed(req, accountId)) return res.status(403).json({ error: 'Account is outside this application scope' });
+  next();
+}
+
+function ensureFolderInScope(req, res, next) {
+  const folder = req.body.folder || req.query.folder;
+  if (folder && !folderAllowed(req, folder)) return res.status(403).json({ error: 'Folder is outside this application scope' });
+  next();
 }
 
 async function applicationWebhook(req, webhookId) {
@@ -70,7 +132,9 @@ function serializeSearchResult(message) {
   };
 }
 
-router.use(requireApplication, applicationRateLimit);
+router.use(requireApplication);
+router.use(applicationAudit);
+router.use(applicationRateLimit);
 
 router.get('/application', (req, res) => {
   res.json({
@@ -78,13 +142,14 @@ router.get('/application', (req, res) => {
       id: req.application.id,
       name: req.application.name,
       permissions: req.application.permissions,
+      redactContent: req.application.redactContent === true,
     },
   });
 });
 
 router.get('/accounts', requireApplicationPermission('account.read'), async (req, res) => {
   try {
-    const accounts = await listAccountsForApplication(req.application.userId);
+    const accounts = await listAccountsForApplication(req.application.userId, applicationScopes(req));
     res.json({ accounts });
   } catch {
     res.status(500).json({ error: 'Failed to list accounts' });
@@ -100,10 +165,85 @@ router.get('/emails/search', requireApplicationPermission('email.search'), async
       folder: req.query.folder,
       limit: req.query.limit || 20,
       offset: req.query.offset,
+      ...applicationScopes(req),
     });
-    res.json({ emails: result.messages.map(serializeSearchResult), query: result.query });
+    res.json(maybeRedact(req, { emails: result.messages.map(serializeSearchResult), query: result.query }));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.status ? err.message : 'Email search failed' });
+  }
+});
+
+router.get('/knowledge/search', requireApplicationPermission('email.search'), async (req, res) => {
+  try {
+    const result = await searchKnowledgeForApplication({
+      userId: req.application.userId,
+      q: req.query.q,
+      accountId: req.query.accountId,
+      folder: req.query.folder,
+      limit: req.query.limit || 20,
+      ...applicationScopes(req),
+    });
+    res.json(maybeRedact(req, result));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.status ? err.message : 'Knowledge search failed' });
+  }
+});
+
+router.get('/contacts/:email/history', requireApplicationPermission('email.search'), async (req, res) => {
+  try {
+    const result = await getContactHistoryForApplication({
+      userId: req.application.userId,
+      email: req.params.email,
+      limit: req.query.limit || 20,
+      ...applicationScopes(req),
+    });
+    res.json(maybeRedact(req, result));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.status ? err.message : 'Contact history failed' });
+  }
+});
+
+router.post('/emails/daily-digest',
+  requireApplicationPermission('email.search'),
+  requireApplicationPermission('ai.summarize'),
+  async (req, res) => {
+    try {
+      const body = req.body || {};
+      const digestQuery = buildDailyDigestSearchQuery(body.date, { allFolders: !body.folder });
+      const result = await searchMessages({
+        userId: req.application.userId,
+        q: digestQuery.query,
+        accountId: body.accountId,
+        folder: body.folder,
+        limit: body.limit || 100,
+        offset: 0,
+        ...applicationScopes(req),
+      });
+      const emails = maybeRedact(req, result.messages.map(serializeSearchResult));
+      const digest = await summarizeDailyDigestEmails(emails, digestQuery.date);
+      res.json(maybeRedact(req, {
+        ...digest,
+        query: result.query,
+        range: { start: digestQuery.start, end: digestQuery.end },
+      }));
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to create daily digest' });
+    }
+  }
+);
+
+router.get('/emails/:id/similar', requireApplicationPermission('email.search'), async (req, res) => {
+  if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
+  try {
+    const result = await findSimilarEmailsForApplication({
+      userId: req.application.userId,
+      messageId: req.params.id,
+      limit: req.query.limit || 10,
+      ...applicationScopes(req),
+    });
+    res.json(maybeRedact(req, result));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.status ? err.message : 'Similar email search failed' });
   }
 });
 
@@ -114,8 +254,9 @@ router.get('/emails/:id', requireApplicationPermission('email.read'), async (req
       userId: req.application.userId,
       messageId: req.params.id,
       imapManager: req.app.get('imapManager'),
+      ...applicationScopes(req),
     });
-    res.json({ email });
+    res.json(maybeRedact(req, { email }));
   } catch (err) {
     if (err.cause) console.error('Application email read failed:', err.cause.message);
     res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to read email' });
@@ -130,10 +271,72 @@ router.get('/threads/:threadId', requireApplicationPermission('email.thread'), a
       userId: req.application.userId,
       threadId,
       imapManager: req.app.get('imapManager'),
+      ...applicationScopes(req),
     });
-    res.json({ thread: { id: threadId, emails } });
+    res.json(maybeRedact(req, { thread: { id: threadId, emails } }));
   } catch (err) {
     res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to read thread' });
+  }
+});
+
+router.post('/threads/:threadId/summary',
+  requireApplicationPermission('email.thread'),
+  requireApplicationPermission('ai.summarize'),
+  async (req, res) => {
+    const threadId = String(req.params.threadId || '');
+    if (!threadId || threadId.length > 500) return res.status(400).json({ error: 'Invalid thread ID' });
+    try {
+      const emails = await getThreadForApplication({
+        userId: req.application.userId,
+        threadId,
+        imapManager: req.app.get('imapManager'),
+        ...applicationScopes(req),
+      });
+      const safeEmails = maybeRedact(req, emails);
+      const summary = await summarizeThreadEmails(safeEmails);
+      res.json(maybeRedact(req, { thread: { id: threadId }, ...summary }));
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to summarize thread' });
+    }
+  }
+);
+
+router.post('/threads/:threadId/insights',
+  requireApplicationPermission('email.thread'),
+  requireApplicationPermission('ai.summarize'),
+  async (req, res) => {
+    const threadId = String(req.params.threadId || '');
+    if (!threadId || threadId.length > 500) return res.status(400).json({ error: 'Invalid thread ID' });
+    try {
+      const emails = await getThreadForApplication({
+        userId: req.application.userId,
+        threadId,
+        imapManager: req.app.get('imapManager'),
+        ...applicationScopes(req),
+      });
+      const safeEmails = maybeRedact(req, emails);
+      const analysis = await analyzeThreadEmails(safeEmails);
+      res.json(maybeRedact(req, { thread: { id: threadId }, ...analysis }));
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to analyze thread' });
+    }
+  }
+);
+
+router.get('/threads/:threadId/markdown', requireApplicationPermission('email.thread'), async (req, res) => {
+  const threadId = String(req.params.threadId || '');
+  if (!threadId || threadId.length > 500) return res.status(400).json({ error: 'Invalid thread ID' });
+  try {
+    const emails = await getThreadForApplication({
+      userId: req.application.userId,
+      threadId,
+      imapManager: req.app.get('imapManager'),
+      ...applicationScopes(req),
+    });
+    const markdown = exportThreadMarkdown(maybeRedact(req, emails), threadId);
+    res.json(maybeRedact(req, { thread: { id: threadId }, markdown }));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to export thread markdown' });
   }
 });
 
@@ -145,6 +348,7 @@ router.get('/emails/:id/attachments/:part', requireApplicationPermission('email.
       messageId: req.params.id,
       part: req.params.part,
       imapManager: req.app.get('imapManager'),
+      ...applicationScopes(req),
     });
     const encoded = encodeURIComponent(attachment.filename);
     res.setHeader('Content-Type', attachment.contentType);
@@ -158,6 +362,7 @@ router.get('/emails/:id/attachments/:part', requireApplicationPermission('email.
 
 router.post('/drafts',
   requireApplicationPermission('email.draft'),
+  ensureAccountInScope,
   delegateTo(draftRoutes, '/draft')
 );
 
@@ -168,6 +373,7 @@ router.post('/emails/:id/draft-reply', requireApplicationPermission('email.draft
       userId: req.application.userId,
       messageId: req.params.id,
       imapManager: req.app.get('imapManager'),
+      ...applicationScopes(req),
     });
     const replyTarget = email.replyTo?.[0]?.email || email.from.email;
     req.body = {
@@ -182,6 +388,9 @@ router.post('/emails/:id/draft-reply', requireApplicationPermission('email.draft
       inReplyTo: email.messageId,
       references: email.messageId,
     };
+    if (!accountAllowed(req, req.body.accountId)) {
+      return res.status(403).json({ error: 'Account is outside this application scope' });
+    }
     return delegateTo(draftRoutes, '/draft')(req, res, next);
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to create reply draft' });
@@ -190,11 +399,14 @@ router.post('/emails/:id/draft-reply', requireApplicationPermission('email.draft
 
 router.delete('/drafts/:uid',
   requireApplicationPermission('email.draft'),
+  ensureAccountInScope,
+  ensureFolderInScope,
   delegateTo(draftRoutes, req => `/draft/${encodeURIComponent(req.params.uid)}?accountId=${encodeURIComponent(req.query.accountId || '')}&folder=${encodeURIComponent(req.query.folder || '')}`)
 );
 
 router.post('/send',
   requireApplicationPermission('email.send'),
+  ensureAccountInScope,
   delegateTo(sendRoutes, '/send')
 );
 
@@ -205,6 +417,7 @@ router.post('/emails/:id/reply', requireApplicationPermission('email.reply'), as
       userId: req.application.userId,
       messageId: req.params.id,
       imapManager: req.app.get('imapManager'),
+      ...applicationScopes(req),
     });
     const replyTarget = email.replyTo?.[0]?.email || email.from.email;
     req.body = {
@@ -219,6 +432,9 @@ router.post('/emails/:id/reply', requireApplicationPermission('email.reply'), as
       inReplyTo: email.messageId,
       references: email.messageId,
     };
+    if (!accountAllowed(req, req.body.accountId)) {
+      return res.status(403).json({ error: 'Account is outside this application scope' });
+    }
     return delegateTo(sendRoutes, '/send')(req, res, next);
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to reply' });
@@ -233,6 +449,7 @@ router.post('/emails/:id/forward', requireApplicationPermission('email.forward')
       userId: req.application.userId,
       messageId: req.params.id,
       imapManager: req.app.get('imapManager'),
+      ...applicationScopes(req),
     });
     req.body = {
       ...req.body,
@@ -249,31 +466,34 @@ router.post('/emails/:id/forward', requireApplicationPermission('email.forward')
           part: String(attachment.part ?? attachment.partId),
         })).filter(item => item.part && item.part !== 'undefined'),
     };
+    if (!accountAllowed(req, req.body.accountId)) {
+      return res.status(403).json({ error: 'Account is outside this application scope' });
+    }
     return delegateTo(sendRoutes, '/send')(req, res, next);
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to forward email' });
   }
 });
 
-router.patch('/emails/:id/read', requireApplicationPermission('email.modify'), (req, res, next) => {
+router.patch('/emails/:id/read', requireApplicationPermission('email.modify'), ensureEmailInScope, (req, res, next) => {
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
   if (typeof req.body.read !== 'boolean') return res.status(400).json({ error: 'read must be a boolean' });
   return delegateTo(mailRoutes, `/messages/${encodeURIComponent(req.params.id)}/read`)(req, res, next);
 });
 
-router.patch('/emails/:id/star', requireApplicationPermission('email.modify'), (req, res, next) => {
+router.patch('/emails/:id/star', requireApplicationPermission('email.modify'), ensureEmailInScope, (req, res, next) => {
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
   if (typeof req.body.starred !== 'boolean') return res.status(400).json({ error: 'starred must be a boolean' });
   return delegateTo(mailRoutes, `/messages/${encodeURIComponent(req.params.id)}/star`)(req, res, next);
 });
 
-router.post('/emails/:id/archive', requireApplicationPermission('email.modify'), (req, res, next) => {
+router.post('/emails/:id/archive', requireApplicationPermission('email.modify'), ensureEmailInScope, (req, res, next) => {
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
   req.body = { ids: [req.params.id] };
   return delegateTo(mailRoutes, '/messages/bulk-archive')(req, res, next);
 });
 
-router.post('/emails/:id/move', requireApplicationPermission('email.move'), (req, res, next) => {
+router.post('/emails/:id/move', requireApplicationPermission('email.move'), ensureEmailInScope, ensureFolderInScope, (req, res, next) => {
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
   if (typeof req.body.folder !== 'string' || !req.body.folder.trim() || req.body.folder.length > 500) {
     return res.status(400).json({ error: 'folder must be a non-empty string of at most 500 characters' });
@@ -283,7 +503,7 @@ router.post('/emails/:id/move', requireApplicationPermission('email.move'), (req
   return delegateTo(mailRoutes, '/messages/bulk-move')(req, res, next);
 });
 
-router.delete('/emails/:id', requireApplicationPermission('email.delete'), (req, res, next) => {
+router.delete('/emails/:id', requireApplicationPermission('email.delete'), ensureEmailInScope, (req, res, next) => {
   if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
   return delegateTo(mailRoutes, `/messages/${encodeURIComponent(req.params.id)}`)(req, res, next);
 });

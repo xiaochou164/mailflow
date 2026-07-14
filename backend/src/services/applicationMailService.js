@@ -7,7 +7,9 @@ function parseJson(value, fallback = []) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
-export async function listAccountsForApplication(userId) {
+export async function listAccountsForApplication(userId, { accountIds = [], folders = [] } = {}) {
+  const scopedAccountIds = Array.isArray(accountIds) && accountIds.length ? accountIds : null;
+  const scopedFolders = Array.isArray(folders) && folders.length ? folders : null;
   const result = await query(`
     SELECT a.id, a.name, a.email_address, a.color, a.protocol, a.enabled,
            a.last_sync, a.sync_error,
@@ -17,10 +19,12 @@ export async function listAccountsForApplication(userId) {
            ) ORDER BY f.name) FILTER (WHERE f.id IS NOT NULL), '[]') AS folders
     FROM email_accounts a
     LEFT JOIN folders f ON f.account_id = a.id
+      AND ($3::text[] IS NULL OR f.path = ANY($3::text[]))
     WHERE a.user_id = $1 AND a.enabled = true
+      AND ($2::uuid[] IS NULL OR a.id = ANY($2::uuid[]))
     GROUP BY a.id
     ORDER BY a.sort_order, a.created_at
-  `, [userId]);
+  `, [userId, scopedAccountIds, scopedFolders]);
   return result.rows.map(row => ({
     id: row.id,
     name: row.name,
@@ -34,7 +38,9 @@ export async function listAccountsForApplication(userId) {
   }));
 }
 
-export async function getThreadForApplication({ userId, threadId, imapManager }) {
+export async function getThreadForApplication({ userId, threadId, imapManager, accountIds = [], folders = [] }) {
+  const scopedAccountIds = Array.isArray(accountIds) && accountIds.length ? accountIds : null;
+  const scopedFolders = Array.isArray(folders) && folders.length ? folders : null;
   const result = await query(`
     WITH deduped AS (
       SELECT DISTINCT ON (m.message_id)
@@ -45,13 +51,15 @@ export async function getThreadForApplication({ userId, threadId, imapManager })
         AND a.enabled = true
         AND m.is_deleted = false
         AND m.thread_key = $2
+        AND ($3::uuid[] IS NULL OR m.account_id = ANY($3::uuid[]))
+        AND ($4::text[] IS NULL OR m.folder = ANY($4::text[]))
       ORDER BY m.message_id,
                CASE WHEN m.folder = 'INBOX' THEN 0 ELSE 1 END,
                m.date ASC
     )
     SELECT id FROM deduped ORDER BY date ASC
     LIMIT 100
-  `, [userId, threadId]);
+  `, [userId, threadId, scopedAccountIds, scopedFolders]);
   if (!result.rows.length) {
     throw Object.assign(new Error('Thread not found'), { status: 404 });
   }
@@ -59,16 +67,22 @@ export async function getThreadForApplication({ userId, threadId, imapManager })
     userId,
     messageId: row.id,
     imapManager,
+    accountIds,
+    folders,
   })));
 }
 
-export async function getAttachmentForApplication({ userId, messageId, part, imapManager }) {
+export async function getAttachmentForApplication({ userId, messageId, part, imapManager, accountIds = [], folders = [] }) {
+  const scopedAccountIds = Array.isArray(accountIds) && accountIds.length ? accountIds : null;
+  const scopedFolders = Array.isArray(folders) && folders.length ? folders : null;
   const result = await query(`
     SELECT m.uid, m.folder, m.attachments, m.account_id, a.*
     FROM messages m
     JOIN email_accounts a ON a.id = m.account_id
     WHERE m.id = $1 AND a.user_id = $2 AND m.is_deleted = false
-  `, [messageId, userId]);
+      AND ($3::uuid[] IS NULL OR m.account_id = ANY($3::uuid[]))
+      AND ($4::text[] IS NULL OR m.folder = ANY($4::text[]))
+  `, [messageId, userId, scopedAccountIds, scopedFolders]);
   if (!result.rows.length) {
     throw Object.assign(new Error('Email not found'), { status: 404 });
   }
