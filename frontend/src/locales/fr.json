@@ -1219,10 +1219,6 @@
         "appDescription": "Présentation",
         "descriptionPh": "Quel programme utilisera cet identifiant ?",
         "permissionsTitle": "Autorisations",
-        "permissions": {
-          "search": "Rechercher les métadonnées et aperçus des e-mails dans les comptes connectés.",
-          "read": "Lire le contenu des e-mails et les métadonnées des pièces jointes."
-        },
         "tokenTitle": "Jeton d’application créé",
         "tokenWarning": "Copiez ce jeton maintenant. Il ne sera plus affiché.",
         "dismissToken": "J’ai enregistré le jeton",
@@ -1231,6 +1227,12 @@
         "revokeConfirm": "Révoquer « {{name}} » ? Son jeton cessera immédiatement de fonctionner.",
         "createdAt": "Créée le {{when}}",
         "lastUsed": "Dernière utilisation : {{when}}"
+      },
+      "webhooks": {
+        "title": "Rappels web", "description": "Envoyez des événements e-mail signés vers n8n ou un autre endpoint HTTPS. Les échecs sont automatiquement retentés.",
+        "namePh": "Nom du webhook", "create": "Créer le webhook", "secretWarning": "Secret de signature — copiez-le maintenant", "dismiss": "Fermer",
+        "enabled": "Activé", "test": "Tester", "deliveries": "Livraisons", "delete": "Supprimer",
+        "deleteConfirm": "Supprimer \"{{name}}\" ?", "attempts": "Tentatives : {{count}}"
       },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",

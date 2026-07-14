@@ -1219,10 +1219,6 @@
         "appDescription": "用途说明",
         "descriptionPh": "这个凭证将由什么程序使用？",
         "permissionsTitle": "权限",
-        "permissions": {
-          "search": "搜索已连接邮箱中的邮件元数据和摘要。",
-          "read": "读取邮件正文和附件元数据。"
-        },
         "tokenTitle": "应用令牌已创建",
         "tokenWarning": "请立即复制此令牌，关闭后将无法再次查看。",
         "dismissToken": "我已保存令牌",
@@ -1231,6 +1227,12 @@
         "revokeConfirm": "确定撤销“{{name}}”吗？其令牌将立即失效。",
         "createdAt": "创建于 {{when}}",
         "lastUsed": "最后使用于 {{when}}"
+      },
+      "webhooks": {
+        "title": "Webhook 回调", "description": "将签名后的邮件事件发送到 n8n 或其他 HTTPS 端点，失败时自动重试。",
+        "namePh": "Webhook 名称", "create": "创建 Webhook", "secretWarning": "签名密钥——请立即复制", "dismiss": "关闭",
+        "enabled": "已启用", "test": "测试", "deliveries": "投递记录", "delete": "删除",
+        "deleteConfirm": "删除“{{name}}”？", "attempts": "尝试次数：{{count}}"
       },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",

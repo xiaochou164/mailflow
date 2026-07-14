@@ -12,6 +12,7 @@ import { emitGtdIfRelevant } from '../services/gtdSections.js';
 import { listMessages } from '../services/messageService.js';
 import { validateHost } from '../services/hostValidation.js';
 import { safeFetch } from '../services/safeFetch.js';
+import { enqueueWebhookEvent } from '../services/webhookService.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -1622,6 +1623,7 @@ router.delete('/messages/:id', async (req, res) => {
     await query('DELETE FROM messages WHERE id = $1', [id]);
     adjustFolderCounts(message.account_id, message.folder, -1, -wasUnread);
     imapManager.broadcast({ type: 'folder_updated', folder: message.folder, accountId: message.account_id }, req.session.userId);
+    enqueueWebhookEvent({ userId: req.session.userId, event: 'email.deleted', payload: { id, accountId: message.account_id, folder: message.folder, permanent: true } }).catch(() => {});
     return res.json({ ok: true });
   }
 
@@ -1678,6 +1680,7 @@ router.delete('/messages/:id', async (req, res) => {
   // Refresh GTD section data if this thread still carries a GTD label sibling (same staleness the
   // bulk-delete route addresses, reached via the single-message delete button).
   emitGtdSectionsRefresh([message], req.session.userId);
+  enqueueWebhookEvent({ userId: req.session.userId, event: 'email.deleted', payload: { id, accountId: message.account_id, folder: message.folder, permanent: strategy.action === 'expunge' } }).catch(() => {});
   res.json({ ok: true });
 });
 

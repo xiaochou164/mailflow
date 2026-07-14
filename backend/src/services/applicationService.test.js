@@ -65,7 +65,7 @@ describe('application credentials', () => {
     await expect(createApplication({
       userId: 'user-1',
       name: 'Dangerous app',
-      permissions: ['email.delete'],
+      permissions: ['admin.root'],
     })).rejects.toMatchObject({ status: 400 });
     expect(withTransaction).not.toHaveBeenCalled();
   });

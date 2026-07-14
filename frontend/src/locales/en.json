@@ -1219,10 +1219,6 @@
         "appDescription": "Description",
         "descriptionPh": "What will use this credential?",
         "permissionsTitle": "Permissions",
-        "permissions": {
-          "search": "Search email metadata and snippets across connected accounts.",
-          "read": "Read email content and attachment metadata."
-        },
         "tokenTitle": "Application token created",
         "tokenWarning": "Copy this token now. It will not be shown again.",
         "dismissToken": "I have saved the token",
@@ -1231,6 +1227,12 @@
         "revokeConfirm": "Revoke \"{{name}}\"? Its token will stop working immediately.",
         "createdAt": "Created {{when}}",
         "lastUsed": "Last used {{when}}"
+      },
+      "webhooks": {
+        "title": "Webhooks", "description": "Deliver signed email events to n8n or another HTTPS endpoint. Failed deliveries are retried automatically.",
+        "namePh": "Webhook name", "create": "Create webhook", "secretWarning": "Signing secret — copy it now", "dismiss": "Dismiss",
+        "enabled": "Enabled", "test": "Test", "deliveries": "Deliveries", "delete": "Delete",
+        "deleteConfirm": "Delete \"{{name}}\"?", "attempts": "Attempts: {{count}}"
       },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",

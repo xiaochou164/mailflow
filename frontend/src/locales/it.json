@@ -1219,10 +1219,6 @@
         "appDescription": "Descrizione",
         "descriptionPh": "Quale programma userà questa credenziale?",
         "permissionsTitle": "Permessi",
-        "permissions": {
-          "search": "Cerca metadati e anteprime delle email negli account collegati.",
-          "read": "Leggi il contenuto delle email e i metadati degli allegati."
-        },
         "tokenTitle": "Token applicazione creato",
         "tokenWarning": "Copia subito questo token. Non verrà mostrato di nuovo.",
         "dismissToken": "Ho salvato il token",
@@ -1231,6 +1227,12 @@
         "revokeConfirm": "Revocare “{{name}}”? Il token smetterà subito di funzionare.",
         "createdAt": "Creata il {{when}}",
         "lastUsed": "Ultimo utilizzo: {{when}}"
+      },
+      "webhooks": {
+        "title": "Webhook", "description": "Invia eventi email firmati a n8n o a un altro endpoint HTTPS. Le consegne non riuscite vengono ritentate automaticamente.",
+        "namePh": "Nome webhook", "create": "Crea webhook", "secretWarning": "Segreto di firma — copialo ora", "dismiss": "Chiudi",
+        "enabled": "Abilitato", "test": "Prova", "deliveries": "Consegne", "delete": "Elimina",
+        "deleteConfirm": "Eliminare \"{{name}}\"?", "attempts": "Tentativi: {{count}}"
       },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",

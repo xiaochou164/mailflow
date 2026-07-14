@@ -31,6 +31,8 @@ import carddavRouter from './routes/carddav.js';
 import carddavAccountRouter from './routes/carddavAccount.js';
 import applicationsRoutes from './routes/applications.js';
 import apiV1Routes from './routes/apiV1.js';
+import webhookRoutes from './routes/webhooks.js';
+import { startWebhookWorker } from './services/webhookService.js';
 import { startCardavScheduler } from './services/carddavSync.js';
 import { encryptExistingCredentials, query } from './services/db.js';
 import { runMigrations } from './services/migrations.js';
@@ -164,6 +166,7 @@ app.use('/api/contacts', contactsRoutes);
 app.use('/api/todoist', todoistRoutes);
 app.use('/api/carddav', carddavAccountRouter);
 app.use('/api/applications', applicationsRoutes);
+app.use('/api/webhooks', webhookRoutes);
 app.use('/api/v1', apiV1Routes);
 app.use('/api', aiRoutes);
 app.use('/api', categoriesRoutes);
@@ -229,6 +232,7 @@ imapManager.startSnoozeWatcher();
 
 // Schedule periodic CardDAV contact sync for any connected accounts.
 startCardavScheduler();
+startWebhookWorker();
 
 // Re-connect all enabled IMAP accounts on startup with bounded concurrency so a
 // large user base doesn't hammer IMAP servers and the DB connection pool at once.

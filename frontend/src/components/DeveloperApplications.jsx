@@ -2,7 +2,46 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../utils/api.js';
 
-const DEFAULT_PERMISSIONS = ['email.search', 'email.read'];
+const PERMISSION_GROUPS = [
+  {
+    title: 'Read',
+    permissions: [
+      ['account.read', 'List connected email accounts and folders.'],
+      ['email.search', 'Search email metadata and snippets.'],
+      ['email.read', 'Read email content and metadata.'],
+      ['email.thread', 'Read complete email threads.'],
+      ['email.attachments', 'Download email attachments.'],
+    ],
+  },
+  {
+    title: 'Compose',
+    permissions: [
+      ['email.draft', 'Create and update drafts without sending.'],
+      ['email.reply', 'Reply to an existing email.'],
+      ['email.forward', 'Forward an existing email.'],
+      ['email.send', 'Send new email immediately.'],
+    ],
+  },
+  {
+    title: 'Mailbox changes',
+    permissions: [
+      ['email.modify', 'Change read and starred state or archive email.'],
+      ['email.move', 'Move email between folders.'],
+      ['email.delete', 'Delete email.'],
+    ],
+  },
+  {
+    title: 'Automation',
+    permissions: [
+      ['webhook.manage', 'Create webhooks and inspect delivery logs.'],
+    ],
+  },
+];
+
+const DEFAULT_PERMISSIONS = ['account.read', 'email.search', 'email.read', 'email.thread'];
+const PERMISSION_DESCRIPTIONS = Object.fromEntries(
+  PERMISSION_GROUPS.flatMap(group => group.permissions)
+);
 
 const fieldStyle = {
   width: '100%', padding: '9px 11px', boxSizing: 'border-box',
@@ -10,16 +49,14 @@ const fieldStyle = {
   background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13,
 };
 
-function PermissionOption({ permission, checked, onChange, t }) {
+function PermissionOption({ permission, checked, onChange }) {
   return (
     <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-subtle)', cursor: 'pointer' }}>
       <input type="checkbox" checked={checked} onChange={event => onChange(permission, event.target.checked)} style={{ marginTop: 2 }} />
       <span>
         <span style={{ display: 'block', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'JetBrains Mono, monospace' }}>{permission}</span>
         <span style={{ display: 'block', color: 'var(--text-tertiary)', fontSize: 12, marginTop: 3 }}>
-          {permission === 'email.search'
-            ? t('admin.integrations.developer.permissions.search')
-            : t('admin.integrations.developer.permissions.read')}
+          {PERMISSION_DESCRIPTIONS[permission] || permission}
         </span>
       </span>
     </label>
@@ -129,9 +166,16 @@ export default function DeveloperApplications() {
           <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', margin: '13px 0 5px' }}>{t('admin.integrations.developer.appDescription')}</label>
           <textarea value={form.description} onChange={event => setForm(current => ({ ...current, description: event.target.value }))} placeholder={t('admin.integrations.developer.descriptionPh')} style={{ ...fieldStyle, minHeight: 72, resize: 'vertical' }} maxLength={500} />
           <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '13px 0 6px' }}>{t('admin.integrations.developer.permissionsTitle')}</div>
-          <div style={{ display: 'grid', gap: 7 }}>
-            {DEFAULT_PERMISSIONS.map(permission => (
-              <PermissionOption key={permission} permission={permission} checked={form.permissions.includes(permission)} onChange={togglePermission} t={t} />
+          <div style={{ display: 'grid', gap: 12 }}>
+            {PERMISSION_GROUPS.map(group => (
+              <div key={group.title}>
+                <div style={{ color: 'var(--text-tertiary)', fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{group.title}</div>
+                <div style={{ display: 'grid', gap: 7 }}>
+                  {group.permissions.map(([permission]) => (
+                    <PermissionOption key={permission} permission={permission} checked={form.permissions.includes(permission)} onChange={togglePermission} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
           <button onClick={createApplication} disabled={saving || !form.name.trim() || !form.permissions.length} style={{ marginTop: 14, padding: '8px 14px', border: 'none', borderRadius: 8, background: 'var(--accent)', color: 'var(--accent-text)', cursor: saving ? 'default' : 'pointer', opacity: saving || !form.name.trim() || !form.permissions.length ? 0.6 : 1, fontSize: 13, fontWeight: 500 }}>

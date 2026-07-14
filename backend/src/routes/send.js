@@ -15,6 +15,7 @@ import { resolveForConnection } from '../services/hostValidation.js';
 import { getConnectionPolicy } from '../services/connectionPolicy.js';
 import { imapManager } from '../index.js';
 import { runTransitionsForSentMessage } from '../services/gtdTransitions.js';
+import { enqueueWebhookEvent } from '../services/webhookService.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -551,6 +552,18 @@ router.post('/send', async (req, res) => {
     // Overwrite the in-flight reservation with the final result so a retry after a lost
     // response returns this instead of re-sending.
     if (idemKeyRedis) redisClient.set(idemKeyRedis, JSON.stringify(sendResult), { EX: 86400 }).catch(() => {});
+    enqueueWebhookEvent({
+      userId: req.session.userId,
+      event: 'email.sent',
+      payload: {
+        accountId,
+        messageId: mailOptions.messageId,
+        to: normalizedTo,
+        cc: normalizedCc,
+        subject: normalizedSubject,
+        sentCopySaved,
+      },
+    }).catch(err => console.warn('Webhook enqueue email.sent failed:', err.message));
     res.json(sendResult);
   } catch (err) {
     console.error('Send failed:', err.message);

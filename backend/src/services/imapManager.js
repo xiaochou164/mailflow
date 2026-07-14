@@ -16,6 +16,7 @@ import { getConnectionPolicy } from './connectionPolicy.js';
 import { applyInboxRules, applyBlockList } from './inboxRules.js';
 import { generateVCard } from '../utils/vcard.js';
 import { randomUUID } from 'crypto';
+import { enqueueWebhookEvent } from './webhookService.js';
 
 
 // Shorthand for log lines — keeps domain visible while masking the local part.
@@ -4628,6 +4629,28 @@ export class ImapManager {
         }
       }
     });
+    if (userId && data?.type === 'new_messages' && Array.isArray(data.messages)) {
+      const messages = data.messages.map(message => ({
+        id: message.id,
+        accountId: data.accountId,
+        folder: data.folder,
+        subject: message.subject || '',
+        from: { name: message.fromName || message.from_name || '', email: message.fromEmail || message.from_email || '' },
+        date: message.date,
+        snippet: message.snippet || '',
+        hasAttachments: !!(message.hasAttachments ?? message.has_attachments),
+      }));
+      enqueueWebhookEvent({ userId, event: 'email.received', payload: { accountId: data.accountId, folder: data.folder, messages } })
+        .catch(err => console.warn('Webhook enqueue email.received failed:', err.message));
+      const withAttachments = messages.filter(message => message.hasAttachments);
+      if (withAttachments.length) {
+        enqueueWebhookEvent({ userId, event: 'attachment.received', payload: { accountId: data.accountId, folder: data.folder, messages: withAttachments } })
+          .catch(err => console.warn('Webhook enqueue attachment.received failed:', err.message));
+      }
+    } else if (userId && data?.type === 'message_flags') {
+      enqueueWebhookEvent({ userId, event: 'email.updated', payload: data })
+        .catch(err => console.warn('Webhook enqueue email.updated failed:', err.message));
+    }
   }
 
   // Guard a specific (accountId, folder, uid) triple so reconcileDeletes skips it.

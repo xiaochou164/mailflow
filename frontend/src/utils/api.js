@@ -162,6 +162,14 @@ export const api = {
     create: (data) => request('POST', '/applications', data),
     revoke: (id) => request('DELETE', `/applications/${id}`),
   },
+  webhooks: {
+    list: () => request('GET', '/webhooks'),
+    create: (data) => request('POST', '/webhooks', data),
+    update: (id, data) => request('PATCH', `/webhooks/${id}`, data),
+    remove: (id) => request('DELETE', `/webhooks/${id}`),
+    test: (id) => request('POST', `/webhooks/${id}/test`, {}),
+    deliveries: (id) => request('GET', `/webhooks/${id}/deliveries`),
+  },
   startMsDeviceFlow: async () => {
     const res = await fetch('/oauth/microsoft/device', { method: 'POST', credentials: 'include' });
     const data = await res.json();

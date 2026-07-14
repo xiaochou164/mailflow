@@ -456,15 +456,26 @@ Any standard IMAP/SMTP server works. Use port 993 for IMAP (TLS) and
 
 ## Developer API and MCP
 
-MailFlow can create scoped application tokens for read-only email integrations.
+MailFlow can create scoped application tokens for email and automation integrations.
 Open **Settings → Integrations → Developer**, create an application, and copy the
 `mf_sk_...` token when it is shown. Only a hash is stored, so the token cannot be
 displayed again.
 
-The first release exposes two permissions and two MCP tools:
+Permissions are granted independently. Read-only access remains the recommended
+default; sending, moving, deleting, and webhook administration must be explicitly enabled.
 
-- `email.search` / `search_email`
-- `email.read` / `read_email`
+- Read: `account.read`, `email.search`, `email.read`, `email.thread`, `email.attachments`
+- Compose: `email.draft`, `email.send`, `email.reply`, `email.forward`
+- Mailbox changes: `email.modify`, `email.move`, `email.delete`
+- Automation: `webhook.manage`
+
+MCP tools include:
+
+- `list_accounts`, `search_email`, `read_email`, `read_thread`, `get_attachment`
+- `create_draft`, `draft_reply`
+- `send_email`, `reply_email`, `forward_email`
+- `set_email_read`, `set_email_starred`, `archive_email`, `move_email`, `delete_email`
+- `list_webhooks`, `create_webhook`, `test_webhook`, `list_webhook_deliveries`, `delete_webhook`
 
 REST API examples:
 
@@ -474,6 +485,9 @@ curl -H "Authorization: Bearer mf_sk_..." \
 
 curl -H "Authorization: Bearer mf_sk_..." \
   "https://mail.example.com/api/v1/emails/EMAIL_UUID"
+
+curl -H "Authorization: Bearer mf_sk_..." \
+  "https://mail.example.com/api/v1/threads/THREAD_ID"
 ```
 
 Remote MCP clients that support custom HTTP headers can connect to:
@@ -490,6 +504,24 @@ for the current ChatGPT Apps SDK integration model.
 
 Gmail continues to use IMAP/SMTP with an app password; this feature does not add
 or require Google OAuth.
+
+### Webhooks
+
+Open **Settings → Integrations → Webhooks** to create subscriptions for
+`email.received`, `email.updated`, `email.sent`, `email.deleted`, and
+`attachment.received`. Each webhook receives a one-time `whsec_...` signing secret.
+
+MailFlow signs the exact request body using:
+
+```text
+X-MailFlow-Timestamp: 1784000000
+X-MailFlow-Signature: v1=HMAC_SHA256(secret, timestamp + "." + raw_body)
+```
+
+Failed deliveries are retried after 1 minute, 5 minutes, 30 minutes, 2 hours,
+and 12 hours. Delivery status and HTTP response codes are visible in the Webhooks UI.
+Public HTTPS destinations are required by default. Set
+`WEBHOOK_ALLOW_PRIVATE_HOSTS=true` only for a trusted private n8n deployment.
 
 ---
 

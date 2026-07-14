@@ -1152,10 +1152,6 @@
         "appDescription": "Beschreibung",
         "descriptionPh": "Wofür wird dieser Zugang verwendet?",
         "permissionsTitle": "Berechtigungen",
-        "permissions": {
-          "search": "E-Mail-Metadaten und Vorschauen in verbundenen Konten durchsuchen.",
-          "read": "E-Mail-Inhalte und Anhangsmetadaten lesen."
-        },
         "tokenTitle": "Anwendungstoken erstellt",
         "tokenWarning": "Kopieren Sie dieses Token jetzt. Es wird nicht erneut angezeigt.",
         "dismissToken": "Token wurde gespeichert",
@@ -1164,6 +1160,12 @@
         "revokeConfirm": "„{{name}}“ widerrufen? Das Token funktioniert sofort nicht mehr.",
         "createdAt": "Erstellt am {{when}}",
         "lastUsed": "Zuletzt verwendet: {{when}}"
+      },
+      "webhooks": {
+        "title": "Webhook-Endpunkte", "description": "Signierte E-Mail-Ereignisse an n8n oder einen anderen HTTPS-Endpunkt senden. Fehlgeschlagene Zustellungen werden automatisch wiederholt.",
+        "namePh": "Webhook-Name", "create": "Webhook erstellen", "secretWarning": "Signaturschlüssel – jetzt kopieren", "dismiss": "Schließen",
+        "enabled": "Aktiviert", "test": "Testen", "deliveries": "Zustellungen", "delete": "Löschen",
+        "deleteConfirm": "\"{{name}}\" löschen?", "attempts": "Versuche: {{count}}"
       },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",

@@ -12,6 +12,7 @@ import { usePushNotifications } from '../hooks/usePushNotifications.js';
 import SignatureEditor from './SignatureEditor.jsx';
 import GtdZeroPet from './GtdZeroPet.jsx';
 import DeveloperApplications from './DeveloperApplications.jsx';
+import WebhookManager from './WebhookManager.jsx';
 import { getEffectiveShortcuts, getGroupedActions, ACTION_DEFS, SPECIAL_KEY_LABELS, parseModKey, modLabel } from '../utils/defaultShortcuts.js';
 import { DEFAULT_GTD_FOLDERS, GTD_STATES, resolveAccountGtdFolders, diffGtdFolders, findGtdFolderCollisions } from '../utils/gtd.js';
 
@@ -2213,6 +2214,9 @@ function IntegrationsTab() {
         <button style={subTabStyle('developer')} onClick={() => setSubTab('developer')}>
           {t('admin.integrations.tabDeveloper')}
         </button>
+        <button style={subTabStyle('webhooks')} onClick={() => setSubTab('webhooks')}>
+          Webhooks
+        </button>
       </div>
 
       {subTab === 'emailProviders' && (
@@ -2639,6 +2643,7 @@ function IntegrationsTab() {
       )}
 
       {subTab === 'developer' && <DeveloperApplications />}
+      {subTab === 'webhooks' && <WebhookManager />}
     </div>
   );
 }

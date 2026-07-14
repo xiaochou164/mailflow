@@ -2,8 +2,19 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { query, withTransaction } from './db.js';
 
 export const APPLICATION_PERMISSIONS = Object.freeze([
+  'account.read',
   'email.search',
   'email.read',
+  'email.thread',
+  'email.attachments',
+  'email.draft',
+  'email.send',
+  'email.reply',
+  'email.forward',
+  'email.modify',
+  'email.move',
+  'email.delete',
+  'webhook.manage',
 ]);
 
 const TOKEN_PATTERN = /^mf_sk_([A-Za-z0-9_-]{16})_([A-Za-z0-9_-]{43})$/;
