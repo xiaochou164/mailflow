@@ -1,5 +1,6 @@
 import { redisClient } from '../services/redis.js';
 import { authenticateApplicationToken } from '../services/applicationService.js';
+import { authenticateOAuthAccessToken } from '../services/mcpOAuthService.js';
 import {
   recordApplicationAuditEvent,
   recordApplicationSecurityAlert,
@@ -49,7 +50,8 @@ function bearerToken(req) {
 
 export async function requireApplication(req, res, next) {
   try {
-    const application = await authenticateApplicationToken(bearerToken(req));
+    const token = bearerToken(req);
+    const application = await authenticateApplicationToken(token) || await authenticateOAuthAccessToken(token);
     if (!application) return res.status(401).json({ error: 'Invalid or revoked application token' });
     if (!ipAllowed(req.ip, application.allowedIps)) {
       recordApplicationSecurityAlert({

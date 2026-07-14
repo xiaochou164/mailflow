@@ -63,6 +63,34 @@ test('createServer registers every mapped tool when all permissions are granted'
   await server.close();
 });
 
+test('createServer exposes only first-phase ChatGPT tools in OAuth mode', async () => {
+  const server = createServer('mf_oat_token', ALL_PERMISSIONS, { chatgpt: true });
+
+  assert.deepEqual(toolNames(server), [
+    'daily_email_digest',
+    'list_accounts',
+    'read_email',
+    'read_thread',
+    'search_email',
+    'summarize_thread',
+  ]);
+
+  await server.close();
+});
+
+test('OAuth mode tools include security schemes for read scopes', async () => {
+  const server = createServer('mf_oat_token', ALL_PERMISSIONS, { chatgpt: true });
+
+  assert.deepEqual(server._registeredTools.search_email._meta.securitySchemes, [
+    { type: 'oauth2', scopes: ['email.search'] },
+  ]);
+  assert.deepEqual(server._registeredTools.summarize_thread._meta.securitySchemes, [
+    { type: 'oauth2', scopes: ['email.thread', 'ai.summarize'] },
+  ]);
+
+  await server.close();
+});
+
 test('update_webhook sends only supplied fields to the API', async () => {
   const calls = [];
   const originalFetch = globalThis.fetch;
@@ -165,5 +193,18 @@ test('toolError returns an MCP tool error payload', () => {
   assert.deepEqual(toolError(new Error('boom')), {
     isError: true,
     content: [{ type: 'text', text: 'boom' }],
+  });
+});
+
+test('toolError includes MCP www_authenticate metadata for tool auth failures', () => {
+  const err = new Error('unauthorized');
+  err.status = 401;
+  err.wwwAuthenticate = 'Bearer resource_metadata="https://example.test/.well-known/oauth-protected-resource"';
+  assert.deepEqual(toolError(err), {
+    isError: true,
+    content: [{ type: 'text', text: 'unauthorized' }],
+    _meta: {
+      'mcp/www_authenticate': 'Bearer resource_metadata="https://example.test/.well-known/oauth-protected-resource"',
+    },
   });
 });

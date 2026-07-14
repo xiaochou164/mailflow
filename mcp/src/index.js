@@ -6,6 +6,26 @@ import * as z from 'zod/v4';
 
 const PORT = Number(process.env.PORT) || 3001;
 const API_BASE_URL = (process.env.MAILFLOW_API_BASE_URL || 'http://backend:3000/api/v1').replace(/\/+$/, '');
+const PUBLIC_ORIGIN = (process.env.MCP_PUBLIC_ORIGIN || process.env.APP_URL || '').replace(/\/+$/, '');
+const CHATGPT_TOOL_NAMES = new Set([
+  'list_accounts',
+  'search_email',
+  'read_email',
+  'read_thread',
+  'daily_email_digest',
+  'summarize_thread',
+]);
+
+function publicOrigin(req) {
+  if (PUBLIC_ORIGIN) return PUBLIC_ORIGIN;
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost';
+  return `${proto}://${host}`;
+}
+
+function resourceMetadataUrl(req) {
+  return `${publicOrigin(req)}/.well-known/oauth-protected-resource`;
+}
 
 export function bearerToken(req) {
   const header = req.headers.authorization || '';
@@ -58,10 +78,16 @@ export async function mailflowBinary(path, token) {
 }
 
 export function toolError(err) {
-  return {
+  const result = {
     isError: true,
     content: [{ type: 'text', text: err.message || 'MailFlow request failed' }],
   };
+  if (err.status === 401) {
+    result._meta = {
+      'mcp/www_authenticate': err.wwwAuthenticate || 'Bearer',
+    };
+  }
+  return result;
 }
 
 export const TOOL_PERMISSIONS = Object.freeze({
@@ -95,14 +121,35 @@ export const TOOL_PERMISSIONS = Object.freeze({
   delete_webhook: 'webhook.manage',
 });
 
-export function createServer(token, permissions) {
+function toolSecurity(required) {
+  const scopes = (Array.isArray(required) ? required : [required])
+    .filter(permission => ['email.search', 'email.read', 'email.thread', 'ai.summarize'].includes(permission));
+  return scopes.length ? [{ type: 'oauth2', scopes }] : undefined;
+}
+
+function withSecurity(name, config) {
+  const schemes = toolSecurity(TOOL_PERMISSIONS[name]);
+  if (!schemes) return config;
+  return {
+    ...config,
+    securitySchemes: schemes,
+    _meta: {
+      ...(config._meta || {}),
+      securitySchemes: schemes,
+    },
+  };
+}
+
+export function createServer(token, permissions, options = {}) {
   const server = new McpServer({ name: 'mailflow-mcp', version: '0.1.0' });
   const granted = new Set(permissions);
   const registerTool = server.registerTool.bind(server);
   server.registerTool = (name, ...args) => {
+    if (options.chatgpt === true && !CHATGPT_TOOL_NAMES.has(name)) return undefined;
     const required = TOOL_PERMISSIONS[name];
     const requiredList = Array.isArray(required) ? required : [required];
     if (required && requiredList.some(permission => !granted.has(permission))) return undefined;
+    if (args[0] && typeof args[0] === 'object') args[0] = withSecurity(name, args[0]);
     return registerTool(name, ...args);
   };
 
@@ -575,11 +622,14 @@ export function createApp() {
 
   app.post('/mcp', async (req, res) => {
     const token = bearerToken(req);
-    if (!token?.startsWith('mf_sk_')) {
-      res.setHeader('WWW-Authenticate', 'Bearer realm="MailFlow MCP"');
+    const isMfToken = token?.startsWith('mf_sk_');
+    const isOAuthToken = token?.startsWith('mf_oat_');
+    const wwwAuthenticate = `Bearer resource_metadata="${resourceMetadataUrl(req)}"`;
+    if (!isMfToken && !isOAuthToken) {
+      res.setHeader('WWW-Authenticate', wwwAuthenticate);
       return res.status(401).json({
         jsonrpc: '2.0',
-        error: { code: -32001, message: 'A MailFlow application token is required' },
+        error: { code: -32001, message: 'A MailFlow application or OAuth token is required' },
         id: null,
       });
     }
@@ -588,18 +638,18 @@ export function createApp() {
       const { application } = await mailflowRequest('/application', token);
       req.applicationPermissions = application.permissions || [];
     } catch (err) {
-      res.setHeader('WWW-Authenticate', 'Bearer realm="MailFlow MCP"');
+      res.setHeader('WWW-Authenticate', wwwAuthenticate);
       return res.status(err.status === 401 ? 401 : 502).json({
         jsonrpc: '2.0',
         error: {
           code: err.status === 401 ? -32001 : -32603,
-          message: err.status === 401 ? 'Invalid or revoked MailFlow application token' : 'MailFlow API is unavailable',
+          message: err.status === 401 ? 'Invalid or revoked MailFlow token' : 'MailFlow API is unavailable',
         },
         id: null,
       });
     }
 
-    const server = createServer(token, req.applicationPermissions);
+    const server = createServer(token, req.applicationPermissions, { chatgpt: isOAuthToken });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     res.on('close', () => {
       transport.close().catch(() => {});

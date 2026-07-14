@@ -5,6 +5,16 @@ import { query, withTransaction } from '../services/db.js';
 import { imapManager } from '../index.js';
 import { encrypt, decrypt } from '../services/encryption.js';
 import { redactEmail } from '../utils/redact.js';
+import {
+  authorizationServerMetadata,
+  createAuthorizationCode,
+  exchangeAuthorizationCode,
+  protectedResourceMetadata,
+  registerOAuthClient,
+  revokeOAuthToken,
+  refreshAccessToken,
+  validateAuthorizeRequest,
+} from '../services/mcpOAuthService.js';
 
 // Cache JWKS fetchers per tenant — createRemoteJWKSet handles caching internally.
 const jwksCache = new Map();
@@ -20,6 +30,136 @@ function getMsJwks(tenantId) {
 const router = Router();
 
 const MICROSOFT_AUTH_URL = 'https://login.microsoftonline.com';
+
+function htmlPage(title, body) {
+  return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>${title}</title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;background:#0f172a;color:#e5e7eb}
+    main{max-width:560px;margin:12vh auto;padding:28px;border:1px solid #334155;border-radius:12px;background:#111827}
+    h1{font-size:22px;margin:0 0 12px}
+    p{line-height:1.6;color:#cbd5e1}
+    code{background:#020617;padding:2px 5px;border-radius:4px}
+    button,a.button{display:inline-block;border:0;border-radius:8px;background:#2563eb;color:white;padding:10px 14px;text-decoration:none;cursor:pointer;font-size:14px}
+    .muted{color:#94a3b8;font-size:13px}
+    ul{color:#cbd5e1;line-height:1.7}
+  </style>
+</head>
+<body><main>${body}</main></body></html>`;
+}
+
+function redirectWithCode(res, redirectUri, code, state) {
+  const target = new URL(redirectUri);
+  target.searchParams.set('code', code);
+  if (state) target.searchParams.set('state', state);
+  res.redirect(target.toString());
+}
+
+function oauthError(res, status, error, description) {
+  return res.status(status).json({
+    error,
+    ...(description ? { error_description: description } : {}),
+  });
+}
+
+router.get('/.well-known/oauth-protected-resource', (req, res) => {
+  res.json(protectedResourceMetadata(req));
+});
+
+router.get('/.well-known/oauth-authorization-server', (req, res) => {
+  res.json(authorizationServerMetadata(req));
+});
+
+router.get('/authorize', async (req, res) => {
+  const validationError = validateAuthorizeRequest(req.query);
+  if (validationError) return res.status(400).send(htmlPage('OAuth 参数错误', `<h1>OAuth 参数错误</h1><p>${validationError}</p>`));
+  if (!req.session?.userId) {
+    const returnTo = encodeURIComponent(`${req.originalUrl}`);
+    return res.status(401).send(htmlPage(
+      '需要登录 MailFlow',
+      `<h1>需要登录 MailFlow</h1>
+       <p>请先在当前浏览器登录 MailFlow，然后重新从 ChatGPT 发起连接。</p>
+       <p class="muted">授权请求：<code>${returnTo}</code></p>
+       <a class="button" href="/">打开 MailFlow 登录页</a>`
+    ));
+  }
+
+  const scope = String(req.query.scope || '').trim() || 'email.search email.read email.thread ai.summarize';
+  if (req.query.approve === '1') {
+    try {
+      const { code } = await createAuthorizationCode({
+        clientId: req.query.client_id,
+        userId: req.session.userId,
+        redirectUri: req.query.redirect_uri,
+        scope,
+        codeChallenge: req.query.code_challenge,
+        codeChallengeMethod: req.query.code_challenge_method,
+      });
+      return redirectWithCode(res, req.query.redirect_uri, code, req.query.state);
+    } catch (err) {
+      return res.status(err.status || 500).send(htmlPage('授权失败', `<h1>授权失败</h1><p>${err.message}</p>`));
+    }
+  }
+
+  const params = new URLSearchParams(req.query);
+  params.set('approve', '1');
+  res.send(htmlPage(
+    '授权 ChatGPT 访问 MailFlow',
+    `<h1>授权 ChatGPT 访问 MailFlow</h1>
+     <p>ChatGPT 请求通过 MailFlow MCP 读取你的邮件数据。第一阶段只开放只读和 AI 摘要能力，不开放发送、转发或删除。</p>
+     <ul>
+       <li>搜索邮件：<code>email.search</code></li>
+       <li>读取邮件：<code>email.read</code></li>
+       <li>读取线程：<code>email.thread</code></li>
+       <li>AI 摘要：<code>ai.summarize</code></li>
+     </ul>
+     <form method="get" action="/oauth/authorize">
+       ${[...params].map(([key, value]) => `<input type="hidden" name="${key}" value="${String(value).replaceAll('"', '&quot;')}">`).join('')}
+       <button type="submit">授权 ChatGPT</button>
+     </form>
+     <p class="muted">授权后可在开发者应用中撤销 ChatGPT MCP 应用。</p>`
+  ));
+});
+
+router.post('/register', async (req, res) => {
+  const client = await registerOAuthClient(req.body || {});
+  res.status(201).json(client);
+});
+
+router.post('/token', async (req, res) => {
+  const body = req.body || {};
+  try {
+    if (body.grant_type === 'authorization_code') {
+      const token = await exchangeAuthorizationCode({
+        clientId: body.client_id,
+        code: body.code,
+        redirectUri: body.redirect_uri,
+        codeVerifier: body.code_verifier,
+      });
+      return res.json(token);
+    }
+    if (body.grant_type === 'refresh_token') {
+      const token = await refreshAccessToken({
+        clientId: body.client_id,
+        refreshToken: body.refresh_token,
+        scope: body.scope,
+      });
+      return res.json(token);
+    }
+    return oauthError(res, 400, 'unsupported_grant_type');
+  } catch (err) {
+    return oauthError(res, err.status || 500, err.oauthError || 'server_error', err.message);
+  }
+});
+
+router.post('/revoke', async (req, res) => {
+  await revokeOAuthToken(req.body?.token);
+  res.status(200).json({});
+});
 
 // In-memory store for pending device code flows — keyed by userId.
 // Device codes expire in 15 minutes so no persistence is needed.

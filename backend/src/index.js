@@ -119,6 +119,7 @@ app.use('/api/mail/draft', express.json({ limit: '35mb' }));
 // enforced after decode in gtdPet.importPet), so it needs more than the global 1 MB.
 app.use('/api/gtd/pet/import', express.json({ limit: '8mb' }));
 app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 // Return a clean JSON error when the body parser rejects an oversized payload.
 app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') {
@@ -179,6 +180,14 @@ app.use('/api/gtd', gtdRoutes);
 app.use('/carddav', carddavRouter);
 // RFC 6764 well-known redirect — handle all methods so PROPFIND probes also redirect
 app.all('/.well-known/carddav', (req, res) => res.redirect(308, '/carddav/'));
+app.get('/.well-known/oauth-protected-resource', (req, res) => {
+  req.url = '/.well-known/oauth-protected-resource';
+  oauthRoutes.handle(req, res);
+});
+app.get('/.well-known/oauth-authorization-server', (req, res) => {
+  req.url = '/.well-known/oauth-authorization-server';
+  oauthRoutes.handle(req, res);
+});
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/api/version', (_req, res) => res.json({ version: APP_VERSION, sha: process.env.BUILD_SHA || 'dev' }));

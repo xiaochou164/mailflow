@@ -55,6 +55,7 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       APPLICATION_KEY_PEPPER: ${APPLICATION_KEY_PEPPER:-}
       WEBHOOK_ALLOW_PRIVATE_HOSTS: ${WEBHOOK_ALLOW_PRIVATE_HOSTS:-false}
+      MCP_PUBLIC_ORIGIN: ${MCP_PUBLIC_ORIGIN:-}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
@@ -83,6 +84,8 @@ services:
       NODE_ENV: production
       PORT: 3001
       MAILFLOW_API_BASE_URL: http://backend:3000/api/v1
+      APP_URL: ${APP_URL:-}
+      MCP_PUBLIC_ORIGIN: ${MCP_PUBLIC_ORIGIN:-}
     depends_on:
       backend:
         condition: service_healthy
