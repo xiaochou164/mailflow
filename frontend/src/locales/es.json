@@ -1206,6 +1206,32 @@
       "loading": "Cargando…",
       "tabEmailProviders": "Proveedores de correo",
       "tabApps": "Aplicaciones",
+      "tabDeveloper": "Desarrollo",
+      "developer": {
+        "title": "Aplicaciones para desarrolladores",
+        "description": "Crea credenciales con permisos limitados para clientes MCP, automatizaciones e integraciones propias.",
+        "create": "Crear aplicación",
+        "apiUrl": "Dirección de API",
+        "mcpUrl": "Dirección de MCP",
+        "copied": "Copiado",
+        "name": "Nombre de la aplicación",
+        "namePh": "Asistente de correo MCP",
+        "appDescription": "Descripción",
+        "descriptionPh": "¿Qué utilizará esta credencial?",
+        "permissionsTitle": "Permisos",
+        "permissions": {
+          "search": "Buscar metadatos y extractos de correo en las cuentas conectadas.",
+          "read": "Leer el contenido del correo y los metadatos de adjuntos."
+        },
+        "tokenTitle": "Token de aplicación creado",
+        "tokenWarning": "Copia este token ahora. No volverá a mostrarse.",
+        "dismissToken": "He guardado el token",
+        "empty": "Todavía no hay aplicaciones para desarrolladores.",
+        "revoke": "Revocar",
+        "revokeConfirm": "¿Revocar «{{name}}»? Su token dejará de funcionar inmediatamente.",
+        "createdAt": "Creada el {{when}}",
+        "lastUsed": "Último uso: {{when}}"
+      },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",
         "description": "OAuth2 para cuentas de trabajo, escuela o personales de Microsoft (Outlook.com, Hotmail)",

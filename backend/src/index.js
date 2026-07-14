@@ -29,6 +29,8 @@ import categoriesRoutes from './routes/categories.js';
 import gtdRoutes from './routes/gtd.js';
 import carddavRouter from './routes/carddav.js';
 import carddavAccountRouter from './routes/carddavAccount.js';
+import applicationsRoutes from './routes/applications.js';
+import apiV1Routes from './routes/apiV1.js';
 import { startCardavScheduler } from './services/carddavSync.js';
 import { encryptExistingCredentials, query } from './services/db.js';
 import { runMigrations } from './services/migrations.js';
@@ -134,6 +136,7 @@ app.use(sessionMiddleware);
 const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 app.use('/api', (req, res, next) => {
   if (CSRF_SAFE_METHODS.has(req.method)) return next();
+  if (req.path.startsWith('/v1/') && (req.get('Authorization') || '').startsWith('Bearer mf_sk_')) return next();
   if (req.get('X-Requested-With')) return next();
   return res.status(403).json({ error: 'Missing required X-Requested-With header' });
 });
@@ -160,6 +163,8 @@ app.use('/api/block-list', blockListRoutes);
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/todoist', todoistRoutes);
 app.use('/api/carddav', carddavAccountRouter);
+app.use('/api/applications', applicationsRoutes);
+app.use('/api/v1', apiV1Routes);
 app.use('/api', aiRoutes);
 app.use('/api', categoriesRoutes);
 // Mounted at the /api/gtd subtree (not bare /api) so gtd.js's router-level

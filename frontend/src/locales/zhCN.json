@@ -1206,6 +1206,32 @@
       "loading": "加载中…",
       "tabEmailProviders": "邮件提供商",
       "tabApps": "应用",
+      "tabDeveloper": "开发者",
+      "developer": {
+        "title": "开发者应用",
+        "description": "为 MCP 客户端、自动化工具和自建集成创建权限受限的访问凭证。",
+        "create": "创建应用",
+        "apiUrl": "API 地址",
+        "mcpUrl": "MCP 地址",
+        "copied": "已复制",
+        "name": "应用名称",
+        "namePh": "ChatGPT 邮件助手",
+        "appDescription": "用途说明",
+        "descriptionPh": "这个凭证将由什么程序使用？",
+        "permissionsTitle": "权限",
+        "permissions": {
+          "search": "搜索已连接邮箱中的邮件元数据和摘要。",
+          "read": "读取邮件正文和附件元数据。"
+        },
+        "tokenTitle": "应用令牌已创建",
+        "tokenWarning": "请立即复制此令牌，关闭后将无法再次查看。",
+        "dismissToken": "我已保存令牌",
+        "empty": "尚未创建开发者应用。",
+        "revoke": "撤销",
+        "revokeConfirm": "确定撤销“{{name}}”吗？其令牌将立即失效。",
+        "createdAt": "创建于 {{when}}",
+        "lastUsed": "最后使用于 {{when}}"
+      },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",
         "description": "为企业、学校或个人 Microsoft 账户（Outlook.com、Hotmail）提供 OAuth2 支持",

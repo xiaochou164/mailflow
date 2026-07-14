@@ -454,6 +454,45 @@ Any standard IMAP/SMTP server works. Use port 993 for IMAP (TLS) and
 
 ---
 
+## Developer API and MCP
+
+MailFlow can create scoped application tokens for read-only email integrations.
+Open **Settings → Integrations → Developer**, create an application, and copy the
+`mf_sk_...` token when it is shown. Only a hash is stored, so the token cannot be
+displayed again.
+
+The first release exposes two permissions and two MCP tools:
+
+- `email.search` / `search_email`
+- `email.read` / `read_email`
+
+REST API examples:
+
+```bash
+curl -H "Authorization: Bearer mf_sk_..." \
+  "https://mail.example.com/api/v1/emails/search?q=project+delay"
+
+curl -H "Authorization: Bearer mf_sk_..." \
+  "https://mail.example.com/api/v1/emails/EMAIL_UUID"
+```
+
+Remote MCP clients that support custom HTTP headers can connect to:
+
+```text
+URL: https://mail.example.com/mcp
+Authorization: Bearer mf_sk_...
+```
+
+The MCP endpoint uses Streamable HTTP and is implemented as a separate adapter
+service. It calls the versioned REST API and never reads PostgreSQL or mailbox
+credentials directly. See the OpenAI [MCP server guide](https://developers.openai.com/apps-sdk/build/mcp-server/)
+for the current ChatGPT Apps SDK integration model.
+
+Gmail continues to use IMAP/SMTP with an app password; this feature does not add
+or require Google OAuth.
+
+---
+
 ## Management
 
 ```bash

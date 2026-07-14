@@ -11,6 +11,7 @@ import { NOTIFICATION_SOUNDS, playNotificationSound, playCustomSound, warmUpAudi
 import { usePushNotifications } from '../hooks/usePushNotifications.js';
 import SignatureEditor from './SignatureEditor.jsx';
 import GtdZeroPet from './GtdZeroPet.jsx';
+import DeveloperApplications from './DeveloperApplications.jsx';
 import { getEffectiveShortcuts, getGroupedActions, ACTION_DEFS, SPECIAL_KEY_LABELS, parseModKey, modLabel } from '../utils/defaultShortcuts.js';
 import { DEFAULT_GTD_FOLDERS, GTD_STATES, resolveAccountGtdFolders, diffGtdFolders, findGtdFolderCollisions } from '../utils/gtd.js';
 
@@ -2209,6 +2210,9 @@ function IntegrationsTab() {
         <button style={subTabStyle('apps')} onClick={() => setSubTab('apps')}>
           {t('admin.integrations.tabApps')}
         </button>
+        <button style={subTabStyle('developer')} onClick={() => setSubTab('developer')}>
+          {t('admin.integrations.tabDeveloper')}
+        </button>
       </div>
 
       {subTab === 'emailProviders' && (
@@ -2633,6 +2637,8 @@ function IntegrationsTab() {
           <CardDavCard />
         </div>
       )}
+
+      {subTab === 'developer' && <DeveloperApplications />}
     </div>
   );
 }

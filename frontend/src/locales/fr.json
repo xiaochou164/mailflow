@@ -1206,6 +1206,32 @@
       "loading": "Chargement…",
       "tabEmailProviders": "Fournisseurs de messagerie",
       "tabApps": "Applications",
+      "tabDeveloper": "Développeur",
+      "developer": {
+        "title": "Applications de développement",
+        "description": "Créez des identifiants à portée limitée pour les clients MCP, les automatisations et vos intégrations.",
+        "create": "Créer une application",
+        "apiUrl": "Adresse de l’API",
+        "mcpUrl": "Adresse du MCP",
+        "copied": "Copié",
+        "name": "Nom de l’application",
+        "namePh": "Assistant e-mail MCP",
+        "appDescription": "Présentation",
+        "descriptionPh": "Quel programme utilisera cet identifiant ?",
+        "permissionsTitle": "Autorisations",
+        "permissions": {
+          "search": "Rechercher les métadonnées et aperçus des e-mails dans les comptes connectés.",
+          "read": "Lire le contenu des e-mails et les métadonnées des pièces jointes."
+        },
+        "tokenTitle": "Jeton d’application créé",
+        "tokenWarning": "Copiez ce jeton maintenant. Il ne sera plus affiché.",
+        "dismissToken": "J’ai enregistré le jeton",
+        "empty": "Aucune application de développement pour le moment.",
+        "revoke": "Révoquer",
+        "revokeConfirm": "Révoquer « {{name}} » ? Son jeton cessera immédiatement de fonctionner.",
+        "createdAt": "Créée le {{when}}",
+        "lastUsed": "Dernière utilisation : {{when}}"
+      },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",
         "description": "OAuth2 pour les comptes Microsoft professionnels, scolaires ou personnels (Outlook.com, Hotmail)",

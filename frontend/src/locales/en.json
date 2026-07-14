@@ -1206,6 +1206,32 @@
       "loading": "Loading…",
       "tabEmailProviders": "Email Providers",
       "tabApps": "Apps",
+      "tabDeveloper": "Developer",
+      "developer": {
+        "title": "Developer applications",
+        "description": "Create scoped credentials for MCP clients, automation tools, and your own integrations.",
+        "create": "Create application",
+        "apiUrl": "API endpoint",
+        "mcpUrl": "MCP endpoint",
+        "copied": "Copied",
+        "name": "Application name",
+        "namePh": "ChatGPT MCP",
+        "appDescription": "Description",
+        "descriptionPh": "What will use this credential?",
+        "permissionsTitle": "Permissions",
+        "permissions": {
+          "search": "Search email metadata and snippets across connected accounts.",
+          "read": "Read email content and attachment metadata."
+        },
+        "tokenTitle": "Application token created",
+        "tokenWarning": "Copy this token now. It will not be shown again.",
+        "dismissToken": "I have saved the token",
+        "empty": "No developer applications yet.",
+        "revoke": "Revoke",
+        "revokeConfirm": "Revoke \"{{name}}\"? Its token will stop working immediately.",
+        "createdAt": "Created {{when}}",
+        "lastUsed": "Last used {{when}}"
+      },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",
         "description": "OAuth2 for work, school, or personal Microsoft accounts (Outlook.com, Hotmail)",

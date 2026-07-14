@@ -1139,6 +1139,32 @@
       "loading": "Lädt…",
       "tabEmailProviders": "E-Mail-Anbieter",
       "tabApps": "Anwendungen",
+      "tabDeveloper": "Entwicklung",
+      "developer": {
+        "title": "Entwickleranwendungen",
+        "description": "Erstellen Sie eingeschränkte Zugangsdaten für MCP-Clients, Automatisierungen und eigene Integrationen.",
+        "create": "Anwendung erstellen",
+        "apiUrl": "API-Adresse",
+        "mcpUrl": "MCP-Adresse",
+        "copied": "Kopiert",
+        "name": "Anwendungsname",
+        "namePh": "MCP-Mailassistent",
+        "appDescription": "Beschreibung",
+        "descriptionPh": "Wofür wird dieser Zugang verwendet?",
+        "permissionsTitle": "Berechtigungen",
+        "permissions": {
+          "search": "E-Mail-Metadaten und Vorschauen in verbundenen Konten durchsuchen.",
+          "read": "E-Mail-Inhalte und Anhangsmetadaten lesen."
+        },
+        "tokenTitle": "Anwendungstoken erstellt",
+        "tokenWarning": "Kopieren Sie dieses Token jetzt. Es wird nicht erneut angezeigt.",
+        "dismissToken": "Token wurde gespeichert",
+        "empty": "Noch keine Entwickleranwendungen vorhanden.",
+        "revoke": "Widerrufen",
+        "revokeConfirm": "„{{name}}“ widerrufen? Das Token funktioniert sofort nicht mehr.",
+        "createdAt": "Erstellt am {{when}}",
+        "lastUsed": "Zuletzt verwendet: {{when}}"
+      },
       "microsoft": {
         "title": "Microsoft 365 / Outlook.com",
         "description": "OAuth2 für Geschäfts-, Schul- oder persönliche Microsoft-Konten (Outlook.com, Hotmail)",

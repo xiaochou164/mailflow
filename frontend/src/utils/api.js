@@ -157,6 +157,11 @@ export const api = {
   getIntegrations: () => request('GET', '/integrations'),
   saveIntegration: (provider, config) => request('POST', `/integrations/${provider}`, config),
   deleteIntegration: (provider) => request('DELETE', `/integrations/${provider}`),
+  applications: {
+    list: () => request('GET', '/applications'),
+    create: (data) => request('POST', '/applications', data),
+    revoke: (id) => request('DELETE', `/applications/${id}`),
+  },
   startMsDeviceFlow: async () => {
     const res = await fetch('/oauth/microsoft/device', { method: 'POST', credentials: 'include' });
     const data = await res.json();
