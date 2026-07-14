@@ -63,8 +63,38 @@ function toolError(err) {
   };
 }
 
-function createServer(token) {
+const TOOL_PERMISSIONS = Object.freeze({
+  search_email: 'email.search',
+  read_email: 'email.read',
+  list_accounts: 'account.read',
+  read_thread: 'email.thread',
+  get_attachment: 'email.attachments',
+  create_draft: 'email.draft',
+  draft_reply: 'email.draft',
+  send_email: 'email.send',
+  reply_email: 'email.reply',
+  forward_email: 'email.forward',
+  set_email_read: 'email.modify',
+  set_email_starred: 'email.modify',
+  archive_email: 'email.modify',
+  move_email: 'email.move',
+  delete_email: 'email.delete',
+  list_webhooks: 'webhook.manage',
+  create_webhook: 'webhook.manage',
+  test_webhook: 'webhook.manage',
+  list_webhook_deliveries: 'webhook.manage',
+  delete_webhook: 'webhook.manage',
+});
+
+function createServer(token, permissions) {
   const server = new McpServer({ name: 'mailflow-mcp', version: '0.1.0' });
+  const granted = new Set(permissions);
+  const registerTool = server.registerTool.bind(server);
+  server.registerTool = (name, ...args) => {
+    const required = TOOL_PERMISSIONS[name];
+    if (required && !granted.has(required)) return undefined;
+    return registerTool(name, ...args);
+  };
 
   server.registerTool('search_email', {
     title: 'Search email',
@@ -400,7 +430,8 @@ app.post('/mcp', async (req, res) => {
   }
 
   try {
-    await mailflowRequest('/application', token);
+    const { application } = await mailflowRequest('/application', token);
+    req.applicationPermissions = application.permissions || [];
   } catch (err) {
     res.setHeader('WWW-Authenticate', 'Bearer realm="MailFlow MCP"');
     return res.status(err.status === 401 ? 401 : 502).json({
@@ -413,7 +444,7 @@ app.post('/mcp', async (req, res) => {
     });
   }
 
-  const server = createServer(token);
+  const server = createServer(token, req.applicationPermissions);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   res.on('close', () => {
     transport.close().catch(() => {});

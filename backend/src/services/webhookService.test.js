@@ -34,6 +34,7 @@ describe('webhookService', () => {
   it('enqueues an event for every matching enabled webhook', async () => {
     query.mockResolvedValueOnce({ rows: [{ id: 'delivery-1' }, { id: 'delivery-2' }] });
     await expect(enqueueWebhookEvent({ userId: 'user-1', event: 'email.sent', payload: { id: 'message-1' } })).resolves.toBe(2);
+    expect(query.mock.calls[0][0]).toContain('$2::text');
   });
 
   it('signs and completes a queued delivery', async () => {

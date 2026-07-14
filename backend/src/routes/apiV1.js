@@ -27,6 +27,15 @@ import {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const router = Router();
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 function delegateTo(routerToUse, target) {
   return (req, res, next) => {
     req.session.userId = req.application.userId;
@@ -232,7 +241,7 @@ router.post('/emails/:id/forward', requireApplicationPermission('email.forward')
       body: req.body.body || '',
       bodyIsHtml: req.body.bodyIsHtml === true,
       quotedBody: `\n\n---------- Forwarded message ----------\nFrom: ${email.from.name || ''} <${email.from.email}>\nDate: ${new Date(email.date).toISOString()}\nSubject: ${email.subject}\n\n${email.text || ''}`,
-      quotedBodyHtml: `<div><strong>Forwarded message</strong><br>From: ${email.from.name || ''} &lt;${email.from.email}&gt;<br>Date: ${new Date(email.date).toISOString()}<br>Subject: ${email.subject}</div><blockquote>${email.html || email.text || ''}</blockquote>`,
+      quotedBodyHtml: `<div><strong>Forwarded message</strong><br>From: ${escapeHtml(email.from.name)} &lt;${escapeHtml(email.from.email)}&gt;<br>Date: ${escapeHtml(new Date(email.date).toISOString())}<br>Subject: ${escapeHtml(email.subject)}</div><blockquote>${email.html || escapeHtml(email.text)}</blockquote>`,
       forwardedAttachments: req.body.includeAttachments === false
         ? []
         : (email.attachments || []).map(attachment => ({
@@ -246,30 +255,38 @@ router.post('/emails/:id/forward', requireApplicationPermission('email.forward')
   }
 });
 
-router.patch('/emails/:id/read',
-  requireApplicationPermission('email.modify'),
-  delegateTo(mailRoutes, req => `/messages/${encodeURIComponent(req.params.id)}/read`)
-);
+router.patch('/emails/:id/read', requireApplicationPermission('email.modify'), (req, res, next) => {
+  if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
+  if (typeof req.body.read !== 'boolean') return res.status(400).json({ error: 'read must be a boolean' });
+  return delegateTo(mailRoutes, `/messages/${encodeURIComponent(req.params.id)}/read`)(req, res, next);
+});
 
-router.patch('/emails/:id/star',
-  requireApplicationPermission('email.modify'),
-  delegateTo(mailRoutes, req => `/messages/${encodeURIComponent(req.params.id)}/star`)
-);
+router.patch('/emails/:id/star', requireApplicationPermission('email.modify'), (req, res, next) => {
+  if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
+  if (typeof req.body.starred !== 'boolean') return res.status(400).json({ error: 'starred must be a boolean' });
+  return delegateTo(mailRoutes, `/messages/${encodeURIComponent(req.params.id)}/star`)(req, res, next);
+});
 
 router.post('/emails/:id/archive', requireApplicationPermission('email.modify'), (req, res, next) => {
+  if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
   req.body = { ids: [req.params.id] };
   return delegateTo(mailRoutes, '/messages/bulk-archive')(req, res, next);
 });
 
 router.post('/emails/:id/move', requireApplicationPermission('email.move'), (req, res, next) => {
+  if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
+  if (typeof req.body.folder !== 'string' || !req.body.folder.trim() || req.body.folder.length > 500) {
+    return res.status(400).json({ error: 'folder must be a non-empty string of at most 500 characters' });
+  }
+  req.body.folder = req.body.folder.trim();
   req.body = { ids: [req.params.id], folder: req.body.folder };
   return delegateTo(mailRoutes, '/messages/bulk-move')(req, res, next);
 });
 
-router.delete('/emails/:id',
-  requireApplicationPermission('email.delete'),
-  delegateTo(mailRoutes, req => `/messages/${encodeURIComponent(req.params.id)}`)
-);
+router.delete('/emails/:id', requireApplicationPermission('email.delete'), (req, res, next) => {
+  if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid email ID' });
+  return delegateTo(mailRoutes, `/messages/${encodeURIComponent(req.params.id)}`)(req, res, next);
+});
 
 router.get('/webhooks', requireApplicationPermission('webhook.manage'), async (req, res) => {
   const webhooks = (await listWebhooks(req.application.userId))

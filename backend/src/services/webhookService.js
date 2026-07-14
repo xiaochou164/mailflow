@@ -123,8 +123,8 @@ export async function enqueueWebhookEvent({ userId, event, payload }) {
   if (!WEBHOOK_EVENTS.includes(event)) throw new Error(`Unsupported webhook event: ${event}`);
   const result = await query(`
     INSERT INTO webhook_deliveries (webhook_id, event, payload)
-    SELECT id, $2, $3::jsonb FROM webhooks
-    WHERE user_id = $1 AND enabled = true AND $2 = ANY(events)
+    SELECT id, $2::text, $3::jsonb FROM webhooks
+    WHERE user_id = $1 AND enabled = true AND $2::text = ANY(events)
     RETURNING id
   `, [userId, event, JSON.stringify(payload || {})]);
   return result.rows.length;
