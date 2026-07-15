@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  TOOL_ANNOTATIONS,
   TOOL_PERMISSIONS,
   allowedHosts,
   bearerToken,
@@ -108,6 +109,37 @@ test('OAuth mode tools include security schemes for read scopes', async () => {
   assert.deepEqual(server._registeredTools.summarize_thread._meta.securitySchemes, [
     { type: 'oauth2', scopes: ['email.thread', 'ai.summarize'] },
   ]);
+  assert.deepEqual(server._registeredTools.list_accounts._meta.securitySchemes, [
+    { type: 'oauth2', scopes: [] },
+  ]);
+
+  await server.close();
+});
+
+test('every MCP tool includes complete impact annotations', async () => {
+  const server = createServer('mf_sk_token', ALL_PERMISSIONS);
+
+  for (const [name, tool] of Object.entries(server._registeredTools)) {
+    assert.deepEqual(tool.annotations, TOOL_ANNOTATIONS[name], `${name} annotations`);
+    assert.equal(typeof tool.annotations.readOnlyHint, 'boolean', `${name} readOnlyHint`);
+    assert.equal(typeof tool.annotations.openWorldHint, 'boolean', `${name} openWorldHint`);
+    assert.equal(typeof tool.annotations.destructiveHint, 'boolean', `${name} destructiveHint`);
+  }
+  assert.deepEqual(server._registeredTools.search_email.annotations, {
+    readOnlyHint: true,
+    openWorldHint: false,
+    destructiveHint: false,
+  });
+  assert.deepEqual(server._registeredTools.send_email.annotations, {
+    readOnlyHint: false,
+    openWorldHint: true,
+    destructiveHint: false,
+  });
+  assert.deepEqual(server._registeredTools.delete_email.annotations, {
+    readOnlyHint: false,
+    openWorldHint: false,
+    destructiveHint: true,
+  });
 
   await server.close();
 });

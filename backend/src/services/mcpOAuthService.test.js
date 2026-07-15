@@ -14,6 +14,7 @@ const {
   protectedResourceMetadata,
   registerOAuthClient,
   refreshAccessToken,
+  validateAuthorizeRequest,
 } = await import('./mcpOAuthService.js');
 
 function sha256(value) {
@@ -47,6 +48,22 @@ describe('mcpOAuthService metadata', () => {
       token_endpoint_auth_methods_supported: ['none'],
       code_challenge_methods_supported: ['S256'],
     });
+  });
+
+  it('requires the OAuth resource parameter to match the MCP resource URL', () => {
+    const base = {
+      response_type: 'code',
+      client_id: 'client-1',
+      redirect_uri: 'https://chatgpt.com/connector/oauth/callback-id',
+      code_challenge: 'challenge',
+      code_challenge_method: 'S256',
+    };
+
+    expect(validateAuthorizeRequest(base, 'https://mail.example.test/mcp')).toBe('resource is required');
+    expect(validateAuthorizeRequest({ ...base, resource: 'https://other.example/mcp' }, 'https://mail.example.test/mcp'))
+      .toBe('resource must match the MailFlow MCP URL');
+    expect(validateAuthorizeRequest({ ...base, resource: 'https://mail.example.test/mcp' }, 'https://mail.example.test/mcp'))
+      .toBeNull();
   });
 });
 
@@ -87,6 +104,7 @@ describe('mcpOAuthService clients and tokens', () => {
             application_id: 'app-1',
             redirect_uri: 'https://chat.openai.com/callback',
             scope: 'email.search email.read',
+            resource: 'https://mail.example.test/mcp',
             code_challenge: challenge,
             consumed_at: null,
             expires_at: new Date(Date.now() + 60_000),
@@ -101,6 +119,7 @@ describe('mcpOAuthService clients and tokens', () => {
       code: 'mf_code_test',
       redirectUri: 'https://chat.openai.com/callback',
       codeVerifier: verifier,
+      resource: 'https://mail.example.test/mcp',
     });
 
     expect(token.access_token).toMatch(/^mf_oat_/);
@@ -124,6 +143,7 @@ describe('mcpOAuthService clients and tokens', () => {
             user_id: 'user-1',
             application_id: 'app-1',
             scope: 'email.search',
+            resource: 'https://mail.example.test/mcp',
             revoked_at: null,
             refresh_expires_at: new Date(Date.now() + 60_000),
           }],
@@ -135,11 +155,39 @@ describe('mcpOAuthService clients and tokens', () => {
     const token = await refreshAccessToken({
       clientId: 'client-1',
       refreshToken: 'mf_ort_old',
+      resource: 'https://mail.example.test/mcp',
     });
 
     expect(token.access_token).toMatch(/^mf_oat_/);
     expect(token.refresh_token).toMatch(/^mf_ort_/);
     expect(db.query.mock.calls[1][0]).toContain('revoked_at = NOW()');
+  });
+
+  it('rejects refresh requests that try to expand the original scope', async () => {
+    query.mockResolvedValueOnce({ rows: [{ client_id: 'client-1', scope: 'email.search' }] });
+    const db = {
+      query: vi.fn().mockResolvedValueOnce({
+        rows: [{
+          id: 'token-1',
+          client_id: 'client-1',
+          user_id: 'user-1',
+          application_id: 'app-1',
+          scope: 'email.search',
+          resource: 'https://mail.example.test/mcp',
+          revoked_at: null,
+          refresh_expires_at: new Date(Date.now() + 60_000),
+        }],
+      }),
+    };
+    withTransaction.mockImplementationOnce(fn => fn(db));
+
+    await expect(refreshAccessToken({
+      clientId: 'client-1',
+      refreshToken: 'mf_ort_old',
+      resource: 'https://mail.example.test/mcp',
+      scope: 'email.search email.read',
+    })).rejects.toMatchObject({ oauthError: 'invalid_scope', status: 400 });
+    expect(db.query).toHaveBeenCalledTimes(1);
   });
 
   it('maps a valid OAuth access token to application permissions and scopes', async () => {
@@ -148,6 +196,7 @@ describe('mcpOAuthService clients and tokens', () => {
         rows: [{
           token_id: 'token-1',
           scope: 'email.search email.thread',
+          resource: 'https://mail.example.test/mcp',
           access_expires_at: new Date(Date.now() + 60_000),
           id: 'app-1',
           user_id: 'user-1',

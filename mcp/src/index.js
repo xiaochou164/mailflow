@@ -145,17 +145,54 @@ export const TOOL_PERMISSIONS = Object.freeze({
   delete_webhook: 'webhook.manage',
 });
 
-function toolSecurity(required) {
+export const TOOL_ANNOTATIONS = Object.freeze({
+  search_email: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  read_email: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  search_knowledge: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  contact_history: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  similar_emails: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  daily_email_digest: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  list_accounts: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  read_thread: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  summarize_thread: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  analyze_thread: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  export_thread_markdown: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  get_attachment: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  create_draft: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+  draft_reply: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+  send_email: { readOnlyHint: false, openWorldHint: true, destructiveHint: false },
+  reply_email: { readOnlyHint: false, openWorldHint: true, destructiveHint: false },
+  forward_email: { readOnlyHint: false, openWorldHint: true, destructiveHint: false },
+  set_email_read: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+  set_email_starred: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+  archive_email: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+  move_email: { readOnlyHint: false, openWorldHint: false, destructiveHint: false },
+  delete_email: { readOnlyHint: false, openWorldHint: false, destructiveHint: true },
+  list_webhooks: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  create_webhook: { readOnlyHint: false, openWorldHint: true, destructiveHint: false },
+  update_webhook: { readOnlyHint: false, openWorldHint: true, destructiveHint: false },
+  test_webhook: { readOnlyHint: false, openWorldHint: true, destructiveHint: false },
+  list_webhook_deliveries: { readOnlyHint: true, openWorldHint: false, destructiveHint: false },
+  delete_webhook: { readOnlyHint: false, openWorldHint: false, destructiveHint: true },
+});
+
+function toolSecurity(name) {
+  const required = TOOL_PERMISSIONS[name];
   const scopes = (Array.isArray(required) ? required : [required])
     .filter(permission => ['email.search', 'email.read', 'email.thread', 'ai.summarize'].includes(permission));
-  return scopes.length ? [{ type: 'oauth2', scopes }] : undefined;
+  return [{ type: 'oauth2', scopes }];
 }
 
-function withSecurity(name, config) {
-  const schemes = toolSecurity(TOOL_PERMISSIONS[name]);
-  if (!schemes) return config;
-  return {
+function withToolMetadata(name, config, options = {}) {
+  const result = {
     ...config,
+    annotations: TOOL_ANNOTATIONS[name],
+  };
+  if (options.chatgpt !== true) return result;
+
+  const schemes = toolSecurity(name);
+  return {
+    ...result,
     securitySchemes: schemes,
     _meta: {
       ...(config._meta || {}),
@@ -173,7 +210,7 @@ export function createServer(token, permissions, options = {}) {
     const required = TOOL_PERMISSIONS[name];
     const requiredList = Array.isArray(required) ? required : [required];
     if (required && requiredList.some(permission => !granted.has(permission))) return undefined;
-    if (args[0] && typeof args[0] === 'object') args[0] = withSecurity(name, args[0]);
+    if (args[0] && typeof args[0] === 'object') args[0] = withToolMetadata(name, args[0], options);
     return registerTool(name, ...args);
   };
 

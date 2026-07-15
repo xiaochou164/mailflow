@@ -35,17 +35,17 @@ function safeEqualHex(a, b) {
   return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
 }
 
-function normalizeScopes(scope) {
+function normalizeScopes(scope, fallback = []) {
   const requested = String(scope || '')
     .split(/\s+/)
     .map(item => item.trim())
     .filter(Boolean);
-  const clean = [...new Set(requested.filter(item => MCP_OAUTH_SCOPES.includes(item)))];
-  return clean.length ? clean : [...MCP_OAUTH_SCOPES];
+  if (!requested.length) return [...fallback];
+  return [...new Set(requested.filter(item => MCP_OAUTH_SCOPES.includes(item)))];
 }
 
-function scopeString(scopes) {
-  return normalizeScopes(scopes.join ? scopes.join(' ') : scopes).join(' ');
+function scopeString(scopes, fallback = MCP_OAUTH_SCOPES) {
+  return normalizeScopes(scopes?.join ? scopes.join(' ') : scopes, fallback).join(' ');
 }
 
 function normalizeRedirectUris(value) {
@@ -63,6 +63,11 @@ function publicOrigin() {
 export function resourceUrl(req) {
   const origin = publicOrigin() || `${req.protocol}://${req.get('host')}`;
   return `${origin}/mcp`;
+}
+
+function configuredResourceUrl() {
+  const origin = publicOrigin();
+  return origin ? `${origin}/mcp` : '';
 }
 
 export function issuerUrl(req) {
@@ -105,7 +110,7 @@ export async function registerOAuthClient(payload = {}) {
   const responseTypes = Array.isArray(payload.response_types) && payload.response_types.length
     ? payload.response_types
     : ['code'];
-  const scope = scopeString(payload.scope || MCP_OAUTH_SCOPES.join(' '));
+  const scope = scopeString(payload.scope, MCP_OAUTH_SCOPES);
 
   await query(`
     INSERT INTO mcp_oauth_clients (
@@ -131,12 +136,14 @@ export async function getClient(clientId) {
   return result.rows[0] || null;
 }
 
-export function validateAuthorizeRequest(params) {
+export function validateAuthorizeRequest(params, expectedResource) {
   if (params.response_type !== 'code') return 'response_type must be code';
   if (!params.client_id) return 'client_id is required';
   if (!params.redirect_uri) return 'redirect_uri is required';
   if (!params.code_challenge) return 'code_challenge is required';
   if (params.code_challenge_method !== 'S256') return 'code_challenge_method must be S256';
+  if (!params.resource) return 'resource is required';
+  if (expectedResource && params.resource !== expectedResource) return 'resource must match the MailFlow MCP URL';
   return null;
 }
 
@@ -183,6 +190,7 @@ export async function createAuthorizationCode({
   userId,
   redirectUri,
   scope,
+  resource,
   codeChallenge,
   codeChallengeMethod,
 }) {
@@ -194,13 +202,13 @@ export async function createAuthorizationCode({
   }
   const applicationId = await ensureChatGptApplication(userId);
   const code = `mf_code_${token(32)}`;
-  const scopes = scopeString(scope || client.scope || MCP_OAUTH_SCOPES.join(' '));
+  const scopes = scopeString(scope || client.scope, MCP_OAUTH_SCOPES);
   await query(`
     INSERT INTO mcp_oauth_authorization_codes (
-      code_hash, client_id, user_id, application_id, redirect_uri, scope,
+      code_hash, client_id, user_id, application_id, redirect_uri, scope, resource,
       code_challenge, code_challenge_method, expires_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
   `, [
     hash(code),
     clientId,
@@ -208,6 +216,7 @@ export async function createAuthorizationCode({
     applicationId,
     redirectUri,
     scopes,
+    resource,
     codeChallenge,
     codeChallengeMethod,
     new Date(Date.now() + CODE_TTL_MS),
@@ -219,20 +228,20 @@ function pkceHash(verifier) {
   return createHash('sha256').update(verifier).digest('base64url');
 }
 
-async function issueTokens(client, row, scope) {
+async function issueTokens(client, row, scope, resource) {
   const accessToken = `${TOKEN_PREFIX}${token(32)}`;
   const refreshToken = `${REFRESH_PREFIX}${token(32)}`;
   const now = Date.now();
   const accessExpires = new Date(now + ACCESS_TOKEN_TTL_MS);
   const refreshExpires = new Date(now + REFRESH_TOKEN_TTL_MS);
-  const scopes = scopeString(scope || row.scope || client.scope || MCP_OAUTH_SCOPES.join(' '));
+  const scopes = scopeString(scope || row.scope || client.scope, MCP_OAUTH_SCOPES);
 
   await query(`
     INSERT INTO mcp_oauth_tokens (
       access_token_hash, refresh_token_hash, client_id, user_id, application_id,
-      scope, access_expires_at, refresh_expires_at
+      scope, resource, access_expires_at, refresh_expires_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
   `, [
     hash(accessToken),
     hash(refreshToken),
@@ -240,6 +249,7 @@ async function issueTokens(client, row, scope) {
     row.user_id,
     row.application_id,
     scopes,
+    resource,
     accessExpires,
     refreshExpires,
   ]);
@@ -253,7 +263,7 @@ async function issueTokens(client, row, scope) {
   };
 }
 
-export async function exchangeAuthorizationCode({ clientId, code, redirectUri, codeVerifier }) {
+export async function exchangeAuthorizationCode({ clientId, code, redirectUri, codeVerifier, resource }) {
   const client = await getClient(clientId);
   if (!client) throw Object.assign(new Error('invalid_client'), { status: 400, oauthError: 'invalid_client' });
   const codeHash = hash(code);
@@ -270,6 +280,7 @@ export async function exchangeAuthorizationCode({ clientId, code, redirectUri, c
     if (!found) return null;
     if (found.consumed_at || new Date(found.expires_at).getTime() <= Date.now()) return null;
     if (found.redirect_uri !== redirectUri) return null;
+    if (!resource || found.resource !== resource) return null;
     const expected = hash(found.code_challenge);
     const supplied = hash(pkceHash(codeVerifier || ''));
     if (!safeEqualHex(expected, supplied)) return null;
@@ -278,10 +289,10 @@ export async function exchangeAuthorizationCode({ clientId, code, redirectUri, c
   });
 
   if (!row) throw Object.assign(new Error('invalid_grant'), { status: 400, oauthError: 'invalid_grant' });
-  return issueTokens(client, row, row.scope);
+  return issueTokens(client, row, row.scope, row.resource);
 }
 
-export async function refreshAccessToken({ clientId, refreshToken, scope }) {
+export async function refreshAccessToken({ clientId, refreshToken, scope, resource }) {
   const client = await getClient(clientId);
   if (!client) throw Object.assign(new Error('invalid_client'), { status: 400, oauthError: 'invalid_client' });
   const refreshHash = hash(refreshToken);
@@ -297,12 +308,21 @@ export async function refreshAccessToken({ clientId, refreshToken, scope }) {
     const found = result.rows[0];
     if (!found) return null;
     if (found.revoked_at || new Date(found.refresh_expires_at).getTime() <= Date.now()) return null;
+    if (!resource || found.resource !== resource) return null;
+    const requestedScopes = normalizeScopes(scope, normalizeScopes(found.scope));
+    const grantedScopes = new Set(normalizeScopes(found.scope));
+    if (scope && requestedScopes.length === 0) {
+      throw Object.assign(new Error('invalid_scope'), { status: 400, oauthError: 'invalid_scope' });
+    }
+    if (requestedScopes.some(item => !grantedScopes.has(item))) {
+      throw Object.assign(new Error('invalid_scope'), { status: 400, oauthError: 'invalid_scope' });
+    }
     await db.query('UPDATE mcp_oauth_tokens SET revoked_at = NOW() WHERE id = $1', [found.id]);
-    return found;
+    return { ...found, scope: requestedScopes.join(' ') };
   });
 
   if (!row) throw Object.assign(new Error('invalid_grant'), { status: 400, oauthError: 'invalid_grant' });
-  return issueTokens(client, row, scope || row.scope);
+  return issueTokens(client, row, row.scope, row.resource);
 }
 
 export async function revokeOAuthToken(tokenValue) {
@@ -319,7 +339,7 @@ export async function authenticateOAuthAccessToken(tokenValue) {
   if (typeof tokenValue !== 'string' || !tokenValue.startsWith(TOKEN_PREFIX)) return null;
   const result = await query(`
     SELECT
-      t.id AS token_id, t.scope, t.access_expires_at,
+      t.id AS token_id, t.scope, t.resource, t.access_expires_at,
       a.id, a.user_id, a.name, a.permissions, a.account_ids, a.folders,
       a.allowed_ips, a.audit_retention_days, a.redact_content
     FROM mcp_oauth_tokens t
@@ -332,6 +352,8 @@ export async function authenticateOAuthAccessToken(tokenValue) {
   `, [hash(tokenValue)]);
   const row = result.rows[0];
   if (!row) return null;
+  const expectedResource = configuredResourceUrl();
+  if (expectedResource && row.resource !== expectedResource) return null;
   await query('UPDATE mcp_oauth_tokens SET last_used_at = NOW() WHERE id = $1', [row.token_id]);
   const tokenScopes = normalizeScopes(row.scope);
   const effective = (row.permissions || []).filter(permission => {

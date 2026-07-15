@@ -10,6 +10,7 @@ import {
   createAuthorizationCode,
   exchangeAuthorizationCode,
   protectedResourceMetadata,
+  resourceUrl,
   registerOAuthClient,
   revokeOAuthToken,
   refreshAccessToken,
@@ -75,7 +76,7 @@ router.get('/.well-known/oauth-authorization-server', (req, res) => {
 });
 
 router.get('/authorize', async (req, res) => {
-  const validationError = validateAuthorizeRequest(req.query);
+  const validationError = validateAuthorizeRequest(req.query, resourceUrl(req));
   if (validationError) return res.status(400).send(htmlPage('OAuth 参数错误', `<h1>OAuth 参数错误</h1><p>${validationError}</p>`));
   if (!req.session?.userId) {
     const returnTo = encodeURIComponent(`${req.originalUrl}`);
@@ -96,6 +97,7 @@ router.get('/authorize', async (req, res) => {
         userId: req.session.userId,
         redirectUri: req.query.redirect_uri,
         scope,
+        resource: req.query.resource,
         codeChallenge: req.query.code_challenge,
         codeChallengeMethod: req.query.code_challenge_method,
       });
@@ -139,6 +141,7 @@ router.post('/token', async (req, res) => {
         code: body.code,
         redirectUri: body.redirect_uri,
         codeVerifier: body.code_verifier,
+        resource: body.resource,
       });
       return res.json(token);
     }
@@ -147,6 +150,7 @@ router.post('/token', async (req, res) => {
         clientId: body.client_id,
         refreshToken: body.refresh_token,
         scope: body.scope,
+        resource: body.resource,
       });
       return res.json(token);
     }
