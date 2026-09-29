@@ -16,6 +16,10 @@
 | `API_MCP_CONTRACT.md` | Web API、错误模型、分页、MCP Tool/Scope/Schema | WP0/WP9 |
 | `SECURITY_OPERATIONS.md` | 凭证安全、HTML/附件安全、部署、密钥轮换、监控、备份恢复 | WP3/WP11 |
 | `TESTING_ACCEPTANCE.md` | 单测、集成、契约、E2E、故障注入、RC 验收门槛 | 全阶段 |
+| `IMPLEMENTATION_PLAN.md` | WP0-WP11/WP3A 交付物、依赖、Exit Gate、Codex 执行模板 | 全阶段 |
+| `account-manifest-v1.schema.json` | Safe Manifest/解密后 Bundle 的机器可读 Schema | WP3A |
+| `examples/accounts-import.example.json` | 原生账号清单示例 | WP3A |
+| `examples/accounts-import.template.csv` | Generic IMAP/SMTP 批量导入模板 | WP3A |
 
 ## 2. 产品目标
 
@@ -78,12 +82,12 @@ backend-cf/
 1. **Provider 是事实源，D1 是索引层，不做第二个邮箱服务器。**
 2. **所有同步和导入流程必须幂等、可重试、可恢复。**
 3. **Gmail/Microsoft API 优先，IMAP/SMTP 作为通用兜底。**
-4. **凭证永不明文落 D1、日志、Queue、审计事件或导出文件。**
+4. **凭证永不明文落 D1、日志、Queue、审计事件或默认导出文件。**
 5. **MCP 和 Web 共用 Application Service，不允许两套业务逻辑。**
 6. **MCP 默认只读，`mail.manage`、`mail.send` 独立授权。**
 7. **正文和附件按需拉取，R2 仅作为可清理缓存。**
 8. **大任务拆 Queue；Cron 只调度，不做完整同步。**
-9. **导入先 validate/dry-run，再 commit；导入必须支持逐账号结果和回滚。**
+9. **导入先 validate/dry-run，再 commit；导入必须支持逐账号结果和恢复。**
 10. **每个工作包必须有 Acceptance Report。**
 
 ## 6. 账号导入/导出能力是 V1 正式功能
@@ -103,6 +107,16 @@ Export Accounts
 ```
 
 详细规范见 `ACCOUNT_IMPORT_EXPORT.md`。
+
+### 导入安全默认值
+
+- Safe Manifest 不包含 password/access token/refresh token；
+- OAuth 账号默认迁移配置后重新授权；
+- `.mfb` 才允许携带加密 Secret；
+- CSV 密码属于明文输入，只用于传统邮箱批量迁移，并在 UI 明确风险；
+- `skipTlsVerify` 和 `allowPrivateHost` 不从导入文件自动启用；
+- 导入先预览、冲突判断和 dry-run，再写 D1；
+- 所有 Secret 在写 D1 前进入 CredentialVault 加密。
 
 ## 7. 工作包调整
 
@@ -130,12 +144,14 @@ Export Accounts
 - 导入结果可精确显示 `created/updated/skipped/failed/reauth_required`
 - D1、日志、响应中无明文密码和 refresh token
 
+完整依赖和 Exit Gate 见 `IMPLEMENTATION_PLAN.md`。
+
 ## 8. 工程完成标准
 
 RC 必须同时满足：
 
 - Gmail、Microsoft、至少两类 Generic IMAP/SMTP 真实联调
-- 多账号统一收件 + 搜索 +操作稳定
+- 多账号统一收件 + 搜索 + 操作稳定
 - MCP Read/Manage/Send Scope 完整
 - Safe Manifest、Encrypted Bundle、CSV、Legacy Migration 均有测试
 - Cloudflare 从空账号可一键初始化 D1/R2/Queue/Worker
@@ -143,7 +159,19 @@ RC 必须同时满足：
 - 关键失败路径具备明确恢复方式
 - 免费层 Guardrail 生效
 
-## 9. 变更规则
+## 9. 实施入口
+
+给 Codex/开发者开始实现时，顺序固定为：
+
+1. 阅读本文件；
+2. 阅读 `IMPLEMENTATION_PLAN.md` 当前 WP；
+3. 阅读该 WP 对应的架构/数据/API/安全文档；
+4. 阅读 `../CLOUDFLARE_LITE_REFACTOR_PLAN.md` 获取产品边界；
+5. 检查上一 WP Acceptance Report；
+6. 实现、测试、真实 smoke；
+7. 输出新的 Acceptance Report。
+
+## 10. 变更规则
 
 若实现过程中发现本文档与 Cloudflare Runtime/Provider 实际能力冲突：
 
