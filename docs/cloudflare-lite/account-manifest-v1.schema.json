@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mailflow.local/schemas/account-manifest-v1.schema.json",
+  "title": "MailFlow Account Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "accounts"],
+  "properties": {
+    "format": { "const": "mailflow-account-manifest" },
+    "version": { "const": 1 },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "accounts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/account" }
+    }
+  },
+  "$defs": {
+    "account": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "email", "enabled", "provider", "auth", "sync"],
+      "properties": {
+        "sourceId": { "type": "string", "maxLength": 200 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "email": { "type": "string", "format": "email", "maxLength": 320 },
+        "color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" },
+        "enabled": { "type": "boolean" },
+        "sortOrder": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "provider": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind"],
+          "properties": {
+            "kind": { "enum": ["gmail", "microsoft", "imap-smtp"] }
+          }
+        },
+        "auth": { "$ref": "#/$defs/auth" },
+        "incoming": { "$ref": "#/$defs/endpoint" },
+        "outgoing": { "$ref": "#/$defs/endpoint" },
+        "sync": { "$ref": "#/$defs/sync" },
+        "folderMappings": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "maxLength": 500 }
+        },
+        "signature": { "type": "string", "maxLength": 20000 },
+        "aliases": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "$ref": "#/$defs/alias" }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "importedAt": { "type": "string", "format": "date-time" },
+            "importedFrom": { "type": "string", "maxLength": 100 },
+            "legacyAccountId": { "type": "string", "maxLength": 200 }
+          }
+        }
+      }
+    },
+    "auth": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "const": "missing" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "password" },
+            "password": { "type": "string", "maxLength": 4096 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "provider"],
+          "properties": {
+            "type": { "const": "oauth" },
+            "provider": { "enum": ["google", "microsoft"] },
+            "refreshToken": { "type": "string", "maxLength": 16384 },
+            "accessToken": { "type": "string", "maxLength": 16384 },
+            "tokenExpiry": { "type": "string", "format": "date-time" },
+            "clientProfileFingerprint": { "type": "string", "maxLength": 256 }
+          }
+        }
+      ]
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "port", "security", "username"],
+      "properties": {
+        "host": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "security": { "enum": ["tls", "starttls", "plain"] },
+        "username": { "type": "string", "minLength": 1, "maxLength": 320 },
+        "skipTlsVerify": { "type": "boolean", "default": false },
+        "allowPrivateHost": { "type": "boolean", "default": false }
+      }
+    },
+    "sync": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "intervalMinutes": { "type": "integer", "minimum": 5, "maximum": 10080 },
+        "historyDays": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1, "maximum": 3650 },
+            { "const": "all-headers" }
+          ]
+        },
+        "folderPolicy": { "enum": ["inbox-sent", "all", "custom"] },
+        "folders": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "type": "string", "maxLength": 500 }
+        }
+      }
+    },
+    "alias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "email"],
+      "properties": {
+        "name": { "type": "string", "maxLength": 255 },
+        "email": { "type": "string", "format": "email", "maxLength": 320 },
+        "replyTo": { "type": "string", "format": "email", "maxLength": 320 },
+        "signature": { "type": "string", "maxLength": 20000 }
+      }
+    }
+  }
+}
