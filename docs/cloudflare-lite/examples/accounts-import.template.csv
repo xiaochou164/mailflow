@@ -1,0 +1,2 @@
+name,email,provider,imap_host,imap_port,imap_security,smtp_host,smtp_port,smtp_security,username,password,enabled,history_days,signature
+Personal,user@example.com,imap-smtp,imap.example.com,993,tls,smtp.example.com,587,starttls,user@example.com,,true,30,
