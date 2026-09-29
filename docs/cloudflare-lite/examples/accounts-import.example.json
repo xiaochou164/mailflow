@@ -1,0 +1,62 @@
+{
+  "format": "mailflow-account-manifest",
+  "version": 1,
+  "exportedAt": "2026-09-29T10:00:00Z",
+  "accounts": [
+    {
+      "sourceId": "legacy-work",
+      "name": "Work Gmail",
+      "email": "work@example.com",
+      "color": "#6366F1",
+      "enabled": true,
+      "sortOrder": 0,
+      "provider": { "kind": "gmail" },
+      "auth": { "type": "oauth", "provider": "google" },
+      "sync": {
+        "enabled": true,
+        "intervalMinutes": 60,
+        "historyDays": 30,
+        "folderPolicy": "inbox-sent"
+      },
+      "signature": ""
+    },
+    {
+      "sourceId": "legacy-personal",
+      "name": "Personal IMAP",
+      "email": "user@example.net",
+      "color": "#0EA5E9",
+      "enabled": true,
+      "sortOrder": 1,
+      "provider": { "kind": "imap-smtp" },
+      "auth": { "type": "missing" },
+      "incoming": {
+        "host": "imap.example.net",
+        "port": 993,
+        "security": "tls",
+        "username": "user@example.net",
+        "skipTlsVerify": false,
+        "allowPrivateHost": false
+      },
+      "outgoing": {
+        "host": "smtp.example.net",
+        "port": 587,
+        "security": "starttls",
+        "username": "user@example.net",
+        "skipTlsVerify": false,
+        "allowPrivateHost": false
+      },
+      "sync": {
+        "enabled": true,
+        "intervalMinutes": 60,
+        "historyDays": 30,
+        "folderPolicy": "inbox-sent"
+      },
+      "aliases": [
+        {
+          "name": "Personal",
+          "email": "alias@example.net"
+        }
+      ]
+    }
+  ]
+}
